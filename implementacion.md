@@ -173,7 +173,7 @@ Referencia: `junkbox-backend/README.md` §API REST (endpoints 2 a 6) e `implemen
 | Acción | Endpoint | Request | Respuesta OK | Errores tratados |
 |---|---|---|---|---|
 | Iniciar sesión | `POST /api/v1/auth/login` | `{ identifier, password }` | `200 AuthResponse` | `400`, `401 "credenciales inválidas"` |
-| Registrarse | `POST /api/v1/auth/register` | `{ username, email, password, display_name? }` | `201 AuthResponse` | `400` (validación), `409` (email/username duplicado) |
+| Registrarse | `POST /api/v1/auth/register` | `{ username, email, password, display_name?, avatar_url? }` | `201 AuthResponse` | `400` (validación), `409` (email/username duplicado) |
 | Recuperar sesión | `GET /api/v1/auth/me` | Bearer | `200 UserProfile` | `401` → intenta refresh |
 | Renovar tokens | `POST /api/v1/auth/refresh` | `{ refresh_token }` + Bearer **anterior** | `200 TokenPair` | `401` → borra la sesión |
 | Cerrar sesión | `POST /api/v1/auth/logout` | `{ refresh_token }` + Bearer | `200 { message }` | Se ignoran (el cierre local basta) |
@@ -187,6 +187,7 @@ Referencia: `junkbox-backend/README.md` §API REST (endpoints 2 a 6) e `implemen
 | Correo electrónico | `email` | `trim` + minúsculas. |
 | Contraseña | `password` | Sin cambios. |
 | Acepto los términos… | — (no existe en el backend) | Solo en el cliente. |
+| — (no existe en Figma) | `avatar_url` (opcional) | No se envía: el formulario no tiene campo de avatar. |
 
 El backend rechaza campos desconocidos (`DisallowUnknownFields` → `400 "solicitud inválida"`), así que **no se envía** la aceptación de términos (comprobado con una petición real).
 
@@ -202,7 +203,7 @@ El backend rechaza campos desconocidos (`DisallowUnknownFields` → `400 "solici
 | Login: contraseña | Obligatoria | "Introduce tu contraseña." |
 | `display_name` | ≤ 100 caracteres | "No puede superar 100 caracteres." |
 | `username` | `^[a-z0-9_.]{3,50}$` | "De 3 a 50 caracteres: letras, números, '_' o '.'." |
-| `email` | ≤ 255 y formato válido (el backend usa `net/mail`) | "Introduce un correo electrónico válido." |
+| `email` | ≤ 255 y formato válido. El backend usa `net/mail` (acepta dominios sin punto); el formulario es más estricto: exige punto y TLD de 2+ letras (AUTH-06). | "Introduce un correo electrónico válido." |
 | `password` | 8 a 72 **bytes** UTF-8 (se miden con `TextEncoder`) | "Debe tener entre 8 y 72 bytes." |
 
 Cuando un campo falla, el input pasa al estado **Error** de Figma (borde `brand/accent` + "Revisa el campo"), y el motivo concreto aparece en el hueco de ayuda, enlazado con `aria-describedby`.
@@ -219,7 +220,7 @@ Cuando un campo falla, el input pasa al estado **Error** de Figma (borde `brand/
 
 ### 3.6 Decisiones de Implementación
 
-1. **Errores del servicio (401, 409, red):** Figma todavía no define dónde se muestran ("No se define aquí ciclo de sesión, errores del servicio ni destinos", nota del LoginForm). Se muestran encima del botón con `FormAlert`, que reutiliza el icono `alert-circle` y el estilo del ErrorIndicator. El texto es el que envía el backend (ya en español), con mayúscula inicial. **Provisional** hasta que diseño defina el estado.
+1. **Errores del servicio (401, 409, red):** Figma todavía no define dónde se muestran ("No se define aquí ciclo de sesión, errores del servicio ni destinos", nota del LoginForm). Se muestran encima del botón con `FormAlert`, que reutiliza el icono `alert-circle` y el estilo del ErrorIndicator. El texto es el del backend (ya en español), con mayúscula inicial; la única excepción es el `401` de login, que muestra «Usuario o contraseña incorrectos.» en lugar de «credenciales inválidas» (el backend devuelve el mismo `401` si el identificador no existe o si la contraseña no coincide, así que el mensaje no revela cuál falló). **Provisional** hasta que diseño defina el estado.
 2. **"¿Olvidaste tu contraseña?":** sigue visible por decisión del propietario (nota de Figma), pero no hay endpoint de recuperación. Se muestra con el estilo de Figma, sin acción, y con `aria-disabled`.
 3. **Botón "Crear cuenta" deshabilitado hasta aceptar los términos:** se usa el estado **Disabled** de PrimaryButton. Es la forma de exigir la aceptación sin enviarla al backend.
 4. **Mientras se envía:** los inputs pasan a `readOnly` (no a Disabled, que en Figma muestra "No disponible") y el botón muestra el estado **Loading** ("Iniciando sesión…" / "Creando cuenta…"). La barra de progreso se anima de forma sutil y respeta `prefers-reduced-motion`.
@@ -285,3 +286,4 @@ Además: probar las rutas del módulo con el backend en marcha (`pnpm dev`), rev
 | Fecha | Cambio |
 |---|---|
 | 2026-11-02 | Creación del proyecto (Vite + React + TS + Tailwind v4, pnpm). Fundamentos (tokens, tema, cliente HTTP, proxy). Módulo 1: Autenticación. |
+| 2026-11-02 | Login: el `401` muestra «Usuario o contraseña incorrectos.» en lugar del «credenciales inválidas» del backend. |

@@ -1,7 +1,7 @@
 import { useState, type ChangeEvent, type FormEvent } from 'react'
 import { useNavigate } from 'react-router'
 import { hasErrors, validateLogin, type FieldErrors, type LoginFormValues } from '../models/auth.validation'
-import { toUserMessage } from '../services/errorMessages'
+import { toLoginErrorMessage } from '../services/errorMessages'
 import { useAuth } from './authContext'
 
 const INITIAL_VALUES: LoginFormValues = { identifier: '', password: '' }
@@ -36,7 +36,7 @@ export function useLoginController() {
       await login(values.identifier, values.password)
       navigate('/', { replace: true })
     } catch (error) {
-      setFormError(toUserMessage(error))
+      setFormError(toLoginErrorMessage(error))
       setSubmitting(false)
     }
   }
