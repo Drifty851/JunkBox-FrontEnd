@@ -1,0 +1,119 @@
+@import 'tailwindcss';
+
+/*
+ * Tokens de diseño de Junkbox.
+ * Fuente: archivo de Figma KQPRPnqGUA7udlAjw8s5fo (modos de variables Claro/Oscuro).
+ * Junto a cada token se indica la variable de Figma de la que sale.
+ *
+ * Tema: sigue la preferencia del sistema (prefers-color-scheme). Se puede forzar
+ * con <html data-theme="light|dark">.
+ */
+
+@custom-variant dark {
+  @media (prefers-color-scheme: dark) {
+    &:where(:root:not([data-theme='light']) *) {
+      @slot;
+    }
+  }
+  &:where([data-theme='dark'] *) {
+    @slot;
+  }
+}
+
+:root {
+  --jb-bg: #ffffff; /* --color-bg / background/canvas */
+  --jb-fg: #000000; /* text/primary */
+  --jb-fg-muted: #5c5c5c; /* text/secondary */
+  --jb-fg-placeholder: #828282; /* text/secondary-2 */
+  --jb-on-action: #ffffff; /* text/primary-2 */
+  --jb-surface: #ffffff; /* surface/default */
+  --jb-surface-input: #ffffff; /* surface/input */
+  --jb-surface-input-disabled: #f5f5f5; /* surface/input-2 */
+  --jb-border: #e6e6e6; /* border/default */
+  --jb-border-strong: #5c5c5c; /* border/default-2 */
+  --jb-action: #000000; /* action/background-2 · brand/accent-2 */
+  --jb-link: #000000; /* text/primary-3 (claro) · brand/accent-2 (oscuro) */
+  --jb-accent: #d3533c; /* brand/accent */
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    --jb-bg: #121212;
+    --jb-fg: #f7f7f2;
+    --jb-fg-muted: #b3b3b3;
+    --jb-fg-placeholder: #b3b3b3;
+    --jb-on-action: #151515;
+    --jb-surface: #282828;
+    --jb-surface-input: #282828;
+    --jb-surface-input-disabled: #282828;
+    --jb-border: #3b3b3b;
+    --jb-border-strong: #b3b3b3;
+    --jb-action: #d3533c;
+    --jb-link: #d3533c;
+    --jb-accent: #d3533c;
+  }
+}
+
+:root[data-theme='dark'] {
+  --jb-bg: #121212;
+  --jb-fg: #f7f7f2;
+  --jb-fg-muted: #b3b3b3;
+  --jb-fg-placeholder: #b3b3b3;
+  --jb-on-action: #151515;
+  --jb-surface: #282828;
+  --jb-surface-input: #282828;
+  --jb-surface-input-disabled: #282828;
+  --jb-border: #3b3b3b;
+  --jb-border-strong: #b3b3b3;
+  --jb-action: #d3533c;
+  --jb-link: #d3533c;
+  --jb-accent: #d3533c;
+}
+
+@theme inline {
+  --font-sans: 'Inter', ui-sans-serif, system-ui, sans-serif;
+
+  --color-bg: var(--jb-bg);
+  --color-fg: var(--jb-fg);
+  --color-fg-muted: var(--jb-fg-muted);
+  --color-fg-placeholder: var(--jb-fg-placeholder);
+  --color-on-action: var(--jb-on-action);
+  --color-surface: var(--jb-surface);
+  --color-surface-input: var(--jb-surface-input);
+  --color-surface-input-disabled: var(--jb-surface-input-disabled);
+  --color-line: var(--jb-border);
+  --color-line-strong: var(--jb-border-strong);
+  --color-action: var(--jb-action);
+  --color-link: var(--jb-link);
+  --color-accent: var(--jb-accent);
+
+  /* Tipografía (estilos de texto Junkbox/* de Figma) */
+  --text-heading-sm: 28px; /* Heading/28/Bold/125pct */
+  --text-heading-sm--line-height: 1.25;
+  --text-heading: 32px; /* Heading/32/Bold/125pct */
+  --text-heading--line-height: 1.25;
+  --text-link-sm: 13px; /* Body/13/Medium/140pct/Link */
+  --text-link-sm--line-height: 1.4;
+}
+
+@layer base {
+  html,
+  body {
+    background-color: var(--color-bg);
+    color: var(--color-fg);
+  }
+
+  body {
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+  }
+}
+
+@keyframes jb-progress {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(200%);
+  }
+}
