@@ -17,8 +17,9 @@ Se actualiza **al terminar cada módulo**. La documentación del backend (`junkb
   - [2.5 Cliente HTTP y Proxy de Desarrollo](#25-cliente-http-y-proxy-de-desarrollo)
   - [2.6 Componentes Compartidos](#26-componentes-compartidos)
 - [3. Módulo 1: Autenticación (Iniciar sesión / Registrarse)](#3-módulo-1-autenticación-iniciar-sesión--registrarse)
-- [4. Verificación](#4-verificación)
-- [5. Historial](#5-historial)
+- [4. Módulo 2: Inicio](#4-módulo-2-inicio)
+- [5. Verificación](#5-verificación)
+- [6. Historial](#6-historial)
 
 ---
 
@@ -51,15 +52,17 @@ Se actualiza **al terminar cada módulo**. La documentación del backend (`junkb
 
 Cada módulo vive en `src/features/<módulo>/` con estas capas:
 
-| Capa | Carpeta | Responsabilidad | Auth |
-|---|---|---|---|
-| Modelo | `models/` | Tipos del contrato de API y validación de cliente. | `auth.types.ts`, `auth.validation.ts` |
-| Infraestructura | `infrastructure/` | Adaptadores HTTP y de almacenamiento. | `authApi.ts`, `sessionStorage.ts` |
-| Servicios | `services/` | Casos de uso; coordinan infraestructura. | `authService.ts`, `errorMessages.ts` |
-| Controlador | `controllers/` | Estado de la vista, carga y errores; llama a servicios. | `AuthProvider.tsx`, `authContext.ts`, `useLoginController.ts`, `useRegisterController.ts` |
-| Vista | `views/` | Componentes React sin lógica de negocio. | `LoginPage.tsx`, `RegisterPage.tsx`, `AuthLayout.tsx`, `AuthSwitchLink.tsx` |
+| Capa | Carpeta | Responsabilidad | Auth | Inicio |
+|---|---|---|---|---|
+| Modelo | `models/` | Tipos del contrato de API y validación de cliente. | `auth.types.ts`, `auth.validation.ts` | `track.types.ts`, `home.types.ts` |
+| Infraestructura | `infrastructure/` | Adaptadores HTTP y de almacenamiento. | `authApi.ts`, `sessionStorage.ts` | `musicApi.ts` |
+| Servicios | `services/` | Casos de uso; coordinan infraestructura. | `authService.ts`, `errorMessages.ts` | `homeService.ts` |
+| Controlador | `controllers/` | Estado de la vista, carga y errores; llama a servicios. | `AuthProvider.tsx`, `authContext.ts`, `useLoginController.ts`, `useRegisterController.ts` | `useHomeController.ts` |
+| Vista | `views/` | Componentes React sin lógica de negocio. | `LoginPage.tsx`, `RegisterPage.tsx`, `AuthLayout.tsx`, `AuthSwitchLink.tsx` | `HomePage.tsx`, `RecommendationsSection.tsx` |
 
-Lo reutilizable entre módulos vive en `src/shared/` (`api/`, `ui/`, `utils/`). La composición global (proveedores, router, guardas) está en `src/app/`.
+Inicio añade además `data/homeTemplate.ts` (la plantilla provisional de canciones, §4.3).
+
+Lo reutilizable entre módulos vive en `src/shared/` (`api/`, `ui/`, `layout/`, `utils/`). La composición global (proveedores, router, guardas y `AppLayout`) está en `src/app/`.
 
 ### 2.3 Tokens de Diseño y Temas
 
@@ -74,7 +77,9 @@ Lo reutilizable entre módulos vive en `src/shared/` (`api/`, `ui/`, `utils/`). 
 | `on-action` | `text/primary-2` | `#ffffff` | `#151515` |
 | `surface` | `surface/default` | `#ffffff` | `#282828` |
 | `surface-input` | `surface/input` | `#ffffff` | `#282828` |
-| `surface-input-disabled` | `surface/input-2` | `#f5f5f5` | `#282828` |
+| `surface-input-disabled` | `surface/input-2` (también fondo de SearchField y placeholders) | `#f5f5f5` | `#282828` |
+| `surface-nav` | `surface/navigation` | `#ffffff` | `#181818` |
+| `surface-quickplay` | `action/background-4` | `#ffffff` | `#1e1e1e` |
 | `line` | `border/default` | `#e6e6e6` | `#3b3b3b` |
 | `line-strong` | `border/default-2` | `#5c5c5c` | `#b3b3b3` |
 | `action` | `action/background-2` · `brand/accent-2` | `#000000` | `#d3533c` |
@@ -90,7 +95,12 @@ Lo reutilizable entre módulos vive en `src/shared/` (`api/`, `ui/`, `utils/`). 
 | `Body/14/*/140pct` | `text-sm leading-[1.4]` |
 | `Body/14/*/150pct` | `text-sm leading-normal` |
 | `Body/13/Medium/140pct/Link` | `text-link-sm font-medium` |
+| `Heading/32/Bold/140pct` (Inicio) | `text-heading font-bold leading-[1.4]` |
+| `Title/18/SemiBold/140pct` | `text-lg font-semibold leading-[1.4]` |
+| `Body/13/SemiBold/140pct` | `text-[13px] font-semibold leading-[1.4]` |
 | `Caption/12/*` | `text-xs` |
+| `Caption/11/Regular/140pct` | `text-[11px] leading-[1.4]` |
+| `Caption/10/*/140pct` | `text-caption-2xs` |
 
 **Espaciado y radios:** las variables `space/4…80` y `radius/4, 8` coinciden con la escala de Tailwind (`gap-1`=4, `gap-4`=16, `px-6`=24, `rounded`=4, `rounded-lg`=8), así que no se usan valores arbitrarios para ellas.
 
@@ -102,14 +112,21 @@ Descargados del MCP de Figma **sin editar**, en `src/assets/`:
 
 | Archivo | Nodo Figma | Uso |
 |---|---|---|
-| `brand/junkbox-logo-light.svg` | `JunkboxLogo` (frames claros) | Logo 212×46.08, letras `#1D1D1B`. |
-| `brand/junkbox-logo-dark.svg` | `JunkboxLogo` (frames oscuros) | Logo 212×46.08, letras `#F7F7F2`. |
+| `brand/junkbox-logo-light.svg` | `JunkboxLogo` (frames claros) | Logo 212×46.08, letras `#1D1D1B`. También en la Navbar (128 y 160 de ancho) y como favicon. |
+| `brand/junkbox-logo-dark.svg` | `JunkboxLogo` (frames oscuros) | Logo 212×46.08, letras `#F7F7F2`. Igual que el anterior. |
 | `icons/eye.svg` | `PasswordVisibilityToggle › eye` | 18 px. |
 | `icons/alert-circle.svg` | `ErrorIndicator › alert-circle` | 16 px, dos colores. |
 | `icons/lock.svg` | `DisabledIndicator › lock` | 16 px. |
 | `icons/check.svg` | `ConsentCheckbox › check` | 12 px. |
+| `icons/search-20.svg` | `SearchField › search` | 20 px (Navbar). |
+| `icons/search-22.svg` | `NavigationItem › search` | 22 px (BottomBar). |
+| `icons/house.svg` | `NavigationItem › house` | 22 px. |
+| `icons/square-plus.svg` | `NavigationItem › square-plus` | 22 px. |
+| `icons/person.svg` | `NavigationItem › Icon/Person` | 24 px de origen, se pinta a 22. |
+| `icons/plus.svg` | `Button › plus` (Crear Reseña) | 16 px. |
+| `icons/play-12.svg` · `play-14.svg` | `MusicCard › QuickPlay › play` | 12 px (móvil) y 14 px (escritorio). |
 
-Los iconos de un solo color (`eye`, `lock`) vienen con el color del tema claro fijado en el archivo. Para respetar el tema oscuro sin modificarlos, `MaskIcon` los usa como **máscara CSS** y los pinta con el token correspondiente. El logo tiene dos archivos y se alterna con `dark:hidden` / `dark:block`.
+Los iconos de un solo color (`eye`, `lock` y todos los de navegación y QuickPlay) vienen con el color del tema claro fijado en el archivo. Para respetar el tema oscuro sin modificarlos, `MaskIcon` los usa como **máscara CSS** y los pinta con el token correspondiente. El logo tiene dos archivos y se alterna con `dark:hidden` / `dark:block`.
 
 ### 2.5 Cliente HTTP y Proxy de Desarrollo
 
@@ -133,9 +150,15 @@ Los iconos de un solo color (`eye`, `lock`) vienen con el color del tema claro f
 | `FieldInputBox` | Caja común de los dos anteriores | Alto 48, padding horizontal 16, radio 8. El Focus de 2 px se dibuja con sombra interior para que el contenido no se mueva. |
 | `PrimaryButton` | `PrimaryButton` (14296:3676) | Default, Disabled, Loading (barra de progreso 48×4 + texto). |
 | `Checkbox` | `ConsentCheckbox` | Sin marcar / Checked. `<input>` nativo invisible, para teclado y lectores de pantalla. |
-| `JunkboxLogo` | `JunkboxLogo` | Claro / Oscuro. |
+| `JunkboxLogo` | `JunkboxLogo` | Claro / Oscuro. Acepta tamaño (AuthShell 212, Navbar 128/160). |
 | `MaskIcon` | — | Iconos monocromos que cambian con el tema. |
-| `FormAlert` | — (provisional) | Error general del formulario. Ver §3.6. |
+| `FormAlert` | — (provisional) | Error general del formulario. Ver §3.6. También en el error de Inicio. |
+| `Avatar` | Slot `Avatar1` de Navbar | Imagen o círculo neutro si falta o no carga. |
+| `MusicCard` | `MusicCard` (14296:3351) | Móvil 112 / escritorio 164; QuickPlay decorativo; carátula o recuadro neutro. |
+| `Navbar` (`shared/layout`) | `Navbar` (14296:14145) | Móvil 52 / escritorio 80; enlace activo con `aria-current`. |
+| `BottomBar` (`shared/layout`) | `BottomBar` (14296:15745) | Solo móvil; ítem activo con el color `link`. |
+| `NavTarget` (`shared/layout`) | — | Enlace (`NavLink`) o botón con `aria-disabled` si el destino no existe. |
+| `AccountMenu` (`shared/layout`) | — (provisional) | Menú del avatar con "Cerrar sesión". Ver §4.5. |
 
 ---
 
@@ -154,7 +177,7 @@ Componentes de formulario: `LoginForm` (14296:16086) y `RegisterForm` (14296:162
 
 - Se añadió **"Nombre de usuario"** (`FormField · Variant=Username`, placeholder `tu_usuario`) a RegisterForm.
 - El texto de los **términos** ya usa tokens legibles en claro, y existe el estado `Checked`.
-- La ayuda de la contraseña ahora dice **"De 8 a 72 bytes. Algunos caracteres ocupan más de un byte."**. **Desactualizada desde 2026-11-03:** el backend endureció la regla (§3.4), así que el frontend muestra de forma provisional "Al menos 8 caracteres, con letras, números y caracteres especiales." hasta que Diseño actualice Figma (`SOLICITUDES_BACKEND.md` · AUTH-07).
+- La ayuda de la contraseña ahora dice **"De 8 a 72 bytes. Algunos caracteres ocupan más de un byte."**. **Desactualizada desde 2026-11-03:** el backend endureció la regla (§3.4), así que el frontend muestra de forma provisional "Al menos 8 caracteres, con letras, números y caracteres especiales." hasta que Diseño actualice Figma (§3.8).
 - Se añadieron estados **Focus / Error / Disabled / Visible** a los inputs y **Disabled / Loading** al botón.
 - El pie legal se movió dentro de AuthFooter en móvil.
 
@@ -164,7 +187,7 @@ Componentes de formulario: `LoginForm` (14296:16086) y `RegisterForm` (14296:162
 |---|---|---|
 | `/login` | Solo sin sesión (`PublicOnlyRoute`) | `LoginPage` |
 | `/register` | Solo sin sesión | `RegisterPage` |
-| `/` | Solo con sesión (`ProtectedRoute`) | `SessionPlaceholderPage` (**temporal**) |
+| `/` | Solo con sesión (`ProtectedRoute`) | `HomePage` (módulo Inicio, §4) |
 
 Si un usuario con sesión entra en `/login`, se le redirige a `/`. Sin sesión, `/` redirige a `/login`. Tras iniciar sesión o registrarse, se navega a `/`.
 
@@ -205,7 +228,7 @@ El backend rechaza campos desconocidos (`DisallowUnknownFields` → `400 "solici
 | Login: contraseña | Obligatoria | "Introduce tu contraseña." |
 | `display_name` | ≤ 100 caracteres | "No puede superar 100 caracteres." |
 | `username` | `^[a-z0-9_.]{3,50}$` | "De 3 a 50 caracteres: letras, números, '_' o '.'." |
-| `email` | ≤ 255 y formato válido. El backend usa `net/mail` (acepta dominios sin punto); el formulario es más estricto: exige punto y TLD de 2+ letras (AUTH-06). | "Introduce un correo electrónico válido." |
+| `email` | ≤ 255 y formato válido. El backend usa `net/mail` (acepta dominios sin punto); el formulario es más estricto: exige punto y TLD de 2+ letras (§3.8). | "Introduce un correo electrónico válido." |
 | `password` | `validatePassword` (desde el commit `63b6626` del backend), en este orden: ≥ 8 **caracteres** (se cuentan code points, como `utf8.RuneCountInString`); ≤ 72 **bytes** UTF-8 (se miden con `TextEncoder`); al menos una letra (`\p{L}`), un número (`\p{Nd}`) y un carácter especial (`\p{P}` o `\p{S}`, como `unicode.IsPunct`/`IsSymbol`) | "Debe tener al menos 8 caracteres." · "No puede superar 72 bytes. Algunos caracteres ocupan más de un byte." · "Debe incluir letras, números y caracteres especiales." |
 
 Cuando un campo falla, el input pasa al estado **Error** de Figma (borde `brand/accent` + "Revisa el campo"), y el motivo concreto aparece en el hueco de ayuda, enlazado con `aria-describedby`.
@@ -219,6 +242,7 @@ Cuando un campo falla, el input pasa al estado **Error** de Figma (borde `brand/
   2. Si responde 401, `POST /auth/refresh` con el access token anterior y repite `/me`.
   3. Si vuelve a dar 401, borra la sesión.
 - Mientras tanto, las guardas no pintan nada (`status: 'checking'`), para evitar parpadeos.
+- Las llamadas a endpoints protegidos usan `authService.withAccessToken()`, que renueva el token una sola vez aunque fallen varias peticiones a la vez (§4.4).
 
 ### 3.6 Decisiones de Implementación
 
@@ -229,7 +253,7 @@ Cuando un campo falla, el input pasa al estado **Error** de Figma (borde `brand/
 5. **Términos y Política de Privacidad** (casilla y pie legal) se muestran como texto subrayado sin enlace: aún no existen URLs de esos documentos.
 6. **Pie legal:** en móvil sigue a AuthFooter (separación 24 en Login, 16 en Registro). En escritorio baja al fondo de la página (`md:mt-auto`), como en los frames de escritorio de Login.
 7. **Barra de estado y HomeIndicator** de los frames móviles simulan el teléfono y no se implementan.
-8. **`/` es una página temporal** (`SessionPlaceholderPage`): muestra `@username` y permite cerrar sesión. No sale de Figma y se sustituirá por el módulo Inicio.
+8. **`/` fue una página temporal** (`SessionPlaceholderPage`) hasta el módulo Inicio, que la sustituyó (2026-11-04). El cierre de sesión pasó al menú del avatar (§4.5).
 
 ### 3.7 Accesibilidad
 
@@ -243,12 +267,13 @@ Cuando un campo falla, el input pasa al estado **Error** de Figma (borde `brand/
 
 - **Recuperación de contraseña:** no hay endpoint en el backend.
 - **Términos:** la aceptación no se guarda en el servidor (el backend no tiene ese campo).
+- **Correo:** el backend acepta dominios sin punto (`usuario@dominio`). El formulario es más estricto, pero la API sigue aceptándolos si se llama directamente.
+- **Ayuda de la contraseña:** Figma sigue con el texto de la regla anterior ("De 8 a 72 bytes…"). El frontend muestra uno provisional que describe la regla actual del backend.
 - **Tokens en `localStorage`:** quedan expuestos si alguna vez hay un XSS. El backend entrega los tokens en el cuerpo JSON (no usa cookies `httpOnly`).
 - **CORS:** el backend solo admite los orígenes de `CORS_ALLOWED_ORIGINS`. Para desplegar en otro dominio, quien mantiene el backend tiene que añadirlo a esa variable. Si no, hay que servir el frontend desde el mismo origen.
-- **Renovación de tokens:** solo se renuevan al recuperar la sesión al abrir la app. Cuando haya endpoints protegidos en uso (módulos siguientes), habrá que reintentar con refresh ante un 401.
 - **Estados de error del servicio** (§3.6.1) son provisionales.
 - **Tablet:** Figma no lo define. Se usa el layout móvil centrado hasta 768 px.
-- **Favicon:** Figma no lo define. Se quitó el de la plantilla de Vite.
+- **Favicon:** Figma no lo define. Se quitó el de la plantilla de Vite y, por decisión del equipo, se usa el logo de Junkbox (§4.5).
 
 ### 3.9 Verificación del Módulo (2026-11-02)
 
@@ -267,7 +292,104 @@ No se ejecutó un registro real para no crear usuarios de prueba en la base de d
 
 ---
 
-## 4. Verificación
+## 4. Módulo 2: Inicio
+
+Inicio es una **base que crece con los demás módulos**. Muestra solo lo que tiene contrato de API; las secciones de Figma que dependen de módulos o endpoints que aún no existen (reseñas, red social, reproductor) se añadirán cuando existan. No se muestra contenido de ejemplo.
+
+### 4.1 Pantallas de Figma
+
+| Pantalla | Móvil Claro | Móvil Oscuro | Escritorio Claro | Escritorio Oscuro |
+|---|---|---|---|---|
+| Inicio | `14244:50321` | `14263:21466` | `14244:50496` | `14263:21659` |
+
+Componentes: `Navbar` (14296:14145), `BottomBar` (14296:15745), `SearchField` (14296:4081), `MusicCard` (14296:3351), `Button` · CreateReview (14296:3602).
+
+| Bloque de Figma | En esta versión |
+|---|---|
+| Navbar y BottomBar | ✅ Estructura común (`AppLayout`) para todas las pantallas con sesión. |
+| Feed introduction (escritorio): "Tu próxima obsesión empieza aquí." | ✅ |
+| "Hecho para tus oídos" (`MusicCard`) | ✅ Con una plantilla de canciones (§4.3). |
+| Tabs "Para ti (Popular)" / "Siguiendo" y `ReviewCard` | ❌ No hay reseñas en el backend. |
+| "Conecta por lo que suena" (escritorio) | ❌ No hay sugerencias de usuarios. |
+| `MiniPlayer` y `SnippetPlayer` | ❌ No hay audio. |
+
+### 4.2 Rutas y Estructura
+
+| Ruta | Acceso | Vista |
+|---|---|---|
+| `/` | Solo con sesión (`ProtectedRoute` → `AppLayout`) | `HomePage` |
+
+`AppLayout` (`src/app/layout/`) envuelve todas las rutas con sesión: `Navbar` arriba, el contenido del módulo en `<Outlet />` y, en móvil, `BottomBar` abajo. Los destinos de la navegación están en `app/layout/navigation.ts`: los que todavía no existen (Buscador, Crear Reseña, Perfil) tienen `to: null` y se muestran con el estilo de Figma, sin acción y con `aria-disabled`, como "¿Olvidaste tu contraseña?". Al implementar cada módulo basta con poner su ruta ahí.
+
+### 4.3 Contrato con el Backend
+
+| Acción | Endpoint | Respuesta OK | Errores tratados |
+|---|---|---|---|
+| Canciones de "Hecho para tus oídos" | `GET /api/v1/music/tracks/{id}` (Bearer), una por canción y en paralelo | `200 TrackDetail` | `404` → se omite la canción · `401` → se renueva la sesión; si no se puede, se cierra · red/`500` → estado de error si no cargó ninguna |
+| Avatar de la Navbar | `GET /api/v1/auth/me` (ya lo hace `AuthProvider`) | `avatar_url` | `null` o imagen que no carga → placeholder |
+
+**Plantilla:** no hay endpoint de recomendaciones. `features/home/data/homeTemplate.ts` lista 8 **IDs de Spotify** del dataset, verificados en el catálogo y aprobados por el propietario, iguales para todos los usuarios. Se guardan los IDs de Spotify porque son estables; los IDs locales dependen del orden de carga del dataset. La vista recibe una lista de `RecommendedTrack` y no sabe de dónde salen: cuando exista el endpoint solo cambia `homeService.getRecommendations()`.
+
+**Por qué no `/music/search`:** en cache-miss consulta Spotify y escribe en la base de datos (backend `implementacion.md` §4.1). `GET /music/tracks/{id}` solo lee el catálogo local.
+
+### 4.4 Sesión: renovación del access token
+
+Inicio es el primer módulo que llama a endpoints protegidos después de abrir la app, así que se completó la renovación que §3.8 dejaba pendiente:
+
+- `authService.withAccessToken(call)` ejecuta la llamada con el token guardado. Ante un `401`, renueva la sesión y repite la llamada una vez.
+- La renovación es **única y compartida** (`refreshSession`): si varias peticiones reciben `401` a la vez (Inicio lanza 8 en paralelo), todas esperan al mismo `POST /auth/refresh`. Reutilizar un refresh token revoca toda su familia en el backend.
+- Si la renovación también da `401`, se borra la sesión y el controlador llama a `logout()`; las guardas llevan a `/login`.
+- `restoreSession()` usa la misma renovación.
+
+### 4.5 Decisiones de Implementación
+
+1. **Sin imagen:** las canciones del dataset no tienen carátula. `MusicCard` muestra un recuadro neutro (`surface-input-disabled`) con la geometría de Figma. El avatar sin imagen, o que no carga, es un círculo neutro. Figma no define placeholders; lo aprobó el propietario.
+2. **Escritorio muestra 4 tarjetas** (la cuadrícula 2×2 de Figma); en móvil el carrusel horizontal muestra las 8.
+3. **Títulos largos:** se recortan con puntos suspensivos y el texto completo queda en `title`. Figma no define el desbordamiento.
+4. **QuickPlay y "Ver todo"** se muestran pero no tienen acción: no hay audio ni pantalla de recomendaciones.
+5. **Estados de carga, vacío y error** (Figma no los define): tarjetas grises con la geometría de `MusicCard` y `motion-safe:animate-pulse`; "Todavía no hay recomendaciones."; `FormAlert` con el mensaje y "Reintentar".
+6. **Cerrar sesión (provisional):** Figma no lo ubica en Inicio. Se abre un menú al pulsar el avatar (`AccountMenu`), con tokens existentes, hasta que exista el módulo de Configuración. Aprobado por el propietario.
+7. **Navbar entre 768 y 1280 px:** Figma solo define 1440. Se reducen márgenes (32) y separaciones (24) y el buscador se encoge; desde 1280 px (`xl`) se usan las medidas de Figma.
+8. **Home indicator, StatusBar y MiniPlayer** no se implementan: los dos primeros simulan el teléfono (como en Auth) y el tercero necesita audio. La BottomBar respeta el área segura inferior.
+9. **Favicon:** el logo de Junkbox, con los dos SVG originales (letras oscuras para pestañas en tema claro y claras en tema oscuro).
+10. **El logo de la Navbar** es el mismo arte que el de AuthShell (mismos trazados y colores), exportado a 128 y 160 px de ancho: se reutilizan los mismos archivos con otro tamaño.
+
+### 4.6 Accesibilidad
+
+- Un solo `<h1>` ("Tu próxima obsesión empieza aquí."), visible en escritorio y solo para lectores de pantalla en móvil. La sección usa `<h2>` y cada tarjeta `<h3>`.
+- Navegación con `<nav aria-label="Principal">` (Navbar en escritorio y BottomBar en móvil; solo una es visible a la vez). La ruta activa lleva `aria-current="page"`.
+- Destinos pendientes con `aria-disabled`; el campo de búsqueda tiene nombre accesible ("Buscar música").
+- `AccountMenu`: `aria-haspopup="menu"`, `aria-expanded`, foco en "Cerrar sesión" al abrir, y cierre con Escape (devuelve el foco al avatar) o pulsando fuera.
+- Carga con `aria-busy` y texto para lectores de pantalla; errores con `role="alert"`.
+- QuickPlay y los placeholders son decorativos (`aria-hidden`). Foco visible en todos los controles.
+
+### 4.7 Limitaciones Conocidas
+
+- **Recomendaciones:** no hay endpoint. Se usa una plantilla igual para todos los usuarios.
+- **Carátulas:** el backend no expone imagen por canción. Se muestra el placeholder.
+- **Una petición por canción:** no hay endpoint para pedir varias canciones a la vez (8 peticiones al cargar Inicio).
+- **Reseñas, sugerencias de usuarios y reproducción:** no hay backend, así que esas secciones de Figma no se muestran y QuickPlay no reproduce.
+- **Buscador, Crear Reseña, Perfil y "Ver todo"** no tienen destino todavía.
+- **Cerrar sesión** está en un menú provisional que no sale de Figma.
+- **Tablet:** Figma no lo define. Entre 768 y 1280 px la Navbar se adapta (§4.5.7).
+
+### 4.8 Verificación del Módulo (2026-11-04)
+
+| Prueba | Resultado |
+|---|---|
+| `pnpm typecheck` | ✅ Sin errores |
+| `pnpm lint` | ✅ Sin avisos |
+| `pnpm build` | ✅ Build correcto (JS ≈ 110 kB gzip) |
+| Las 8 canciones de la plantilla con `GET /music/tracks/{id}` | ✅ 200 |
+| Capturas headless (Edge) con sesión, Claro/Oscuro, 390, 900 y 1440 px | ✅ Coinciden con los frames de Figma |
+| Menú de cuenta: abre con "Cerrar sesión" y le pasa el foco | ✅ |
+| Consola del navegador | ✅ Sin errores ni avisos |
+
+En desarrollo se ven 16 peticiones a `/music/tracks`: `StrictMode` monta el efecto dos veces y la primera tanda se cancela. En producción son 8.
+
+---
+
+## 5. Verificación
 
 Antes de cerrar cualquier módulo:
 
@@ -283,11 +405,12 @@ Además: probar las rutas del módulo con el backend en marcha (`pnpm dev`), rev
 
 ---
 
-## 5. Historial
+## 6. Historial
 
 | Fecha | Cambio |
 |---|---|
 | 2026-11-02 | Creación del proyecto (Vite + React + TS + Tailwind v4, pnpm). Fundamentos (tokens, tema, cliente HTTP, proxy). Módulo 1: Autenticación. |
 | 2026-11-02 | Login: el `401` muestra «Usuario o contraseña incorrectos.» en lugar del «credenciales inválidas» del backend. |
-| 2026-11-03 | Registro: la validación de la contraseña replica la nueva regla del backend (`validatePassword`: ≥ 8 caracteres, ≤ 72 bytes, letras + números + especiales). Texto de ayuda provisional (AUTH-07). |
+| 2026-11-03 | Registro: la validación de la contraseña replica la nueva regla del backend (`validatePassword`: ≥ 8 caracteres, ≤ 72 bytes, letras + números + especiales). Texto de ayuda provisional hasta que Figma se actualice. |
 | 2026-11-03 | El backend ya tiene CORS: se documenta (§2.5, §3.8, README, `.env.example`). El proxy de Vite sigue siendo el modo por defecto; no cambia el comportamiento. |
+| 2026-11-04 | Módulo 2: Inicio (§4). Estructura común (`AppLayout`, Navbar, BottomBar), "Hecho para tus oídos" con plantilla, menú de cuenta provisional, favicon y renovación compartida del access token. Tokens `surface-nav`, `surface-quickplay` y `text-caption-2xs`. Se elimina `SessionPlaceholderPage`. |

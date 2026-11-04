@@ -12,7 +12,7 @@ import { AuthSwitchLink } from './AuthSwitchLink'
 /**
  * Ayuda de RegistrationPassword. Figma aún dice "De 8 a 72 bytes…", que ya no
  * describe la regla del backend (≥ 8 caracteres, ≤ 72 bytes, letras + números +
- * especiales). Texto provisional hasta que Diseño lo actualice (SOLICITUDES_BACKEND.md · AUTH-07).
+ * especiales). Texto provisional hasta que Diseño lo actualice (implementacion.md §3.8).
  */
 const PASSWORD_HELPER = 'Al menos 8 caracteres, con letras, números y caracteres especiales.'
 
@@ -104,7 +104,7 @@ export function RegisterPage() {
           </FormField>
         </div>
 
-        {/* TermsAcceptance: solo se valida en el cliente (SOLICITUDES_BACKEND.md · AUTH-03). */}
+        {/* TermsAcceptance: solo se valida en el cliente (implementacion.md §3.8). */}
         <div className="group w-full">
           <Checkbox
             id="register-terms"

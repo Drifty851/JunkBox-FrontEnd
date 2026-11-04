@@ -78,19 +78,28 @@ src/
 ├── app/                     # composición: proveedores, router, guardas de ruta
 │   ├── App.tsx
 │   ├── router.tsx
+│   ├── layout/              # AppLayout (Navbar + BottomBar) y destinos de la navegación
 │   └── routes/
 ├── assets/                  # recursos originales exportados de Figma (logo, iconos)
 ├── shared/                  # piezas reutilizables entre módulos
 │   ├── api/                 # cliente HTTP (fetch) y errores de API
-│   ├── ui/                  # componentes de UI (TextInput, PasswordInput, PrimaryButton…)
+│   ├── layout/              # Navbar, BottomBar, menú de cuenta
+│   ├── ui/                  # componentes de UI (TextInput, PrimaryButton, MusicCard, Avatar…)
 │   └── utils/
 └── features/                # un directorio por módulo
-    └── auth/
-        ├── models/          # Modelo: tipos del contrato y validación
-        ├── infrastructure/  # adaptadores: endpoints /auth y guardado de la sesión
-        ├── services/        # casos de uso (login, registro, recuperar sesión, logout)
-        ├── controllers/     # Controlador: contexto de sesión y hooks de cada formulario
-        └── views/           # Vista: páginas y layout del módulo
+    ├── auth/
+    │   ├── models/          # Modelo: tipos del contrato y validación
+    │   ├── infrastructure/  # adaptadores: endpoints /auth y guardado de la sesión
+    │   ├── services/        # casos de uso (login, registro, sesión, renovación del token, logout)
+    │   ├── controllers/     # Controlador: contexto de sesión y hooks de cada formulario
+    │   └── views/           # Vista: páginas y layout del módulo
+    └── home/
+        ├── data/            # plantilla provisional de canciones recomendadas
+        ├── models/          # tipos del contrato de canciones y de la vista
+        ├── infrastructure/  # adaptador de /music/tracks
+        ├── services/        # caso de uso: recomendaciones de Inicio
+        ├── controllers/     # carga, error y reintento
+        └── views/           # Inicio y "Hecho para tus oídos"
 ```
 
 ---
@@ -100,7 +109,7 @@ src/
 | Módulo | Rutas | Estado | Endpoints |
 |---|---|---|---|
 | Autenticación | `/login`, `/register` | ✅ Implementado | `POST /auth/login`, `POST /auth/register`, `GET /auth/me`, `POST /auth/refresh`, `POST /auth/logout` |
-| Inicio | `/` | ⏳ Pendiente (de momento hay una página temporal de sesión) | — |
+| Inicio | `/` | ✅ Base implementada: crece con los demás módulos (ver `implementacion.md` §4) | `GET /music/tracks/{id}` |
 
 El resto de pantallas de Figma (Buscador, Fichas, Reseñas, Perfil, Configuración) se implementarán **un módulo cada vez**.
 

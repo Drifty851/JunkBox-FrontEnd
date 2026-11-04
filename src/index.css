@@ -28,7 +28,9 @@
   --jb-on-action: #ffffff; /* text/primary-2 */
   --jb-surface: #ffffff; /* surface/default */
   --jb-surface-input: #ffffff; /* surface/input */
-  --jb-surface-input-disabled: #f5f5f5; /* surface/input-2 */
+  --jb-surface-input-disabled: #f5f5f5; /* surface/input-2 (también fondo de SearchField) */
+  --jb-surface-nav: #ffffff; /* surface/navigation (Navbar, BottomBar) */
+  --jb-surface-quickplay: #ffffff; /* action/background-4 (QuickPlay de MusicCard) */
   --jb-border: #e6e6e6; /* border/default */
   --jb-border-strong: #5c5c5c; /* border/default-2 */
   --jb-action: #000000; /* action/background-2 · brand/accent-2 */
@@ -46,6 +48,8 @@
     --jb-surface: #282828;
     --jb-surface-input: #282828;
     --jb-surface-input-disabled: #282828;
+    --jb-surface-nav: #181818;
+    --jb-surface-quickplay: #1e1e1e;
     --jb-border: #3b3b3b;
     --jb-border-strong: #b3b3b3;
     --jb-action: #d3533c;
@@ -63,6 +67,8 @@
   --jb-surface: #282828;
   --jb-surface-input: #282828;
   --jb-surface-input-disabled: #282828;
+  --jb-surface-nav: #181818;
+  --jb-surface-quickplay: #1e1e1e;
   --jb-border: #3b3b3b;
   --jb-border-strong: #b3b3b3;
   --jb-action: #d3533c;
@@ -81,6 +87,8 @@
   --color-surface: var(--jb-surface);
   --color-surface-input: var(--jb-surface-input);
   --color-surface-input-disabled: var(--jb-surface-input-disabled);
+  --color-surface-nav: var(--jb-surface-nav);
+  --color-surface-quickplay: var(--jb-surface-quickplay);
   --color-line: var(--jb-border);
   --color-line-strong: var(--jb-border-strong);
   --color-action: var(--jb-action);
@@ -94,6 +102,8 @@
   --text-heading--line-height: 1.25;
   --text-link-sm: 13px; /* Body/13/Medium/140pct/Link */
   --text-link-sm--line-height: 1.4;
+  --text-caption-2xs: 10px; /* Caption/10/{Regular,SemiBold}/140pct (etiquetas de BottomBar) */
+  --text-caption-2xs--line-height: 1.4;
 }
 
 @layer base {

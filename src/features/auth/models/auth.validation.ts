@@ -5,7 +5,7 @@ import { utf8ByteLength } from '../../../shared/utils/byteLength'
  * (internal/core/services/auth_service.go · validateRegister y handlers_auth.go).
  * Solo adelanta los errores que el servidor devolvería con 400, con una excepción
  * deliberada: el formato de correo es más estricto que `net/mail` (ver EMAIL_PATTERN
- * y SOLICITUDES_BACKEND.md · AUTH-06). El servidor sigue siendo la fuente de verdad.
+ * e implementacion.md §3.8). El servidor sigue siendo la fuente de verdad.
  */
 
 export const USERNAME_PATTERN = /^[a-z0-9_.]{3,50}$/
@@ -14,7 +14,7 @@ export const USERNAME_PATTERN = /^[a-z0-9_.]{3,50}$/
  * Es MÁS ESTRICTO que `net/mail` del backend, que acepta dominios sin punto
  * ("usuario@dominio") y permitiría crear cuentas con correos inexistentes.
  * Se exige al menos un punto en el dominio y un TLD de 2 o más letras.
- * Pendiente de que el backend aplique la misma regla (SOLICITUDES_BACKEND.md · AUTH-06).
+ * Pendiente de que el backend aplique la misma regla (implementacion.md §3.8).
  */
 export const EMAIL_PATTERN = /^[^\s@]+@([^\s@.]+\.)+[A-Za-z]{2,}$/
 /** Mínimo en caracteres (runas Unicode, igual que `utf8.RuneCountInString` del backend). */

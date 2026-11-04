@@ -35,7 +35,7 @@ function toRegisterRequest(values: RegisterFormValues): RegisterRequest {
 /**
  * Controlador de "Registrarse".
  * La aceptación de términos se valida solo en el cliente: el backend no tiene ese campo
- * (SOLICITUDES_BACKEND.md · AUTH-03). Mientras no se marque, el botón queda en estado Disabled de Figma.
+ * (implementacion.md §3.8). Mientras no se marque, el botón queda en estado Disabled de Figma.
  */
 export function useRegisterController() {
   const { register } = useAuth()

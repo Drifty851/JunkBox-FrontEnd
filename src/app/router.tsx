@@ -1,13 +1,15 @@
 import { createBrowserRouter, Navigate } from 'react-router'
 import { LoginPage } from '../features/auth/views/LoginPage'
 import { RegisterPage } from '../features/auth/views/RegisterPage'
+import { HomePage } from '../features/home/views/HomePage'
+import { AppLayout } from './layout/AppLayout'
 import { ProtectedRoute, PublicOnlyRoute } from './routes/RouteGuards'
-import { SessionPlaceholderPage } from './routes/SessionPlaceholderPage'
 
 /**
  * Rutas de la aplicación. Cada módulo nuevo añade aquí sus pantallas.
  *  - /login, /register: módulo Autenticación (solo sin sesión).
- *  - /: destino temporal tras autenticarse (hasta que exista el módulo Inicio).
+ *  - Rutas con sesión: dentro de AppLayout (Navbar + BottomBar).
+ *  - /: módulo Inicio.
  */
 export const router = createBrowserRouter([
   {
@@ -19,7 +21,12 @@ export const router = createBrowserRouter([
   },
   {
     element: <ProtectedRoute />,
-    children: [{ path: '/', element: <SessionPlaceholderPage /> }],
+    children: [
+      {
+        element: <AppLayout />,
+        children: [{ path: '/', element: <HomePage /> }],
+      },
+    ],
   },
   { path: '*', element: <Navigate to="/" replace /> },
 ])

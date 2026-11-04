@@ -58,7 +58,7 @@ export function LoginPage() {
 
           {/*
             PasswordRecovery: visible por decisión del propietario (nota del LoginForm en Figma),
-            pero el backend no tiene endpoint de recuperación (SOLICITUDES_BACKEND.md · AUTH-02).
+            pero el backend no tiene endpoint de recuperación (implementacion.md §3.8).
             Se muestra sin acción y marcado como no disponible para tecnologías de apoyo.
           */}
           <div className="flex w-full justify-end">
