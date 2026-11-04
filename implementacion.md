@@ -152,7 +152,7 @@ Componentes de formulario: `LoginForm` (14296:16086) y `RegisterForm` (14296:162
 
 - Se añadió **"Nombre de usuario"** (`FormField · Variant=Username`, placeholder `tu_usuario`) a RegisterForm.
 - El texto de los **términos** ya usa tokens legibles en claro, y existe el estado `Checked`.
-- La ayuda de la contraseña ahora dice **"De 8 a 72 bytes. Algunos caracteres ocupan más de un byte."**, igual que la regla del backend.
+- La ayuda de la contraseña ahora dice **"De 8 a 72 bytes. Algunos caracteres ocupan más de un byte."**. **Desactualizada desde 2026-11-03:** el backend endureció la regla (§3.4), así que el frontend muestra de forma provisional "Al menos 8 caracteres, con letras, números y caracteres especiales." hasta que Diseño actualice Figma (`SOLICITUDES_BACKEND.md` · AUTH-07).
 - Se añadieron estados **Focus / Error / Disabled / Visible** a los inputs y **Disabled / Loading** al botón.
 - El pie legal se movió dentro de AuthFooter en móvil.
 
@@ -204,7 +204,7 @@ El backend rechaza campos desconocidos (`DisallowUnknownFields` → `400 "solici
 | `display_name` | ≤ 100 caracteres | "No puede superar 100 caracteres." |
 | `username` | `^[a-z0-9_.]{3,50}$` | "De 3 a 50 caracteres: letras, números, '_' o '.'." |
 | `email` | ≤ 255 y formato válido. El backend usa `net/mail` (acepta dominios sin punto); el formulario es más estricto: exige punto y TLD de 2+ letras (AUTH-06). | "Introduce un correo electrónico válido." |
-| `password` | 8 a 72 **bytes** UTF-8 (se miden con `TextEncoder`) | "Debe tener entre 8 y 72 bytes." |
+| `password` | `validatePassword` (desde el commit `63b6626` del backend), en este orden: ≥ 8 **caracteres** (se cuentan code points, como `utf8.RuneCountInString`); ≤ 72 **bytes** UTF-8 (se miden con `TextEncoder`); al menos una letra (`\p{L}`), un número (`\p{Nd}`) y un carácter especial (`\p{P}` o `\p{S}`, como `unicode.IsPunct`/`IsSymbol`) | "Debe tener al menos 8 caracteres." · "No puede superar 72 bytes. Algunos caracteres ocupan más de un byte." · "Debe incluir letras, números y caracteres especiales." |
 
 Cuando un campo falla, el input pasa al estado **Error** de Figma (borde `brand/accent` + "Revisa el campo"), y el motivo concreto aparece en el hueco de ayuda, enlazado con `aria-describedby`.
 
@@ -287,3 +287,4 @@ Además: probar las rutas del módulo con el backend en marcha (`pnpm dev`), rev
 |---|---|
 | 2026-11-02 | Creación del proyecto (Vite + React + TS + Tailwind v4, pnpm). Fundamentos (tokens, tema, cliente HTTP, proxy). Módulo 1: Autenticación. |
 | 2026-11-02 | Login: el `401` muestra «Usuario o contraseña incorrectos.» en lugar del «credenciales inválidas» del backend. |
+| 2026-11-03 | Registro: la validación de la contraseña replica la nueva regla del backend (`validatePassword`: ≥ 8 caracteres, ≤ 72 bytes, letras + números + especiales). Texto de ayuda provisional (AUTH-07). |

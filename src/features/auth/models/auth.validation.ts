@@ -17,8 +17,17 @@ export const USERNAME_PATTERN = /^[a-z0-9_.]{3,50}$/
  * Pendiente de que el backend aplique la misma regla (SOLICITUDES_BACKEND.md · AUTH-06).
  */
 export const EMAIL_PATTERN = /^[^\s@]+@([^\s@.]+\.)+[A-Za-z]{2,}$/
-export const PASSWORD_MIN_BYTES = 8
+/** Mínimo en caracteres (runas Unicode, igual que `utf8.RuneCountInString` del backend). */
+export const PASSWORD_MIN_CHARS = 8
+/** Máximo en bytes UTF-8: bcrypt ignora lo que pasa de 72 bytes. */
 export const PASSWORD_MAX_BYTES = 72
+/**
+ * Equivalentes de `unicode.IsLetter`, `unicode.IsDigit` e `IsPunct || IsSymbol`
+ * de `validatePassword` (auth_service.go).
+ */
+const PASSWORD_LETTER = /\p{L}/u
+const PASSWORD_DIGIT = /\p{Nd}/u
+const PASSWORD_SPECIAL = /[\p{P}\p{S}]/u
 export const EMAIL_MAX_LENGTH = 255
 export const DISPLAY_NAME_MAX_LENGTH = 100
 
@@ -76,12 +85,28 @@ export function validateRegister(values: RegisterFormValues): FieldErrors<Regist
     errors.email = 'Introduce un correo electrónico válido.'
   }
 
-  const passwordBytes = utf8ByteLength(values.password)
-  if (passwordBytes < PASSWORD_MIN_BYTES || passwordBytes > PASSWORD_MAX_BYTES) {
-    errors.password = `Debe tener entre ${PASSWORD_MIN_BYTES} y ${PASSWORD_MAX_BYTES} bytes.`
-  }
+  const passwordError = validatePassword(values.password)
+  if (passwordError) errors.password = passwordError
 
   return errors
+}
+
+/** Mismas comprobaciones y mismo orden que `validatePassword` del backend. */
+function validatePassword(password: string): string | undefined {
+  if ([...password].length < PASSWORD_MIN_CHARS) {
+    return `Debe tener al menos ${PASSWORD_MIN_CHARS} caracteres.`
+  }
+  if (utf8ByteLength(password) > PASSWORD_MAX_BYTES) {
+    return `No puede superar ${PASSWORD_MAX_BYTES} bytes. Algunos caracteres ocupan más de un byte.`
+  }
+  if (
+    !PASSWORD_LETTER.test(password) ||
+    !PASSWORD_DIGIT.test(password) ||
+    !PASSWORD_SPECIAL.test(password)
+  ) {
+    return 'Debe incluir letras, números y caracteres especiales.'
+  }
+  return undefined
 }
 
 export function hasErrors<TValues>(errors: FieldErrors<TValues>): boolean {

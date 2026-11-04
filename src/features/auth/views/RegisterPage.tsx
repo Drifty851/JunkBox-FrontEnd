@@ -9,8 +9,12 @@ import { useRegisterController } from '../controllers/useRegisterController'
 import { AuthLayout } from './AuthLayout'
 import { AuthSwitchLink } from './AuthSwitchLink'
 
-/** Texto de ayuda de RegistrationPassword en Figma (alineado con la regla del backend: 8–72 bytes). */
-const PASSWORD_HELPER = 'De 8 a 72 bytes. Algunos caracteres ocupan más de un byte.'
+/**
+ * Ayuda de RegistrationPassword. Figma aún dice "De 8 a 72 bytes…", que ya no
+ * describe la regla del backend (≥ 8 caracteres, ≤ 72 bytes, letras + números +
+ * especiales). Texto provisional hasta que Diseño lo actualice (SOLICITUDES_BACKEND.md · AUTH-07).
+ */
+const PASSWORD_HELPER = 'Al menos 8 caracteres, con letras, números y caracteres especiales.'
 
 /**
  * Registrarse · Figma: móvil 14296:2590 (claro) / 14296:2702 (oscuro),
