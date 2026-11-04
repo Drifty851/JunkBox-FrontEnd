@@ -119,7 +119,9 @@ Los iconos de un solo color (`eye`, `lock`) vienen con el color del tema claro f
 - Envía y recibe JSON. Añade `Authorization: Bearer` si se le pasa un token.
 - Errores: el backend siempre responde `{"error": "..."}` (README del backend, "Formato Estándar de Errores"). Se convierten en `ApiError(status, message)`. Los fallos de red se convierten en `NetworkError`.
 
-`vite.config.ts` redirige `/api` → `VITE_BACKEND_URL` (`http://localhost:8080`), porque el router Chi del backend no tiene CORS.
+`vite.config.ts` redirige `/api` → `VITE_BACKEND_URL` (`http://localhost:8080`). Es la opción por defecto porque funciona en cualquier puerto de Vite.
+
+**CORS del backend** (desde el commit `bab8e12`): `go-chi/cors` con los orígenes de `CORS_ALLOWED_ORIGINS` (por defecto `http://localhost:5173`), métodos `GET`/`POST`/`OPTIONS`, cabeceras `Authorization` y `Content-Type`, sin credenciales. Con `VITE_API_BASE_URL=http://localhost:8080/api/v1` el navegador llama al backend directamente, sin proxy. El cliente HTTP no cambia: no usa cookies (`credentials` queda por defecto) y solo envía esas dos cabeceras más `Accept`, que no necesita permiso de CORS.
 
 ### 2.6 Componentes Compartidos
 
@@ -242,7 +244,7 @@ Cuando un campo falla, el input pasa al estado **Error** de Figma (borde `brand/
 - **Recuperación de contraseña:** no hay endpoint en el backend.
 - **Términos:** la aceptación no se guarda en el servidor (el backend no tiene ese campo).
 - **Tokens en `localStorage`:** quedan expuestos si alguna vez hay un XSS. El backend entrega los tokens en el cuerpo JSON (no usa cookies `httpOnly`).
-- **CORS:** el backend no lo tiene. En desarrollo se resuelve con el proxy de Vite. En producción hace falta mismo origen o que el backend habilite CORS.
+- **CORS:** el backend solo admite los orígenes de `CORS_ALLOWED_ORIGINS`. Para desplegar en otro dominio, quien mantiene el backend tiene que añadirlo a esa variable. Si no, hay que servir el frontend desde el mismo origen.
 - **Renovación de tokens:** solo se renuevan al recuperar la sesión al abrir la app. Cuando haya endpoints protegidos en uso (módulos siguientes), habrá que reintentar con refresh ante un 401.
 - **Estados de error del servicio** (§3.6.1) son provisionales.
 - **Tablet:** Figma no lo define. Se usa el layout móvil centrado hasta 768 px.
@@ -288,3 +290,4 @@ Además: probar las rutas del módulo con el backend en marcha (`pnpm dev`), rev
 | 2026-11-02 | Creación del proyecto (Vite + React + TS + Tailwind v4, pnpm). Fundamentos (tokens, tema, cliente HTTP, proxy). Módulo 1: Autenticación. |
 | 2026-11-02 | Login: el `401` muestra «Usuario o contraseña incorrectos.» en lugar del «credenciales inválidas» del backend. |
 | 2026-11-03 | Registro: la validación de la contraseña replica la nueva regla del backend (`validatePassword`: ≥ 8 caracteres, ≤ 72 bytes, letras + números + especiales). Texto de ayuda provisional (AUTH-07). |
+| 2026-11-03 | El backend ya tiene CORS: se documenta (§2.5, §3.8, README, `.env.example`). El proxy de Vite sigue siendo el modo por defecto; no cambia el comportamiento. |

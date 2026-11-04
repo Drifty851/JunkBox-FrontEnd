@@ -40,14 +40,15 @@ Abre `http://localhost:5173/login`.
 El backend es un servicio en Go que se ejecuta aparte (en este equipo, dentro de **WSL Debian**). Para levantarlo, consulta su `README.md` (`make db-up`, `make run-server`, …). **Este repositorio no modifica el backend.**
 
 - **Base de la API:** `/api/v1` (README del backend, §API REST).
-- **Proxy de desarrollo:** el backend **no tiene CORS**. En `pnpm dev`, Vite redirige `/api/*` a `VITE_BACKEND_URL` (por defecto `http://localhost:8080`), así el navegador ve un solo origen. WSL2 expone el puerto del backend en el `localhost` de Windows.
+- **Proxy de desarrollo (por defecto):** en `pnpm dev`, Vite redirige `/api/*` a `VITE_BACKEND_URL` (por defecto `http://localhost:8080`), así el navegador ve un solo origen y funciona aunque Vite use otro puerto. WSL2 expone el puerto del backend en el `localhost` de Windows.
+- **CORS del backend:** el backend acepta peticiones del navegador desde los orígenes de su variable `CORS_ALLOWED_ORIGINS` (por defecto `http://localhost:5173`), con `GET`, `POST` y `OPTIONS`, las cabeceras `Authorization` y `Content-Type`, y sin cookies. Para saltar el proxy, pon `VITE_API_BASE_URL=http://localhost:8080/api/v1`. Cualquier otro origen se rechaza.
 - **Usuarios de prueba:** con `make seed-up` en el backend se crean 4 usuarios con la contraseña `Password123!`, por ejemplo `cesar@junkbox.local`.
 
 ### Variables de entorno
 
 | Variable | Por defecto | Uso |
 |---|---|---|
-| `VITE_API_BASE_URL` | `/api/v1` | Base de la API que usa el navegador. En producción, la URL pública del backend (o `/api/v1` si se sirve desde el mismo origen). |
+| `VITE_API_BASE_URL` | `/api/v1` | Base de la API que usa el navegador. Relativa: pasa por el proxy (desarrollo) o por el mismo origen (producción). Absoluta (`https://…/api/v1`): llamada directa usando el CORS del backend. |
 | `VITE_BACKEND_URL` | `http://localhost:8080` | Solo en desarrollo: destino del proxy de Vite. |
 
 `.env` y `.env.*` están en `.gitignore`; `.env.example` sirve de plantilla.
@@ -64,7 +65,7 @@ El backend es un servicio en Go que se ejecuta aparte (en este equipo, dentro de
 | `pnpm build` | Typecheck + build de producción en `dist/`. |
 | `pnpm preview` | Sirve `dist/` para probar el build. |
 
-> **Build de producción:** como el proxy de Vite solo existe en desarrollo, en producción hace falta servir el frontend desde el mismo origen que el backend (proxy inverso) o que el backend habilite CORS para el dominio del frontend.
+> **Build de producción:** el proxy de Vite solo existe en desarrollo. En producción hay dos opciones: servir el frontend desde el mismo origen que el backend (proxy inverso), o definir `VITE_API_BASE_URL` con la URL pública del backend y pedir que el dominio del frontend se añada a su `CORS_ALLOWED_ORIGINS`. Esa variable es configuración del backend: la cambia quien lo mantiene.
 
 ---
 
