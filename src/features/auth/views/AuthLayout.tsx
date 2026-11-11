@@ -1,17 +1,18 @@
 import type { ReactNode } from 'react'
 import { JunkboxLogo } from '../../../shared/ui/JunkboxLogo'
 import { cn } from '../../../shared/utils/cn'
+import { PRIVACY_PATH, TERMS_PATH } from '../../legal/models/legalPaths'
 
 interface AuthLayoutProps {
   title: string
-  /** Líneas de AuthDescription (Figma las separa en dos párrafos). */
-  description: [string, string]
+  /** Líneas de AuthDescription (Figma las separa en dos párrafos). Una sola línea en las pantallas de recuperación. */
+  description: string | [string, string]
   /** Separación vertical de Figma: Login 24 en móvil, Registro 16 en móvil; 32 en escritorio. */
   density: 'login' | 'register'
   /** Formulario (LoginForm / RegisterForm). */
   children: ReactNode
-  /** Enlace para cambiar de pantalla (AuthFooter). */
-  footer: ReactNode
+  /** Enlace para cambiar de pantalla (AuthFooter). Opcional en las pantallas de resultado. */
+  footer?: ReactNode
 }
 
 /**
@@ -24,6 +25,7 @@ interface AuthLayoutProps {
  */
 export function AuthLayout({ title, description, density, children, footer }: AuthLayoutProps) {
   const isLogin = density === 'login'
+  const lines = typeof description === 'string' ? [description] : description
 
   return (
     <main
@@ -43,14 +45,17 @@ export function AuthLayout({ title, description, density, children, footer }: Au
         <header className="flex w-full flex-col gap-2 text-center">
           <h1 className="text-heading-sm font-bold text-fg md:text-heading">{title}</h1>
           <p className="text-sm leading-normal text-fg-muted">
-            <span className="block">{description[0]}</span>
-            <span className="block">{description[1]}</span>
+            {lines.map((line) => (
+              <span key={line} className="block">
+                {line}
+              </span>
+            ))}
           </p>
         </header>
 
         {children}
 
-        <p className="w-full text-center text-sm leading-normal text-fg-muted">{footer}</p>
+        {footer && <p className="w-full text-center text-sm leading-normal text-fg-muted">{footer}</p>}
       </div>
 
       <LegalLinks className={cn(isLogin ? 'mt-6' : 'mt-4', 'md:mt-auto md:pt-8')} />
@@ -59,13 +64,21 @@ export function AuthLayout({ title, description, density, children, footer }: Au
 }
 
 /**
- * LegalLinks (Caption/12/Regular/150pct, text/secondary).
- * No son enlaces todavía: no hay URLs de Términos ni de Privacidad definidas.
+ * LegalLinks (Caption/12/Regular/150pct, text/secondary). Enlazan a /terminos y /privacidad
+ * en otra pestaña (no se pierde lo escrito en el formulario).
  */
 function LegalLinks({ className }: { className?: string }) {
+  const linkClass =
+    'rounded hover:text-fg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-fg'
   return (
     <p className={cn('w-full text-center text-xs leading-normal whitespace-pre-wrap text-fg-muted', className)}>
-      {'Términos de Servicio  ·  Política de Privacidad'}
+      <a href={TERMS_PATH} target="_blank" rel="noopener noreferrer" className={linkClass}>
+        Términos de Servicio
+      </a>
+      {'  ·  '}
+      <a href={PRIVACY_PATH} target="_blank" rel="noopener noreferrer" className={linkClass}>
+        Política de Privacidad
+      </a>
     </p>
   )
 }

@@ -11,6 +11,8 @@ export interface UserProfile {
   email: string
   display_name: string | null
   avatar_url: string | null
+  /** El usuario confirmó su correo con el enlace de verificación (commit 51ec315). */
+  email_verified: boolean
   created_at: string
 }
 
@@ -51,6 +53,27 @@ export interface RefreshRequest {
 export interface LogoutRequest {
   refresh_token: string
   all_sessions?: boolean
+}
+
+/** dto.ForgotPasswordRequest: POST /auth/password/forgot. */
+export interface ForgotPasswordRequest {
+  email: string
+}
+
+/** dto.ResetPasswordRequest: POST /auth/password/reset. `token` es el del enlace del correo. */
+export interface ResetPasswordRequest {
+  token: string
+  password: string
+}
+
+/** dto.VerifyEmailRequest: POST /auth/email/verify. `token` es el del enlace del correo. */
+export interface VerifyEmailRequest {
+  token: string
+}
+
+/** dto.MessageResponse: respuesta de los endpoints que solo confirman una acción. */
+export interface MessageResponse {
+  message: string
 }
 
 /** Sesión guardada en el cliente. */

@@ -8,6 +8,6 @@ export interface RecommendedTrack {
   spotifyId: string
   title: string
   artist: string
-  /** Carátula. Las canciones del dataset no la traen: la vista muestra un placeholder neutro. */
+  /** Carátula del álbum de la canción. `null` si no se encontró: la vista muestra un recuadro neutro. */
   imageUrl: string | null
 }

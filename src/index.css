@@ -25,6 +25,7 @@
   --jb-fg: #000000; /* text/primary */
   --jb-fg-muted: #5c5c5c; /* text/secondary */
   --jb-fg-placeholder: #828282; /* text/secondary-2 */
+  --jb-fg-soft: #5c5c5c; /* text/secondary-3 (subtítulos de MusicRow, Segment inactivo) */
   --jb-on-action: #ffffff; /* text/primary-2 */
   --jb-surface: #ffffff; /* surface/default */
   --jb-surface-input: #ffffff; /* surface/input */
@@ -44,6 +45,7 @@
     --jb-fg: #f7f7f2;
     --jb-fg-muted: #b3b3b3;
     --jb-fg-placeholder: #b3b3b3;
+    --jb-fg-soft: #cdcdcd;
     --jb-on-action: #151515;
     --jb-surface: #282828;
     --jb-surface-input: #282828;
@@ -63,6 +65,7 @@
   --jb-fg: #f7f7f2;
   --jb-fg-muted: #b3b3b3;
   --jb-fg-placeholder: #b3b3b3;
+  --jb-fg-soft: #cdcdcd;
   --jb-on-action: #151515;
   --jb-surface: #282828;
   --jb-surface-input: #282828;
@@ -83,6 +86,7 @@
   --color-fg: var(--jb-fg);
   --color-fg-muted: var(--jb-fg-muted);
   --color-fg-placeholder: var(--jb-fg-placeholder);
+  --color-fg-soft: var(--jb-fg-soft);
   --color-on-action: var(--jb-on-action);
   --color-surface: var(--jb-surface);
   --color-surface-input: var(--jb-surface-input);

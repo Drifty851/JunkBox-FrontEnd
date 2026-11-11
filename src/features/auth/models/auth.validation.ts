@@ -91,6 +91,39 @@ export function validateRegister(values: RegisterFormValues): FieldErrors<Regist
   return errors
 }
 
+export interface ForgotPasswordFormValues {
+  email: string
+}
+
+export interface ResetPasswordFormValues {
+  password: string
+  /** Solo en el cliente (decisión del propietario): el backend no recibe la confirmación. */
+  confirmPassword: string
+}
+
+/** POST /auth/password/forgot: el correo, con el mismo formato que en Registro. */
+export function validateForgotPassword(values: ForgotPasswordFormValues): FieldErrors<ForgotPasswordFormValues> {
+  const errors: FieldErrors<ForgotPasswordFormValues> = {}
+  const email = normalizeEmail(values.email)
+  if (email === '' || email.length > EMAIL_MAX_LENGTH || !looksLikeEmail(email)) {
+    errors.email = 'Introduce un correo electrónico válido.'
+  }
+  return errors
+}
+
+/** POST /auth/password/reset: la regla de contraseña del backend y que la confirmación coincida. */
+export function validateResetPassword(values: ResetPasswordFormValues): FieldErrors<ResetPasswordFormValues> {
+  const errors: FieldErrors<ResetPasswordFormValues> = {}
+  const passwordError = validatePassword(values.password)
+  if (passwordError) errors.password = passwordError
+  if (values.confirmPassword === '') {
+    errors.confirmPassword = 'Repite la nueva contraseña.'
+  } else if (values.confirmPassword !== values.password) {
+    errors.confirmPassword = 'Las contraseñas no coinciden.'
+  }
+  return errors
+}
+
 /** Mismas comprobaciones y mismo orden que `validatePassword` del backend. */
 function validatePassword(password: string): string | undefined {
   if ([...password].length < PASSWORD_MIN_CHARS) {

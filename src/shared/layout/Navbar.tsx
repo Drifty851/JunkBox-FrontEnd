@@ -1,9 +1,9 @@
+import type { ReactNode } from 'react'
 import plusIcon from '../../assets/icons/plus.svg'
-import searchIcon from '../../assets/icons/search-20.svg'
 import { JunkboxLogo } from '../ui/JunkboxLogo'
 import { MaskIcon } from '../ui/MaskIcon'
 import { cn } from '../utils/cn'
-import { AccountMenu } from './AccountMenu'
+import { AccountMenu, type AccountSummary } from './AccountMenu'
 import type { NavigationItem } from './navigation.types'
 import { NavTarget } from './NavTarget'
 
@@ -12,11 +12,12 @@ interface NavbarProps {
   links: NavigationItem[]
   /** Destino del botón "Crear Reseña" (solo escritorio); `null` si no existe aún. */
   createReviewTo: string | null
-  /** Destino del campo de búsqueda; `null` mientras no exista el módulo Buscador. */
-  searchTo: string | null
-  avatarUrl: string | null
-  /** Nombre accesible del menú de cuenta, p. ej. "Cuenta de @cesar_beltran". */
-  accountLabel: string
+  /** SearchField: lo aporta el módulo Buscador (campo con sugerencias). */
+  search: ReactNode
+  /** Cuenta del menú del avatar; `null` mientras se carga el perfil. */
+  account: AccountSummary | null
+  /** Ruta de Configuración (menú del avatar); `null` mientras no exista el módulo. */
+  settingsTo: string | null
   onLogout: () => Promise<void>
 }
 
@@ -27,31 +28,15 @@ interface NavbarProps {
  *    enlaces, botón "Crear Reseña" y avatar 36.
  * Figma solo define 1440 px: entre 768 y 1280 px se reducen márgenes y el buscador se encoge.
  */
-export function Navbar({ links, createReviewTo, searchTo, avatarUrl, accountLabel, onLogout }: NavbarProps) {
+export function Navbar({ links, createReviewTo, search, account, settingsTo, onLogout }: NavbarProps) {
   return (
     <header className="sticky top-0 z-10 flex h-[52px] shrink-0 items-center gap-3 border-b border-line bg-surface-nav px-4 md:h-20 md:gap-6 md:px-8 xl:gap-10 xl:px-16">
       <NavTarget to="/" ariaLabel="Junkbox, ir a Inicio" className={() => 'shrink-0 rounded'}>
         {() => <JunkboxLogo className="h-[27.81px] w-32 md:h-[34.77px] md:w-40" />}
       </NavTarget>
 
-      {/* SearchField: entrada al Buscador. Placeholder distinto en móvil y escritorio (Figma). */}
-      <NavTarget
-        to={searchTo}
-        ariaLabel="Buscar música"
-        className={() =>
-          'flex h-11 min-w-0 flex-1 items-center gap-2 rounded-lg bg-surface-input-disabled px-3 text-left md:max-w-[344px] md:shrink'
-        }
-      >
-        {() => (
-          <>
-            <MaskIcon src={searchIcon} size={20} className="bg-fg-placeholder" />
-            <span className="truncate text-sm leading-[1.4] text-fg-placeholder">
-              <span className="md:hidden">Buscar música</span>
-              <span className="hidden md:inline">Canciones, álbumes, artistas…</span>
-            </span>
-          </>
-        )}
-      </NavTarget>
+      {/* SearchField (Figma): el módulo Buscador lo hace escribible y con sugerencias. */}
+      {search}
 
       <nav aria-label="Principal" className="hidden min-w-0 flex-1 items-center gap-7 md:flex">
         {links.map((link) => (
@@ -84,7 +69,7 @@ export function Navbar({ links, createReviewTo, searchTo, avatarUrl, accountLabe
         )}
       </NavTarget>
 
-      <AccountMenu avatarUrl={avatarUrl} label={accountLabel} onLogout={onLogout} />
+      <AccountMenu account={account} settingsTo={settingsTo} onLogout={onLogout} />
     </header>
   )
 }

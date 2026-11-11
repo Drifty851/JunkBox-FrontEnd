@@ -97,6 +97,28 @@ export const authService = {
     }
   },
 
+  /** Pide el enlace de recuperación. Devuelve el mensaje del backend, que es el mismo exista o no la cuenta. */
+  async forgotPassword(email: string): Promise<string> {
+    const response = await authApi.forgotPassword({ email: email.trim().toLowerCase() })
+    return response.message
+  },
+
+  /**
+   * Cambia la contraseña con el token del correo. El backend cierra todas las sesiones del
+   * usuario, así que también se borra la sesión guardada en este navegador.
+   */
+  async resetPassword(token: string, password: string): Promise<string> {
+    const response = await authApi.resetPassword({ token, password })
+    sessionStorageAdapter.clear()
+    return response.message
+  },
+
+  /** Marca el correo como verificado con el token del correo. */
+  async verifyEmail(token: string): Promise<string> {
+    const response = await authApi.verifyEmail({ token })
+    return response.message
+  },
+
   /** POST /auth/logout es idempotente. La sesión local se borra aunque la llamada falle. */
   async logout(): Promise<void> {
     const stored = sessionStorageAdapter.read()

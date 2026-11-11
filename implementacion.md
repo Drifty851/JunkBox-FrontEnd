@@ -42,7 +42,7 @@ Se actualiza **al terminar cada módulo**. La documentación del backend (`junkb
 | React | 19.x | UI. Se usa `<Context value>` (sin `.Provider`). |
 | TypeScript | 7.x, `strict: true` | Tipado estricto; sin `any`. |
 | Tailwind CSS (`@tailwindcss/vite`) | 4.x | Estilos con tokens en `@theme` (sin `tailwind.config`). |
-| React Router (`react-router`) | 8.x | Rutas `/login`, `/register`, `/` y guardas de sesión. |
+| React Router (`react-router`) | 8.x | Rutas de cada módulo y guardas de sesión. |
 | oxlint | 1.x | Linter que incluye la plantilla de Vite. |
 | pnpm | 11.x | Gestor de paquetes del proyecto. |
 
@@ -54,11 +54,11 @@ Cada módulo vive en `src/features/<módulo>/` con estas capas:
 
 | Capa | Carpeta | Responsabilidad | Auth | Inicio |
 |---|---|---|---|---|
-| Modelo | `models/` | Tipos del contrato de API y validación de cliente. | `auth.types.ts`, `auth.validation.ts` | `track.types.ts`, `home.types.ts` |
+| Modelo | `models/` | Tipos del contrato de API y validación de cliente. | `auth.types.ts`, `auth.validation.ts`, `emailLink.ts` | `track.types.ts`, `home.types.ts` |
 | Infraestructura | `infrastructure/` | Adaptadores HTTP y de almacenamiento. | `authApi.ts`, `sessionStorage.ts` | `musicApi.ts` |
 | Servicios | `services/` | Casos de uso; coordinan infraestructura. | `authService.ts`, `errorMessages.ts` | `homeService.ts` |
-| Controlador | `controllers/` | Estado de la vista, carga y errores; llama a servicios. | `AuthProvider.tsx`, `authContext.ts`, `useLoginController.ts`, `useRegisterController.ts` | `useHomeController.ts` |
-| Vista | `views/` | Componentes React sin lógica de negocio. | `LoginPage.tsx`, `RegisterPage.tsx`, `AuthLayout.tsx`, `AuthSwitchLink.tsx` | `HomePage.tsx`, `RecommendationsSection.tsx` |
+| Controlador | `controllers/` | Estado de la vista, carga y errores; llama a servicios. | `AuthProvider.tsx`, `authContext.ts`, `useLoginController.ts`, `useRegisterController.ts`, `useForgotPasswordController.ts`, `useResetPasswordController.ts`, `useVerifyEmailController.ts`, `useEmailLinkToken.ts` | `useHomeController.ts` |
+| Vista | `views/` | Componentes React sin lógica de negocio. | `LoginPage.tsx`, `RegisterPage.tsx`, `ForgotPasswordPage.tsx`, `ResetPasswordPage.tsx`, `VerifyEmailPage.tsx`, `AuthLayout.tsx`, `AuthSwitchLink.tsx`, `passwordHelper.ts` | `HomePage.tsx`, `RecommendationsSection.tsx` |
 
 Inicio añade además `data/homeTemplate.ts` (la plantilla provisional de canciones, §4.3).
 
@@ -187,6 +187,9 @@ Componentes de formulario: `LoginForm` (14296:16086) y `RegisterForm` (14296:162
 |---|---|---|
 | `/login` | Solo sin sesión (`PublicOnlyRoute`) | `LoginPage` |
 | `/register` | Solo sin sesión | `RegisterPage` |
+| `/recuperar-contrasena` | Solo sin sesión | `ForgotPasswordPage` (§3.10) |
+| `/restablecer-contrasena#token=…` | Con o sin sesión (sin guarda) | `ResetPasswordPage` (§3.10) |
+| `/verificar-correo#token=…` | Con o sin sesión (sin guarda) | `VerifyEmailPage` (§3.10) |
 | `/` | Solo con sesión (`ProtectedRoute`) | `HomePage` (módulo Inicio, §4) |
 
 Si un usuario con sesión entra en `/login`, se le redirige a `/`. Sin sesión, `/` redirige a `/login`. Tras iniciar sesión o registrarse, se navega a `/`.
@@ -202,6 +205,11 @@ Referencia: `junkbox-backend/README.md` §API REST (endpoints 2 a 6) e `implemen
 | Recuperar sesión | `GET /api/v1/auth/me` | Bearer | `200 UserProfile` | `401` → intenta refresh |
 | Renovar tokens | `POST /api/v1/auth/refresh` | `{ refresh_token }` + Bearer **anterior** | `200 TokenPair` | `401` → borra la sesión |
 | Cerrar sesión | `POST /api/v1/auth/logout` | `{ refresh_token }` + Bearer | `200 { message }` | Se ignoran (el cierre local basta) |
+| Pedir enlace de recuperación | `POST /api/v1/auth/password/forgot` | `{ email }` | Siempre `200 { message }` (no revela si el correo existe) | `400 "email es requerido"` |
+| Restablecer contraseña | `POST /api/v1/auth/password/reset` | `{ token, password }` | `200 { message }`; **cierra todas las sesiones** del usuario | `400` (contraseña no válida; el token sigue valiendo) · `401 "token inválido o expirado"` |
+| Verificar correo | `POST /api/v1/auth/email/verify` | `{ token }` | `200 { message: "Correo verificado." }` | `400 "token es requerido"` · `401 "token inválido o expirado"` |
+
+`UserProfile` incluye `email_verified` (booleano) desde el commit `51ec315` del backend. Los usuarios seed ya están verificados.
 
 **Correspondencia entre formulario y API (registro):**
 
@@ -226,6 +234,9 @@ El backend rechaza campos desconocidos (`DisallowUnknownFields` → `400 "solici
 |---|---|---|
 | Login: identificador | Obligatorio | "Introduce tu correo electrónico." |
 | Login: contraseña | Obligatoria | "Introduce tu contraseña." |
+| Recuperar: correo | `trim` + minúsculas y el mismo formato que en Registro | "Introduce un correo electrónico válido." |
+| Restablecer: nueva contraseña | La misma `validatePassword` que Registro (fila `password`) | Los mismos mensajes que Registro |
+| Restablecer: confirmar contraseña | Solo en el cliente: obligatoria e igual a la nueva | "Repite la nueva contraseña." · "Las contraseñas no coinciden." |
 | `display_name` | ≤ 100 caracteres | "No puede superar 100 caracteres." |
 | `username` | `^[a-z0-9_.]{3,50}$` | "De 3 a 50 caracteres: letras, números, '_' o '.'." |
 | `email` | ≤ 255 y formato válido. El backend usa `net/mail` (acepta dominios sin punto); el formulario es más estricto: exige punto y TLD de 2+ letras (§3.8). | "Introduce un correo electrónico válido." |
@@ -247,7 +258,7 @@ Cuando un campo falla, el input pasa al estado **Error** de Figma (borde `brand/
 ### 3.6 Decisiones de Implementación
 
 1. **Errores del servicio (401, 409, red):** Figma todavía no define dónde se muestran ("No se define aquí ciclo de sesión, errores del servicio ni destinos", nota del LoginForm). Se muestran encima del botón con `FormAlert`, que reutiliza el icono `alert-circle` y el estilo del ErrorIndicator. El texto es el del backend (ya en español), con mayúscula inicial; la única excepción es el `401` de login, que muestra «Usuario o contraseña incorrectos.» en lugar de «credenciales inválidas» (el backend devuelve el mismo `401` si el identificador no existe o si la contraseña no coincide, así que el mensaje no revela cuál falló). **Provisional** hasta que diseño defina el estado.
-2. **"¿Olvidaste tu contraseña?":** sigue visible por decisión del propietario (nota de Figma), pero no hay endpoint de recuperación. Se muestra con el estilo de Figma, sin acción, y con `aria-disabled`.
+2. **"¿Olvidaste tu contraseña?":** desde 2026-11-06 es un enlace a `/recuperar-contrasena` (§3.10), con el estilo de PasswordRecovery de Figma. Antes, sin endpoint, se mostraba sin acción y con `aria-disabled`.
 3. **Botón "Crear cuenta" deshabilitado hasta aceptar los términos:** se usa el estado **Disabled** de PrimaryButton. Es la forma de exigir la aceptación sin enviarla al backend.
 4. **Mientras se envía:** los inputs pasan a `readOnly` (no a Disabled, que en Figma muestra "No disponible") y el botón muestra el estado **Loading** ("Iniciando sesión…" / "Creando cuenta…"). La barra de progreso se anima de forma sutil y respeta `prefers-reduced-motion`.
 5. **Términos y Política de Privacidad** (casilla y pie legal) se muestran como texto subrayado sin enlace: aún no existen URLs de esos documentos.
@@ -265,7 +276,6 @@ Cuando un campo falla, el input pasa al estado **Error** de Figma (borde `brand/
 
 ### 3.8 Limitaciones Conocidas
 
-- **Recuperación de contraseña:** no hay endpoint en el backend.
 - **Términos:** la aceptación no se guarda en el servidor (el backend no tiene ese campo).
 - **Correo:** el backend acepta dominios sin punto (`usuario@dominio`). El formulario es más estricto, pero la API sigue aceptándolos si se llama directamente.
 - **Ayuda de la contraseña:** Figma sigue con el texto de la regla anterior ("De 8 a 72 bytes…"). El frontend muestra uno provisional que describe la regla actual del backend.
@@ -274,6 +284,8 @@ Cuando un campo falla, el input pasa al estado **Error** de Figma (borde `brand/
 - **Estados de error del servicio** (§3.6.1) son provisionales.
 - **Tablet:** Figma no lo define. Se usa el layout móvil centrado hasta 768 px.
 - **Favicon:** Figma no lo define. Se quitó el de la plantilla de Vite y, por decisión del equipo, se usa el logo de Junkbox (§4.5).
+- **Recuperación y verificación sin diseño en Figma:** las pantallas de §3.10 son un boceto aprobado por el propietario. Se ajustarán cuando Diseño las publique.
+- **Correo sin verificar:** la app todavía no avisa de `email_verified = false` ni ofrece reenviar el enlace (`POST /auth/email/verify/resend`, con Bearer). Espera a que Diseño lo defina.
 
 ### 3.9 Verificación del Módulo (2026-11-02)
 
@@ -289,6 +301,50 @@ Cuando un campo falla, el input pasa al estado **Error** de Figma (borde `brand/
 | Capturas headless (Edge) Claro/Oscuro, ~500 px y 1440 px | ✅ Coinciden con los frames de Figma |
 
 No se ejecutó un registro real para no crear usuarios de prueba en la base de datos del backend.
+
+### 3.10 Recuperación de Contraseña y Verificación de Correo (2026-11-06)
+
+Se apoya en el commit `51ec315` del backend, que añadió los endpoints de §3.3 y el envío de correos.
+
+**Pantallas.** Figma no tiene pantallas de recuperación ni de verificación. Son un **boceto aprobado por el propietario** que reutiliza AuthShell (`AuthLayout`), `FormField`, `TextInput`, `PasswordInput`, `PrimaryButton`, `FormAlert` y `AuthSwitchLink`, sin elementos visuales nuevos. `AuthLayout` acepta ahora una descripción de una sola línea y un pie opcional.
+
+| Pantalla | Estados |
+|---|---|
+| Recuperar contraseña (`/recuperar-contrasena`) | **Formulario:** correo + "Enviar enlace". **Enviado:** "Revisa tu correo" con el mensaje del backend, "El enlace caduca en 30 minutos.", "Volver a iniciar sesión" y "¿No te llegó? Reenviar enlace" (anuncia "Te enviamos otro enlace." con `aria-live`). |
+| Restablecer contraseña (`/restablecer-contrasena`) | **Formulario:** "Nueva contraseña" (con la ayuda de Registro) + "Confirmar contraseña" (a petición del propietario) + "Guardar contraseña". **Hecho:** "Contraseña actualizada" + "Iniciar sesión". **Enlace inválido** (sin token o `401`): "Este enlace ya no sirve" + "Pedir un enlace nuevo". |
+| Verificar correo (`/verificar-correo`) | **Verificando** (botón en Loading) → **Verificado** ("Correo verificado" + "Ir a Junkbox") · **Inválido** ("No pudimos verificar tu correo") · **Error de red o servidor** (con "Reintentar"). "Ir a Junkbox" lleva a `/` con sesión y a `/login` sin ella. |
+
+**Enlaces de los correos.** El backend envía `{FRONTEND_URL}/restablecer-contrasena#token=…` (caduca en 30 min) y `{FRONTEND_URL}/verificar-correo#token=…` (24 h). Por eso `pnpm dev` tiene que servir en el puerto de `FRONTEND_URL` (`5173` en desarrollo). En desarrollo los correos llegan a **Mailpit** (`http://localhost:8025`).
+
+**Decisiones:**
+
+1. **El token va en el fragmento (`#`)**, que el navegador no envía a ningún servidor. `useEmailLinkToken` lo lee una sola vez al montar la página y lo quita de la URL con `navigate(…, { replace: true })`, para que no quede en el historial ni a la vista.
+2. **Restablecer y verificar no tienen guarda.** El enlace puede abrirse con o sin sesión, y `PublicOnlyRoute` redirigiría a `/` perdiendo el token. Recuperar sí va en `PublicOnlyRoute`, como Login.
+3. **Tras restablecer se cierra la sesión local** (`authService.resetPassword` borra `junkbox.session` y el controlador llama a `logout()`), porque el backend revoca todas las sesiones del usuario. Las demás pestañas acaban en `/login` en su siguiente renovación de token.
+4. **Errores de restablecer:** `401` → estado "enlace inválido"; `400` → mensaje bajo "Nueva contraseña" (el token no se consume, así que se puede reintentar); red u otros → `FormAlert`.
+5. **Verificar se llama una sola vez por intento.** Una `ref` evita la doble llamada del doble efecto de `StrictMode`. Hace falta porque el token es de un solo uso: la segunda llamada devolvería `401` y taparía el éxito.
+6. **"Reenviar enlace"** repite `POST /auth/password/forgot` con el mismo correo. El backend siempre responde `200`, así que la pantalla no revela si la cuenta existe.
+7. El texto de ayuda de la contraseña (`views/passwordHelper.ts`) lo comparten Registro y Restablecer.
+
+**Verificación (2026-11-06)**, con backend y Mailpit en marcha, por la UI en Edge headless y con el usuario seed `cesar@junkbox.local` (su contraseña se restableció al mismo valor, `Password123!`):
+
+| Prueba | Resultado |
+|---|---|
+| `pnpm typecheck` · `pnpm lint` | ✅ Sin errores ni avisos |
+| "¿Olvidaste tu contraseña?" en Login | ✅ Lleva a `/recuperar-contrasena` |
+| Enviar vacío o con un correo inválido | ✅ "Introduce un correo electrónico válido." |
+| Enviar con `cesar@junkbox.local` | ✅ "Revisa tu correo"; el correo llega a Mailpit con `http://localhost:5173/restablecer-contrasena#token=…` |
+| Abrir el enlace | ✅ La URL queda en `/restablecer-contrasena`, sin `#token` |
+| Contraseña débil · no coinciden · confirmación vacía | ✅ Mensaje bajo el campo correspondiente |
+| Contraseña válida | ✅ "Contraseña actualizada" y `junkbox.session` borrada |
+| Reabrir el mismo enlace y enviar | ✅ "Este enlace ya no sirve" (`401`) |
+| Login con la contraseña nueva | ✅ `200` |
+| Sesión abierta antes del reset | ✅ El refresh da `401` y la UI acaba en `/login` |
+| `/verificar-correo#token=inventado` | ✅ "No pudimos verificar tu correo"; el fragmento se quita de la URL |
+| `/restablecer-contrasena` y `/verificar-correo` sin token | ✅ Estado "enlace inválido" sin llamar al backend |
+| Consola del navegador | ✅ Sin errores |
+
+El caso de éxito de la verificación no se probó aquí: necesita un usuario sin verificar, y eso solo se consigue registrando una cuenta.
 
 ---
 
@@ -319,7 +375,7 @@ Componentes: `Navbar` (14296:14145), `BottomBar` (14296:15745), `SearchField` (1
 |---|---|---|
 | `/` | Solo con sesión (`ProtectedRoute` → `AppLayout`) | `HomePage` |
 
-`AppLayout` (`src/app/layout/`) envuelve todas las rutas con sesión: `Navbar` arriba, el contenido del módulo en `<Outlet />` y, en móvil, `BottomBar` abajo. Los destinos de la navegación están en `app/layout/navigation.ts`: los que todavía no existen (Buscador, Crear Reseña, Perfil) tienen `to: null` y se muestran con el estilo de Figma, sin acción y con `aria-disabled`, como "¿Olvidaste tu contraseña?". Al implementar cada módulo basta con poner su ruta ahí.
+`AppLayout` (`src/app/layout/`) envuelve todas las rutas con sesión: `Navbar` arriba, el contenido del módulo en `<Outlet />` y, en móvil, `BottomBar` abajo. Los destinos de la navegación están en `app/layout/navigation.ts`: los que todavía no existen (Buscador, Crear Reseña, Perfil) tienen `to: null` y se muestran con el estilo de Figma, sin acción y con `aria-disabled`, como antes "¿Olvidaste tu contraseña?". Al implementar cada módulo basta con poner su ruta ahí.
 
 ### 4.3 Contrato con el Backend
 
@@ -414,3 +470,4 @@ Además: probar las rutas del módulo con el backend en marcha (`pnpm dev`), rev
 | 2026-11-03 | Registro: la validación de la contraseña replica la nueva regla del backend (`validatePassword`: ≥ 8 caracteres, ≤ 72 bytes, letras + números + especiales). Texto de ayuda provisional hasta que Figma se actualice. |
 | 2026-11-03 | El backend ya tiene CORS: se documenta (§2.5, §3.8, README, `.env.example`). El proxy de Vite sigue siendo el modo por defecto; no cambia el comportamiento. |
 | 2026-11-04 | Módulo 2: Inicio (§4). Estructura común (`AppLayout`, Navbar, BottomBar), "Hecho para tus oídos" con plantilla, menú de cuenta provisional, favicon y renovación compartida del access token. Tokens `surface-nav`, `surface-quickplay` y `text-caption-2xs`. Se elimina `SessionPlaceholderPage`. |
+| 2026-11-06 | Autenticación: recuperación de contraseña (`/recuperar-contrasena`, `/restablecer-contrasena`) y verificación de correo (`/verificar-correo`) con los endpoints del commit `51ec315` del backend (§3.10). "¿Olvidaste tu contraseña?" pasa a ser un enlace. `email_verified` en `UserProfile`. |

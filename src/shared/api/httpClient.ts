@@ -33,7 +33,7 @@ export class NetworkError extends Error {
 }
 
 interface RequestOptions {
-  method?: 'GET' | 'POST'
+  method?: 'GET' | 'POST' | 'PUT' | 'DELETE'
   body?: unknown
   accessToken?: string | null
   signal?: AbortSignal

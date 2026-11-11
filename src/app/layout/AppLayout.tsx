@@ -1,8 +1,10 @@
 import { Outlet } from 'react-router'
 import { useAuth } from '../../features/auth/controllers/authContext'
+import { NavbarSearch } from '../../features/search/views/NavbarSearch'
 import { BottomBar } from '../../shared/layout/BottomBar'
 import { Navbar } from '../../shared/layout/Navbar'
-import { BOTTOM_BAR_ITEMS, CREATE_REVIEW_ITEM, NAVBAR_LINKS, SEARCH_ITEM } from './navigation'
+import { defaultAvatarUrl } from '../../shared/utils/defaultAvatar'
+import { BOTTOM_BAR_ITEMS, CREATE_REVIEW_ITEM, NAVBAR_LINKS, SETTINGS_PATH } from './navigation'
 
 /**
  * Estructura común de las pantallas con sesión (Figma: Navbar arriba y, en móvil,
@@ -17,9 +19,18 @@ export function AppLayout() {
       <Navbar
         links={NAVBAR_LINKS}
         createReviewTo={CREATE_REVIEW_ITEM.to}
-        searchTo={SEARCH_ITEM.to}
-        avatarUrl={user?.avatar_url ?? null}
-        accountLabel={user ? `Cuenta de @${user.username}` : 'Cuenta'}
+        search={<NavbarSearch />}
+        account={
+          user
+            ? {
+                username: user.username,
+                displayName: user.display_name,
+                avatarUrl: user.avatar_url,
+                fallbackAvatarUrl: defaultAvatarUrl(user.username),
+              }
+            : null
+        }
+        settingsTo={SETTINGS_PATH}
         onLogout={logout}
       />
       <main className="flex flex-1 flex-col">

@@ -1,12 +1,16 @@
 import { request } from '../../../shared/api/httpClient'
 import type {
   AuthResponse,
+  ForgotPasswordRequest,
   LoginRequest,
   LogoutRequest,
+  MessageResponse,
   RefreshRequest,
   RegisterRequest,
+  ResetPasswordRequest,
   TokenPair,
   UserProfile,
+  VerifyEmailRequest,
 } from '../models/auth.types'
 
 /**
@@ -40,5 +44,27 @@ export const authApi = {
   /** POST /auth/logout (Bearer) → 200 { message } (idempotente). */
   logout(accessToken: string, body: LogoutRequest): Promise<{ message: string }> {
     return request<{ message: string }>('/auth/logout', { method: 'POST', body, accessToken })
+  },
+
+  /**
+   * POST /auth/password/forgot → siempre 200 { message } (no revela si el correo existe) ·
+   * 400 "email es requerido". Sin Bearer.
+   */
+  forgotPassword(body: ForgotPasswordRequest): Promise<MessageResponse> {
+    return request<MessageResponse>('/auth/password/forgot', { method: 'POST', body })
+  },
+
+  /**
+   * POST /auth/password/reset → 200 { message } · 400 contraseña inválida (no consume el token) ·
+   * 401 "token inválido o expirado". Sin Bearer: se autentica con el token del correo.
+   * Cierra todas las sesiones del usuario.
+   */
+  resetPassword(body: ResetPasswordRequest): Promise<MessageResponse> {
+    return request<MessageResponse>('/auth/password/reset', { method: 'POST', body })
+  },
+
+  /** POST /auth/email/verify → 200 { message } · 401 "token inválido o expirado". Sin Bearer. */
+  verifyEmail(body: VerifyEmailRequest): Promise<MessageResponse> {
+    return request<MessageResponse>('/auth/email/verify', { method: 'POST', body })
   },
 }

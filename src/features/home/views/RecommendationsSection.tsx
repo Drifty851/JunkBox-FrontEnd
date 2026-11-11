@@ -1,6 +1,7 @@
 import { FormAlert } from '../../../shared/ui/FormAlert'
 import { MusicCard } from '../../../shared/ui/MusicCard'
 import type { RecommendationsState } from '../controllers/useHomeController'
+import { songPath } from '../../catalog/models/catalogPaths'
 
 interface RecommendationsSectionProps {
   state: RecommendationsState
@@ -72,7 +73,13 @@ export function RecommendationsSection({ state, onRetry }: RecommendationsSectio
         <ul className={LIST_CLASSES}>
           {state.tracks.map((track) => (
             <li key={track.spotifyId} className={ITEM_CLASSES}>
-              <MusicCard title={track.title} artist={track.artist} kind="Canción" imageUrl={track.imageUrl} />
+              <MusicCard
+                title={track.title}
+                artist={track.artist}
+                kind="Canción"
+                imageUrl={track.imageUrl}
+                to={songPath(track.spotifyId)}
+              />
             </li>
           ))}
         </ul>

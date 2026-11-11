@@ -108,7 +108,7 @@ src/
 
 | Módulo | Rutas | Estado | Endpoints |
 |---|---|---|---|
-| Autenticación | `/login`, `/register` | ✅ Implementado | `POST /auth/login`, `POST /auth/register`, `GET /auth/me`, `POST /auth/refresh`, `POST /auth/logout` |
+| Autenticación | `/login`, `/register`, `/recuperar-contrasena`, `/restablecer-contrasena`, `/verificar-correo` | ✅ Implementado | `POST /auth/login`, `POST /auth/register`, `GET /auth/me`, `POST /auth/refresh`, `POST /auth/logout`, `POST /auth/password/forgot`, `POST /auth/password/reset`, `POST /auth/email/verify` |
 | Inicio | `/` | ✅ Base implementada: crece con los demás módulos (ver `implementacion.md` §4) | `GET /music/tracks/{id}` |
 
 El resto de pantallas de Figma (Buscador, Fichas, Reseñas, Perfil, Configuración) se implementarán **un módulo cada vez**.

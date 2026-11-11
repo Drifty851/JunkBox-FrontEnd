@@ -5,16 +5,12 @@ import { FormField } from '../../../shared/ui/FormField'
 import { PasswordInput } from '../../../shared/ui/PasswordInput'
 import { PrimaryButton } from '../../../shared/ui/PrimaryButton'
 import { TextInput } from '../../../shared/ui/TextInput'
+import { PRIVACY_PATH, TERMS_PATH } from '../../legal/models/legalPaths'
 import { useRegisterController } from '../controllers/useRegisterController'
 import { AuthLayout } from './AuthLayout'
 import { AuthSwitchLink } from './AuthSwitchLink'
+import { PASSWORD_HELPER } from './passwordHelper'
 
-/**
- * Ayuda de RegistrationPassword. Figma aún dice "De 8 a 72 bytes…", que ya no
- * describe la regla del backend (≥ 8 caracteres, ≤ 72 bytes, letras + números +
- * especiales). Texto provisional hasta que Diseño lo actualice (implementacion.md §3.8).
- */
-const PASSWORD_HELPER = 'Al menos 8 caracteres, con letras, números y caracteres especiales.'
 
 /**
  * Registrarse · Figma: móvil 14296:2590 (claro) / 14296:2702 (oscuro),
@@ -113,7 +109,8 @@ export function RegisterPage() {
             onChange={handleChange}
             disabled={submitting}
           >
-            Acepto los <TermsLink>Términos de Servicio</TermsLink> y la <TermsLink>Política de Privacidad</TermsLink>.
+            Acepto los <TermsLink to={TERMS_PATH}>Términos de Servicio</TermsLink> y la{' '}
+            <TermsLink to={PRIVACY_PATH}>Política de Privacidad</TermsLink>.
           </Checkbox>
         </div>
 
@@ -131,9 +128,18 @@ export function RegisterPage() {
 }
 
 /**
- * Texto subrayado de los términos. Figma: text/secondary sin marcar y text/primary marcado (claro);
- * text/primary en oscuro. No es un enlace porque aún no hay URLs de los documentos legales.
+ * Enlace subrayado de los términos. Figma: text/secondary sin marcar y text/primary marcado (claro);
+ * text/primary en oscuro. Se abre en otra pestaña para no perder el formulario.
  */
-function TermsLink({ children }: { children: string }) {
-  return <span className="text-fg-muted underline group-has-checked:text-fg dark:text-fg">{children}</span>
+function TermsLink({ to, children }: { to: string; children: string }) {
+  return (
+    <a
+      href={to}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="rounded text-fg-muted underline group-has-checked:text-fg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-fg dark:text-fg"
+    >
+      {children}
+    </a>
+  )
 }

@@ -1,5 +1,6 @@
 import { useState, type ChangeEvent, type FormEvent } from 'react'
 import { useNavigate } from 'react-router'
+import { defaultAvatarUrl } from '../../../shared/utils/defaultAvatar'
 import type { RegisterRequest } from '../models/auth.types'
 import {
   hasErrors,
@@ -27,6 +28,8 @@ function toRegisterRequest(values: RegisterFormValues): RegisterRequest {
     username: normalizeUsername(values.username),
     email: normalizeEmail(values.email),
     password: values.password,
+    // Robot por defecto (DiceBear, semilla = username). El backend no asigna avatar (USER-03).
+    avatar_url: defaultAvatarUrl(normalizeUsername(values.username)),
     // display_name es opcional: si está vacío no se envía (el backend lo guarda como NULL).
     ...(displayName !== '' && { display_name: displayName }),
   }

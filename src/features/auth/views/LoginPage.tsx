@@ -1,3 +1,4 @@
+import { Link } from 'react-router'
 import { FormAlert } from '../../../shared/ui/FormAlert'
 import { fieldDescriptionId } from '../../../shared/ui/fieldIds'
 import { FormField } from '../../../shared/ui/FormField'
@@ -5,6 +6,7 @@ import { PasswordInput } from '../../../shared/ui/PasswordInput'
 import { PrimaryButton } from '../../../shared/ui/PrimaryButton'
 import { TextInput } from '../../../shared/ui/TextInput'
 import { useLoginController } from '../controllers/useLoginController'
+import { FORGOT_PASSWORD_PATH } from '../models/emailLink'
 import { AuthLayout } from './AuthLayout'
 import { AuthSwitchLink } from './AuthSwitchLink'
 
@@ -56,20 +58,14 @@ export function LoginPage() {
             />
           </FormField>
 
-          {/*
-            PasswordRecovery: visible por decisión del propietario (nota del LoginForm en Figma),
-            pero el backend no tiene endpoint de recuperación (implementacion.md §3.8).
-            Se muestra sin acción y marcado como no disponible para tecnologías de apoyo.
-          */}
+          {/* PasswordRecovery (Figma): lleva a Recuperar contraseña (POST /auth/password/forgot). */}
           <div className="flex w-full justify-end">
-            <button
-              type="button"
-              aria-disabled="true"
-              className="cursor-default text-link-sm font-medium text-link underline"
-              onClick={(event) => event.preventDefault()}
+            <Link
+              to={FORGOT_PASSWORD_PATH}
+              className="rounded text-link-sm font-medium text-link underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-fg"
             >
               ¿Olvidaste tu contraseña?
-            </button>
+            </Link>
           </div>
         </div>
 
