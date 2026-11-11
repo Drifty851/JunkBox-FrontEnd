@@ -41,7 +41,8 @@ El backend es un servicio en Go que se ejecuta aparte (en este equipo, dentro de
 
 - **Base de la API:** `/api/v1` (README del backend, §API REST).
 - **Proxy de desarrollo (por defecto):** en `pnpm dev`, Vite redirige `/api/*` a `VITE_BACKEND_URL` (por defecto `http://localhost:8080`), así el navegador ve un solo origen y funciona aunque Vite use otro puerto. WSL2 expone el puerto del backend en el `localhost` de Windows.
-- **CORS del backend:** el backend acepta peticiones del navegador desde los orígenes de su variable `CORS_ALLOWED_ORIGINS` (por defecto `http://localhost:5173`), con `GET`, `POST` y `OPTIONS`, las cabeceras `Authorization` y `Content-Type`, y sin cookies. Para saltar el proxy, pon `VITE_API_BASE_URL=http://localhost:8080/api/v1`. Cualquier otro origen se rechaza.
+- **Backend en Kubernetes** (kind + Envoy Gateway, commit `2d05563` del backend): la API está en el puerto 80. Pon `VITE_BACKEND_URL=http://localhost` en `.env.local`. Los contratos no cambian.
+- **CORS del backend:** el backend acepta peticiones del navegador desde los orígenes de su variable `CORS_ALLOWED_ORIGINS` (por defecto `http://localhost:5173`), con `GET`, `POST`, `PUT`, `DELETE` y `OPTIONS`, las cabeceras `Authorization` y `Content-Type`, y sin cookies. Para saltar el proxy, pon `VITE_API_BASE_URL=http://localhost:8080/api/v1`. Cualquier otro origen se rechaza.
 - **Usuarios de prueba:** con `make seed-up` en el backend se crean 4 usuarios con la contraseña `Password123!`, por ejemplo `cesar@junkbox.local`.
 
 ### Variables de entorno
@@ -49,7 +50,8 @@ El backend es un servicio en Go que se ejecuta aparte (en este equipo, dentro de
 | Variable | Por defecto | Uso |
 |---|---|---|
 | `VITE_API_BASE_URL` | `/api/v1` | Base de la API que usa el navegador. Relativa: pasa por el proxy (desarrollo) o por el mismo origen (producción). Absoluta (`https://…/api/v1`): llamada directa usando el CORS del backend. |
-| `VITE_BACKEND_URL` | `http://localhost:8080` | Solo en desarrollo: destino del proxy de Vite. |
+| `VITE_BACKEND_URL` | `http://localhost:8080` | Solo en desarrollo: destino del proxy de Vite (`http://localhost` si el backend corre en Kubernetes). |
+| `VITE_SPOTIFY_CLIENT_ID` | — | Client ID **público** de la app de Spotify (PKCE, sin secreto) para vincular Spotify Premium y el reproductor. Aún no se usa: módulo pendiente. |
 
 `.env` y `.env.*` están en `.gitignore`; `.env.example` sirve de plantilla.
 
@@ -93,13 +95,17 @@ src/
     │   ├── services/        # casos de uso (login, registro, sesión, renovación del token, logout)
     │   ├── controllers/     # Controlador: contexto de sesión y hooks de cada formulario
     │   └── views/           # Vista: páginas y layout del módulo
-    └── home/
-        ├── data/            # plantilla provisional de canciones recomendadas
-        ├── models/          # tipos del contrato de canciones y de la vista
-        ├── infrastructure/  # adaptador de /music/tracks
-        ├── services/        # caso de uso: recomendaciones de Inicio
-        ├── controllers/     # carga, error y reintento
-        └── views/           # Inicio y "Hecho para tus oídos"
+    ├── home/
+    │   ├── data/            # plantilla de canciones recomendadas y su álbum (carátula)
+    │   ├── models/          # tipos de la vista
+    │   ├── services/        # caso de uso: recomendaciones de Inicio
+    │   ├── controllers/     # carga, error y reintento
+    │   └── views/           # Inicio y "Hecho para tus oídos"
+    ├── music/               # catálogo compartido: tipos, adaptador /music/* y cascada del catálogo
+    ├── search/              # Buscador (/buscar) y buscador de la Navbar con sugerencias
+    ├── catalog/             # fichas de Canción, Álbum y Artista (rutas, useLoad, vistas)
+    ├── reviews/             # Calificaciones y Reseñas (/resena/nueva, /ratings, /reviews)
+    └── legal/               # Términos de Servicio y Aviso de Privacidad
 ```
 
 ---
@@ -109,9 +115,15 @@ src/
 | Módulo | Rutas | Estado | Endpoints |
 |---|---|---|---|
 | Autenticación | `/login`, `/register`, `/recuperar-contrasena`, `/restablecer-contrasena`, `/verificar-correo` | ✅ Implementado | `POST /auth/login`, `POST /auth/register`, `GET /auth/me`, `POST /auth/refresh`, `POST /auth/logout`, `POST /auth/password/forgot`, `POST /auth/password/reset`, `POST /auth/email/verify` |
-| Inicio | `/` | ✅ Base implementada: crece con los demás módulos (ver `implementacion.md` §4) | `GET /music/tracks/{id}` |
+| Inicio | `/` | ✅ Base implementada con carátulas: crece con los demás módulos (`implementacion.md` §4) | `GET /music/tracks/{id}`, `GET /music/albums/{id}`, `GET /music/search` |
+| Cuenta y legales | `/terminos`, `/privacidad` · menú del avatar | ✅ Implementado (§5). Textos legales en revisión | — (avatar por defecto en `POST /auth/register`) |
+| Buscador | `/buscar?q=` · campo de la Navbar | ✅ Implementado (§6) | `GET /music/search`, `GET /music/albums/{id}` |
+| Fichas del catálogo | `/cancion/:id`, `/album/:id`, `/artista/:id` | ✅ Implementado (§7) | `GET /music/tracks\|albums\|artists/{id}`, `GET /music/search` (cascada), `GET /reviews`, `GET /ratings/my` |
+| Calificaciones y Reseñas | `/resena/nueva?tipo=&id=` | ✅ Implementado (§8) | `POST/GET/DELETE /ratings`, `POST/GET/PUT/DELETE /reviews` |
+| Configuración | — | ⏳ Pendiente | — |
+| Spotify y Reproductor | — | ⏳ Pendiente | API de Spotify (PKCE) |
 
-El resto de pantallas de Figma (Buscador, Fichas, Reseñas, Perfil, Configuración) se implementarán **un módulo cada vez**.
+Perfil, Configuración y Spotify/Reproductor se implementarán **un módulo cada vez**. Las carencias del backend están en `../SOLICITUDES_BACKEND.md`.
 
 ---
 

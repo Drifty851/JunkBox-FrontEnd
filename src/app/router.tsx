@@ -18,7 +18,7 @@ import { SEARCH_PATH } from '../features/search/models/search.types'
 import { SearchPage } from '../features/search/views/SearchPage'
 import { TermsPage } from '../features/legal/views/TermsPage'
 import { AppLayout } from './layout/AppLayout'
-import { ProtectedRoute, PublicOnlyRoute } from './routes/RouteGuards'
+import { HomeRoute, ProtectedRoute, PublicOnlyRoute } from './routes/RouteGuards'
 
 /**
  * Rutas de la aplicación. Cada módulo nuevo añade aquí sus pantallas.
@@ -27,7 +27,8 @@ import { ProtectedRoute, PublicOnlyRoute } from './routes/RouteGuards'
  *    pueden abrirse con o sin sesión, y una guarda los redirigiría perdiendo el token.
  *  - /terminos, /privacidad: documentos legales, públicos (con o sin sesión).
  *  - Rutas con sesión: dentro de AppLayout (Navbar + BottomBar).
- *  - /: módulo Inicio. /buscar?q=: módulo Buscador.
+ *  - /: sin sesión, la landing; con sesión, módulo Inicio (HomeRoute). /buscar?q=: módulo Buscador.
+ *  - Sin sesión, las rutas protegidas y las desconocidas llevan a la landing.
  *  - /cancion/:id, /album/:id, /artista/:id: fichas del catálogo.
  *  - /resena/nueva?tipo=&id=: Escribir Reseña (calificaciones y reseñas).
  */
@@ -44,13 +45,13 @@ export const router = createBrowserRouter([
   { path: VERIFY_EMAIL_PATH, element: <VerifyEmailPage /> },
   { path: TERMS_PATH, element: <TermsPage /> },
   { path: PRIVACY_PATH, element: <PrivacyPage /> },
+  { path: '/', element: <HomeRoute />, children: [{ index: true, element: <HomePage /> }] },
   {
     element: <ProtectedRoute />,
     children: [
       {
         element: <AppLayout />,
         children: [
-          { path: '/', element: <HomePage /> },
           { path: SEARCH_PATH, element: <SearchPage /> },
           { path: SONG_PATH, element: <SongPage /> },
           { path: ALBUM_PATH, element: <AlbumPage /> },

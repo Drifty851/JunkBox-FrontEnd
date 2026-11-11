@@ -18,8 +18,12 @@ Se actualiza **al terminar cada módulo**. La documentación del backend (`junkb
   - [2.6 Componentes Compartidos](#26-componentes-compartidos)
 - [3. Módulo 1: Autenticación (Iniciar sesión / Registrarse)](#3-módulo-1-autenticación-iniciar-sesión--registrarse)
 - [4. Módulo 2: Inicio](#4-módulo-2-inicio)
-- [5. Verificación](#5-verificación)
-- [6. Historial](#6-historial)
+- [5. Módulo 3: Cuenta (menú, avatar y documentos legales)](#5-módulo-3-cuenta-menú-avatar-y-documentos-legales)
+- [6. Módulo 4: Buscador](#6-módulo-4-buscador)
+- [7. Módulo 5: Fichas del catálogo (Canción, Álbum, Artista)](#7-módulo-5-fichas-del-catálogo-canción-álbum-artista)
+- [8. Módulo 6: Calificaciones y Reseñas](#8-módulo-6-calificaciones-y-reseñas)
+- [9. Verificación](#9-verificación)
+- [10. Historial](#10-historial)
 
 ---
 
@@ -46,7 +50,7 @@ Se actualiza **al terminar cada módulo**. La documentación del backend (`junkb
 | oxlint | 1.x | Linter que incluye la plantilla de Vite. |
 | pnpm | 11.x | Gestor de paquetes del proyecto. |
 
-**No se añadieron** librerías de formularios, de peticiones (axios) ni de estado global: con `fetch`, `useState` y un contexto basta para este módulo.
+**No se añadieron** librerías de formularios, de peticiones (axios) ni de estado global: con `fetch`, `useState`, un contexto y el hook `useLoad` (§7.4) basta para todos los módulos.
 
 ### 2.2 Arquitectura MVC por Capas
 
@@ -54,13 +58,23 @@ Cada módulo vive en `src/features/<módulo>/` con estas capas:
 
 | Capa | Carpeta | Responsabilidad | Auth | Inicio |
 |---|---|---|---|---|
-| Modelo | `models/` | Tipos del contrato de API y validación de cliente. | `auth.types.ts`, `auth.validation.ts`, `emailLink.ts` | `track.types.ts`, `home.types.ts` |
-| Infraestructura | `infrastructure/` | Adaptadores HTTP y de almacenamiento. | `authApi.ts`, `sessionStorage.ts` | `musicApi.ts` |
+| Modelo | `models/` | Tipos del contrato de API y validación de cliente. | `auth.types.ts`, `auth.validation.ts`, `emailLink.ts` | `home.types.ts` |
+| Infraestructura | `infrastructure/` | Adaptadores HTTP y de almacenamiento. | `authApi.ts`, `sessionStorage.ts` | — (usa `music/`) |
 | Servicios | `services/` | Casos de uso; coordinan infraestructura. | `authService.ts`, `errorMessages.ts` | `homeService.ts` |
 | Controlador | `controllers/` | Estado de la vista, carga y errores; llama a servicios. | `AuthProvider.tsx`, `authContext.ts`, `useLoginController.ts`, `useRegisterController.ts`, `useForgotPasswordController.ts`, `useResetPasswordController.ts`, `useVerifyEmailController.ts`, `useEmailLinkToken.ts` | `useHomeController.ts` |
 | Vista | `views/` | Componentes React sin lógica de negocio. | `LoginPage.tsx`, `RegisterPage.tsx`, `ForgotPasswordPage.tsx`, `ResetPasswordPage.tsx`, `VerifyEmailPage.tsx`, `AuthLayout.tsx`, `AuthSwitchLink.tsx`, `passwordHelper.ts` | `HomePage.tsx`, `RecommendationsSection.tsx` |
 
-Inicio añade además `data/homeTemplate.ts` (la plantilla provisional de canciones, §4.3).
+Inicio añade además `data/homeTemplate.ts` (la plantilla provisional de canciones y sus álbumes, §4.3).
+
+Módulos posteriores (misma estructura de capas; solo las que necesitan):
+
+| Módulo | Carpeta | Contenido |
+|---|---|---|
+| Catálogo compartido | `features/music/` | `models/catalog.types.ts` (Track, Album, Artist, búsqueda, `ratings`), `infrastructure/musicApi.ts` (`getTrack`, `getAlbum`, `getArtist`, `search`), `services/catalogService.ts` (cascada, §7.3). Lo usan Inicio, Buscador, Fichas y Reseñas. |
+| Cuenta / legales | `features/legal/` | `models/` (rutas y tipos), `data/` (textos), `views/` (`LegalPage`, `TermsPage`, `PrivacyPage`). §5. |
+| Buscador | `features/search/` | `models/search.types.ts`, `services/searchService.ts`, `controllers/` (`useSearchController`, `useSearchSuggestions`), `views/` (`SearchPage`, `SearchHeader`, `SearchResultsView`, `NavbarSearch`). §6. |
+| Fichas | `features/catalog/` | `models/catalogPaths.ts`, `controllers/` (`useLoad`, `catalogLoaders`), `views/` (`SongPage`, `AlbumPage`, `ArtistPage`, `DetailParts`, `ReviewsSection`). §7. |
+| Calificaciones y Reseñas | `features/reviews/` | `models/` (`review.types.ts`, `writeReview.ts`), `infrastructure/reviewsApi.ts`, `services/reviewsService.ts`, `controllers/useWriteReviewController.ts`, `views/WriteReviewPage.tsx`. §8. |
 
 Lo reutilizable entre módulos vive en `src/shared/` (`api/`, `ui/`, `layout/`, `utils/`). La composición global (proveedores, router, guardas y `AppLayout`) está en `src/app/`.
 
@@ -74,6 +88,7 @@ Lo reutilizable entre módulos vive en `src/shared/` (`api/`, `ui/`, `layout/`, 
 | `fg` | `text/primary` | `#000000` | `#f7f7f2` |
 | `fg-muted` | `text/secondary` | `#5c5c5c` | `#b3b3b3` |
 | `fg-placeholder` | `text/secondary-2` | `#828282` | `#b3b3b3` |
+| `fg-soft` | `text/secondary-3` (subtítulos de MusicRow, Segment inactivo) | `#5c5c5c` | `#cdcdcd` |
 | `on-action` | `text/primary-2` | `#ffffff` | `#151515` |
 | `surface` | `surface/default` | `#ffffff` | `#282828` |
 | `surface-input` | `surface/input` | `#ffffff` | `#282828` |
@@ -101,6 +116,12 @@ Lo reutilizable entre módulos vive en `src/shared/` (`api/`, `ui/`, `layout/`, 
 | `Caption/12/*` | `text-xs` |
 | `Caption/11/Regular/140pct` | `text-[11px] leading-[1.4]` |
 | `Caption/10/*/140pct` | `text-caption-2xs` |
+| `Heading/24/Bold/140pct` (Buscador y fichas en móvil) | `text-2xl font-bold leading-[1.4]` |
+| `Heading/36/Bold/140pct` ("La comunidad opina") | `text-4xl font-bold leading-[1.4]` |
+| `Heading/56/Bold/140pct` (MusicHero en escritorio) | `text-[56px] font-bold leading-[1.4]` |
+| `Title/22/Bold/140pct` (ReviewCard en escritorio) | `text-[22px] font-bold leading-[1.4]` |
+
+Otras variables de Figma de las pantallas nuevas se resolvieron con tokens existentes: `surface/default-3` y `action/background-3` → `surface-input-disabled`; `surface/default-4` y `brand/accent-2` (Segment activo, Button) → `action`; `surface/default-5` (ReviewCard) → `surface-quickplay`.
 
 **Espaciado y radios:** las variables `space/4…80` y `radius/4, 8` coinciden con la escala de Tailwind (`gap-1`=4, `gap-4`=16, `px-6`=24, `rounded`=4, `rounded-lg`=8), así que no se usan valores arbitrarios para ellas.
 
@@ -125,20 +146,29 @@ Descargados del MCP de Figma **sin editar**, en `src/assets/`:
 | `icons/person.svg` | `NavigationItem › Icon/Person` | 24 px de origen, se pinta a 22. |
 | `icons/plus.svg` | `Button › plus` (Crear Reseña) | 16 px. |
 | `icons/play-12.svg` · `play-14.svg` | `MusicCard › QuickPlay › play` | 12 px (móvil) y 14 px (escritorio). |
+| `icons/play-circle.svg` | `MusicRow › play-circle` | 28 px (filas); 24 px en AudioSnippetPicker. |
+| `icons/x-16.svg` | `SearchField › x` | 16 px, borrar búsqueda. |
+| `icons/star-rating.svg` | `StarRating` (Rating-04, 96×16) | Máscara de 5 estrellas; también a 76×12 y 106×18. |
+| `icons/star-rating-32.svg` | `StarRating` (Rating-08, 176×32) | Estrellas editables de Escribir Reseña. |
+| `icons/arrow-left-16.svg` | `Breadcrumb › arrow-left` | 16 px. |
+| `icons/share-2.svg` | `MusicActions › share-2` | 20 px. |
+| `icons/more-horizontal.svg` · `like.svg` · `message-square.svg` · `bookmark.svg` | `ReviewCard` | 20 y 18 px. |
+| `icons/circle-check.svg` | `SelectedMusicPreview › circle-check` | 20 px. |
+| `brand/spotify-logo.png` | `SpotifyButton › Spotify logo` | 20 px, a color (no es máscara). |
 
-Los iconos de un solo color (`eye`, `lock` y todos los de navegación y QuickPlay) vienen con el color del tema claro fijado en el archivo. Para respetar el tema oscuro sin modificarlos, `MaskIcon` los usa como **máscara CSS** y los pinta con el token correspondiente. El logo tiene dos archivos y se alterna con `dark:hidden` / `dark:block`.
+Los iconos de un solo color (`eye`, `lock`, los de navegación, QuickPlay, filas, fichas y reseñas) vienen con el color del tema claro fijado en el archivo. Para respetar el tema oscuro sin modificarlos, `MaskIcon` los usa como **máscara CSS** y los pinta con el token correspondiente. El logo tiene dos archivos y se alterna con `dark:hidden` / `dark:block`.
 
 ### 2.5 Cliente HTTP y Proxy de Desarrollo
 
 `src/shared/api/httpClient.ts` envuelve `fetch`:
 
 - Base `VITE_API_BASE_URL` (por defecto `/api/v1`).
-- Envía y recibe JSON. Añade `Authorization: Bearer` si se le pasa un token.
+- Envía y recibe JSON con `GET`, `POST`, `PUT` y `DELETE` (los dos últimos, desde Calificaciones y Reseñas). Añade `Authorization: Bearer` si se le pasa un token.
 - Errores: el backend siempre responde `{"error": "..."}` (README del backend, "Formato Estándar de Errores"). Se convierten en `ApiError(status, message)`. Los fallos de red se convierten en `NetworkError`.
 
-`vite.config.ts` redirige `/api` → `VITE_BACKEND_URL` (`http://localhost:8080`). Es la opción por defecto porque funciona en cualquier puerto de Vite.
+`vite.config.ts` redirige `/api` → `VITE_BACKEND_URL` (`http://localhost:8080`). Es la opción por defecto porque funciona en cualquier puerto de Vite. Si el backend corre en Kubernetes (kind + Envoy Gateway, commit `2d05563`), la API está en el puerto 80: `VITE_BACKEND_URL=http://localhost` (ver `.env.example`). Cada respuesta trae entonces la cabecera `X-Instance` con la réplica que atendió; el frontend no la usa.
 
-**CORS del backend** (desde el commit `bab8e12`): `go-chi/cors` con los orígenes de `CORS_ALLOWED_ORIGINS` (por defecto `http://localhost:5173`), métodos `GET`/`POST`/`OPTIONS`, cabeceras `Authorization` y `Content-Type`, sin credenciales. Con `VITE_API_BASE_URL=http://localhost:8080/api/v1` el navegador llama al backend directamente, sin proxy. El cliente HTTP no cambia: no usa cookies (`credentials` queda por defecto) y solo envía esas dos cabeceras más `Accept`, que no necesita permiso de CORS.
+**CORS del backend** (desde el commit `bab8e12`): `go-chi/cors` con los orígenes de `CORS_ALLOWED_ORIGINS` (por defecto `http://localhost:5173`), métodos `GET`/`POST`/`PUT`/`DELETE`/`OPTIONS` (desde el commit `6d77d4d`), cabeceras `Authorization` y `Content-Type`, sin credenciales. Con `VITE_API_BASE_URL=http://localhost:8080/api/v1` el navegador llama al backend directamente, sin proxy. El cliente HTTP no cambia: no usa cookies (`credentials` queda por defecto) y solo envía esas dos cabeceras más `Accept`, que no necesita permiso de CORS.
 
 ### 2.6 Componentes Compartidos
 
@@ -153,12 +183,19 @@ Los iconos de un solo color (`eye`, `lock` y todos los de navegación y QuickPla
 | `JunkboxLogo` | `JunkboxLogo` | Claro / Oscuro. Acepta tamaño (AuthShell 212, Navbar 128/160). |
 | `MaskIcon` | — | Iconos monocromos que cambian con el tema. |
 | `FormAlert` | — (provisional) | Error general del formulario. Ver §3.6. También en el error de Inicio. |
-| `Avatar` | Slot `Avatar1` de Navbar | Imagen o círculo neutro si falta o no carga. |
-| `MusicCard` | `MusicCard` (14296:3351) | Móvil 112 / escritorio 164; QuickPlay decorativo; carátula o recuadro neutro. |
+| `Avatar` | Slot `Avatar1` de Navbar | Imagen → respaldo (`fallbackSrc`, el robot por defecto, §5) → círculo neutro si nada carga. |
+| `MusicCard` | `MusicCard` (14296:3351) | Móvil 112 / escritorio 164; QuickPlay decorativo; carátula o recuadro neutro. Con `to`, toda la tarjeta enlaza a la ficha. |
+| `MusicRow` | `MusicRow` (14296:8113) | Fila de 64: artwork 48 (cuadrado o círculo), título, subtítulo, calificación opcional y acción. Con `to`, enlace que cubre la fila (la acción sigue siendo independiente). |
+| `SecondaryButton` | `Button` (14296:3647, Button-15/16) | Alto 44, borde `line`, fondo `surface-quickplay`; `aria-disabled` para destinos pendientes. |
+| `StarRating` | `StarRating` (14296:5021) | Tamaños `sm` 76×12, `md` 96×16 y `lg` 106×18. Pinta el **promedio real**: el recurso de Figma como máscara, vacío en `line` y relleno en `fg` recortado al porcentaje. |
+| `StarRatingInput` | `StarRating` Rating-08 (176×32) | Editable de 0,5 en 0,5 (rol `slider`). §8.4. |
+| `ReviewCard` | `ReviewCard` (14296:11962) | Escritorio con borde y padding 20; móvil sin borde. Seguir, más opciones, Me gusta, comentarios y guardar con `aria-disabled` (REV-01). |
+| `PlayButton` | `MusicRow › play-circle` | 28 px; sin `onPlay` queda `aria-disabled` (el reproductor está pendiente). |
 | `Navbar` (`shared/layout`) | `Navbar` (14296:14145) | Móvil 52 / escritorio 80; enlace activo con `aria-current`. |
 | `BottomBar` (`shared/layout`) | `BottomBar` (14296:15745) | Solo móvil; ítem activo con el color `link`. |
 | `NavTarget` (`shared/layout`) | — | Enlace (`NavLink`) o botón con `aria-disabled` si el destino no existe. |
-| `AccountMenu` (`shared/layout`) | — (provisional) | Menú del avatar con "Cerrar sesión". Ver §4.5. |
+| `AccountMenu` (`shared/layout`) | — (propuesta aprobada) | Tarjeta al pasar el ratón y menú con "Configuración" y "Cerrar sesión". Ver §5. |
+| `Navbar` · `search` | `Navbar › SearchField` | La Navbar recibe el campo de búsqueda como `ReactNode`: lo aporta el Buscador (`NavbarSearch`, §6.4). |
 
 ---
 
@@ -261,10 +298,11 @@ Cuando un campo falla, el input pasa al estado **Error** de Figma (borde `brand/
 2. **"¿Olvidaste tu contraseña?":** desde 2026-11-06 es un enlace a `/recuperar-contrasena` (§3.10), con el estilo de PasswordRecovery de Figma. Antes, sin endpoint, se mostraba sin acción y con `aria-disabled`.
 3. **Botón "Crear cuenta" deshabilitado hasta aceptar los términos:** se usa el estado **Disabled** de PrimaryButton. Es la forma de exigir la aceptación sin enviarla al backend.
 4. **Mientras se envía:** los inputs pasan a `readOnly` (no a Disabled, que en Figma muestra "No disponible") y el botón muestra el estado **Loading** ("Iniciando sesión…" / "Creando cuenta…"). La barra de progreso se anima de forma sutil y respeta `prefers-reduced-motion`.
-5. **Términos y Política de Privacidad** (casilla y pie legal) se muestran como texto subrayado sin enlace: aún no existen URLs de esos documentos.
+5. **Términos y Política de Privacidad** (casilla y pie legal) enlazan a `/terminos` y `/privacidad` en otra pestaña, para no perder lo escrito (§5). La casilla **solo cambia al pulsar el cuadro**: el texto no es un `<label>` y el nombre accesible llega con `aria-labelledby` (decisión del propietario, 2026-11-06).
 6. **Pie legal:** en móvil sigue a AuthFooter (separación 24 en Login, 16 en Registro). En escritorio baja al fondo de la página (`md:mt-auto`), como en los frames de escritorio de Login.
 7. **Barra de estado y HomeIndicator** de los frames móviles simulan el teléfono y no se implementan.
-8. **`/` fue una página temporal** (`SessionPlaceholderPage`) hasta el módulo Inicio, que la sustituyó (2026-11-04). El cierre de sesión pasó al menú del avatar (§4.5).
+8. **`/` fue una página temporal** (`SessionPlaceholderPage`) hasta el módulo Inicio, que la sustituyó (2026-11-04). El cierre de sesión pasó al menú del avatar (§5).
+9. **Avatar por defecto:** el registro envía `avatar_url` con el robot de DiceBear (`bottts`, semilla = username), el mismo estilo que los usuarios seed. El backend no asigna ninguno (USER-03). Ver §5.
 
 ### 3.7 Accesibilidad
 
@@ -276,7 +314,7 @@ Cuando un campo falla, el input pasa al estado **Error** de Figma (borde `brand/
 
 ### 3.8 Limitaciones Conocidas
 
-- **Términos:** la aceptación no se guarda en el servidor (el backend no tiene ese campo).
+- **Términos:** la aceptación no se guarda en el servidor (el backend no tiene ese campo, AUTH-03). Los textos de `/terminos` y `/privacidad` son una propuesta pendiente de revisión legal (§5).
 - **Correo:** el backend acepta dominios sin punto (`usuario@dominio`). El formulario es más estricto, pero la API sigue aceptándolos si se llama directamente.
 - **Ayuda de la contraseña:** Figma sigue con el texto de la regla anterior ("De 8 a 72 bytes…"). El frontend muestra uno provisional que describe la regla actual del backend.
 - **Tokens en `localStorage`:** quedan expuestos si alguna vez hay un XSS. El backend entrega los tokens en el cuerpo JSON (no usa cookies `httpOnly`).
@@ -350,7 +388,7 @@ El caso de éxito de la verificación no se probó aquí: necesita un usuario si
 
 ## 4. Módulo 2: Inicio
 
-Inicio es una **base que crece con los demás módulos**. Muestra solo lo que tiene contrato de API; las secciones de Figma que dependen de módulos o endpoints que aún no existen (reseñas, red social, reproductor) se añadirán cuando existan. No se muestra contenido de ejemplo.
+Inicio es una **base que crece con los demás módulos**. Muestra solo lo que tiene contrato de API; las secciones de Figma que dependen de módulos o endpoints que aún no existen (feed de reseñas, red social, reproductor) se añadirán cuando existan. No se muestra contenido de ejemplo.
 
 ### 4.1 Pantallas de Figma
 
@@ -364,8 +402,8 @@ Componentes: `Navbar` (14296:14145), `BottomBar` (14296:15745), `SearchField` (1
 |---|---|
 | Navbar y BottomBar | ✅ Estructura común (`AppLayout`) para todas las pantallas con sesión. |
 | Feed introduction (escritorio): "Tu próxima obsesión empieza aquí." | ✅ |
-| "Hecho para tus oídos" (`MusicCard`) | ✅ Con una plantilla de canciones (§4.3). |
-| Tabs "Para ti (Popular)" / "Siguiendo" y `ReviewCard` | ❌ No hay reseñas en el backend. |
+| "Hecho para tus oídos" (`MusicCard`) | ✅ Con una plantilla de canciones con carátula (§4.3); cada tarjeta abre su ficha (§7). |
+| Tabs "Para ti (Popular)" / "Siguiendo" y `ReviewCard` | ❌ No hay feed de reseñas en el backend (HOME-04); las reseñas sí se ven en cada ficha (§7). |
 | "Conecta por lo que suena" (escritorio) | ❌ No hay sugerencias de usuarios. |
 | `MiniPlayer` y `SnippetPlayer` | ❌ No hay audio. |
 
@@ -375,18 +413,32 @@ Componentes: `Navbar` (14296:14145), `BottomBar` (14296:15745), `SearchField` (1
 |---|---|---|
 | `/` | Solo con sesión (`ProtectedRoute` → `AppLayout`) | `HomePage` |
 
-`AppLayout` (`src/app/layout/`) envuelve todas las rutas con sesión: `Navbar` arriba, el contenido del módulo en `<Outlet />` y, en móvil, `BottomBar` abajo. Los destinos de la navegación están en `app/layout/navigation.ts`: los que todavía no existen (Buscador, Crear Reseña, Perfil) tienen `to: null` y se muestran con el estilo de Figma, sin acción y con `aria-disabled`, como antes "¿Olvidaste tu contraseña?". Al implementar cada módulo basta con poner su ruta ahí.
+`AppLayout` (`src/app/layout/`) envuelve todas las rutas con sesión: `Navbar` arriba, el contenido del módulo en `<Outlet />` y, en móvil, `BottomBar` abajo. Los destinos de la navegación están en `app/layout/navigation.ts`: los que todavía no existen tienen `to: null` y se muestran con el estilo de Figma, sin acción y con `aria-disabled`. Hoy solo **Perfil** sigue así (Buscador → `/buscar`, Crear Reseña → `/resena/nueva`); Configuración (`SETTINGS_PATH`) también está pendiente. Al implementar cada módulo basta con poner su ruta ahí.
 
 ### 4.3 Contrato con el Backend
 
 | Acción | Endpoint | Respuesta OK | Errores tratados |
 |---|---|---|---|
 | Canciones de "Hecho para tus oídos" | `GET /api/v1/music/tracks/{id}` (Bearer), una por canción y en paralelo | `200 TrackDetail` | `404` → se omite la canción · `401` → se renueva la sesión; si no se puede, se cierra · red/`500` → estado de error si no cargó ninguna |
+| Carátula de cada canción (2026-11-06) | `GET /api/v1/music/albums/{spotifyId}` y, si da `404`, `GET /api/v1/music/search?type=album&q=…` | `image_url` del álbum | Cualquier fallo → la tarjeta se muestra sin carátula |
 | Avatar de la Navbar | `GET /api/v1/auth/me` (ya lo hace `AuthProvider`) | `avatar_url` | `null` o imagen que no carga → placeholder |
 
 **Plantilla:** no hay endpoint de recomendaciones. `features/home/data/homeTemplate.ts` lista 8 **IDs de Spotify** del dataset, verificados en el catálogo y aprobados por el propietario, iguales para todos los usuarios. Se guardan los IDs de Spotify porque son estables; los IDs locales dependen del orden de carga del dataset. La vista recibe una lista de `RecommendedTrack` y no sabe de dónde salen: cuando exista el endpoint solo cambia `homeService.getRecommendations()`.
 
-**Por qué no `/music/search`:** en cache-miss consulta Spotify y escribe en la base de datos (backend `implementacion.md` §4.1). `GET /music/tracks/{id}` solo lee el catálogo local.
+**Carátulas (2026-11-06).** Las canciones del dataset no tienen álbum enlazado (`album_id: null`, HOME-02), y buscar el álbum por el título de la canción fallaba (con "bad guy" salía "No Time To Die"; con "HUMBLE.", nada). Por eso la plantilla fija **a mano el álbum de cada canción** (`album.spotifyId` + `album.search`), verificado contra el backend:
+
+| Canción | Álbum |
+|---|---|
+| Blinding Lights · The Weeknd | After Hours |
+| bad guy · Billie Eilish | WHEN WE ALL FALL ASLEEP, WHERE DO WE GO? |
+| Despacito · Luis Fonsi | VIDA |
+| HUMBLE. · Kendrick Lamar | DAMN. |
+| Get Lucky · Daft Punk | Random Access Memories |
+| Knights of Cydonia · Muse | Black Holes and Revelations |
+| Wake Me Up · Avicii | True (Bonus Edition) |
+| Uptown Funk · Mark Ronson | Uptown Special |
+
+`homeService` pide en paralelo la canción y su álbum (`GET /music/albums/{spotifyId}`). Si el álbum aún no está en la base (`404`), lo busca (`/music/search?type=album`): el backend lo trae de Spotify, **lo guarda** y la próxima vez basta el primer paso. Esta escritura en la base se aceptó a partir de este cambio (antes Inicio solo leía).
 
 ### 4.4 Sesión: renovación del access token
 
@@ -399,12 +451,12 @@ Inicio es el primer módulo que llama a endpoints protegidos después de abrir l
 
 ### 4.5 Decisiones de Implementación
 
-1. **Sin imagen:** las canciones del dataset no tienen carátula. `MusicCard` muestra un recuadro neutro (`surface-input-disabled`) con la geometría de Figma. El avatar sin imagen, o que no carga, es un círculo neutro. Figma no define placeholders; lo aprobó el propietario.
+1. **Sin imagen:** si una carátula no se encuentra o no carga, `MusicCard` muestra un recuadro neutro (`surface-input-disabled`) con la geometría de Figma. El avatar sin imagen muestra el robot por defecto y, si tampoco carga, un círculo neutro (§5). Figma no define placeholders; lo aprobó el propietario.
 2. **Escritorio muestra 4 tarjetas** (la cuadrícula 2×2 de Figma); en móvil el carrusel horizontal muestra las 8.
 3. **Títulos largos:** se recortan con puntos suspensivos y el texto completo queda en `title`. Figma no define el desbordamiento.
 4. **QuickPlay y "Ver todo"** se muestran pero no tienen acción: no hay audio ni pantalla de recomendaciones.
 5. **Estados de carga, vacío y error** (Figma no los define): tarjetas grises con la geometría de `MusicCard` y `motion-safe:animate-pulse`; "Todavía no hay recomendaciones."; `FormAlert` con el mensaje y "Reintentar".
-6. **Cerrar sesión (provisional):** Figma no lo ubica en Inicio. Se abre un menú al pulsar el avatar (`AccountMenu`), con tokens existentes, hasta que exista el módulo de Configuración. Aprobado por el propietario.
+6. **Cerrar sesión:** Figma no lo ubica en Inicio. Está en el menú del avatar (`AccountMenu`, §5), junto a "Configuración".
 7. **Navbar entre 768 y 1280 px:** Figma solo define 1440. Se reducen márgenes (32) y separaciones (24) y el buscador se encoge; desde 1280 px (`xl`) se usan las medidas de Figma.
 8. **Home indicator, StatusBar y MiniPlayer** no se implementan: los dos primeros simulan el teléfono (como en Auth) y el tercero necesita audio. La BottomBar respeta el área segura inferior.
 9. **Favicon:** el logo de Junkbox, con los dos SVG originales (letras oscuras para pestañas en tema claro y claras en tema oscuro).
@@ -422,11 +474,11 @@ Inicio es el primer módulo que llama a endpoints protegidos después de abrir l
 ### 4.7 Limitaciones Conocidas
 
 - **Recomendaciones:** no hay endpoint. Se usa una plantilla igual para todos los usuarios.
-- **Carátulas:** el backend no expone imagen por canción. Se muestra el placeholder.
+- **Carátulas:** el backend no expone imagen por canción (HOME-02). La plantilla fija el álbum de cada canción a mano; con el endpoint de recomendaciones habrá que pedir la imagen en la respuesta.
 - **Una petición por canción:** no hay endpoint para pedir varias canciones a la vez (8 peticiones al cargar Inicio).
 - **Reseñas, sugerencias de usuarios y reproducción:** no hay backend, así que esas secciones de Figma no se muestran y QuickPlay no reproduce.
-- **Buscador, Crear Reseña, Perfil y "Ver todo"** no tienen destino todavía.
-- **Cerrar sesión** está en un menú provisional que no sale de Figma.
+- **Perfil y "Ver todo"** no tienen destino todavía.
+- **Cerrar sesión** está en el menú del avatar, que no sale de Figma (§5).
 - **Tablet:** Figma no lo define. Entre 768 y 1280 px la Navbar se adapta (§4.5.7).
 
 ### 4.8 Verificación del Módulo (2026-11-04)
@@ -443,9 +495,311 @@ Inicio es el primer módulo que llama a endpoints protegidos después de abrir l
 
 En desarrollo se ven 16 peticiones a `/music/tracks`: `StrictMode` monta el efecto dos veces y la primera tanda se cancela. En producción son 8.
 
+**Carátulas (2026-11-06):** las 8 se resuelven por el ID de Spotify de su álbum (tabla de §4.3), con capturas headless en móvil Claro/Oscuro y sin errores en la consola.
+
 ---
 
-## 5. Verificación
+## 5. Módulo 3: Cuenta (menú, avatar y documentos legales)
+
+Cambios pedidos por el propietario el 2026-11-06. **Nada de esto está en Figma**: son propuestas aprobadas que usan los tokens y componentes existentes.
+
+### 5.1 Menú de cuenta (`shared/layout/AccountMenu.tsx`)
+
+- **Al pasar el ratón** por el avatar (o al llegar con Tab): tarjeta con el **nombre visible en negritas** (`text-sm font-semibold`, `fg`) y `@username` en un tono más claro (`text-xs`, `fg-muted`). Sin nombre visible, el username en ambas líneas.
+- **Al pulsar:** menú con la misma cabecera, **"Configuración"** (`SETTINGS_PATH`; `null` hasta que exista el módulo, se muestra con `aria-disabled`) y **"Cerrar sesión"**.
+- En móvil no hay "pasar el ratón": el nombre se ve dentro del menú.
+- `AppLayout` le pasa un `AccountSummary` (`username`, `displayName`, `avatarUrl`, `fallbackAvatarUrl`).
+- **Accesibilidad:** la tarjeta es `role="tooltip"` y describe el botón (`aria-describedby`); el menú sigue el patrón "menu button" (flechas ↑ ↓, Escape devuelve el foco al avatar, cierre al pulsar fuera).
+
+### 5.2 Avatar por defecto
+
+- `shared/utils/defaultAvatar.ts` → `https://api.dicebear.com/7.x/bottts/svg?seed=<username>`: el mismo robot que los usuarios seed, siempre igual para cada cuenta.
+- El **registro** lo envía en `avatar_url` (campo que el backend ya acepta).
+- `Avatar` lo usa como **respaldo** (`fallbackSrc`) si `avatar_url` es null o no carga; en las reseñas, con el username del autor.
+- Pendiente del backend: asignarlo en el servidor (USER-03).
+
+### 5.3 Términos y documentos legales
+
+- **Casilla de Registro:** solo cambia al pulsar el cuadro (§3.6.5); "Términos de Servicio" y "Política de Privacidad" son enlaces (nueva pestaña). El pie legal de `AuthLayout` también enlaza.
+- **Rutas públicas** (con o sin sesión), en `features/legal/`:
+
+| Ruta | Vista | Contenido |
+|---|---|---|
+| `/terminos` | `TermsPage` | Términos de Servicio: quién presta el servicio, requisitos y cuenta, contenido de usuario, música y Spotify (Premium, contenido de sus titulares), uso aceptable, propiedad intelectual, disponibilidad y responsabilidad, baja, cambios y ley mexicana / Ley Federal de Protección al Consumidor. |
+| `/privacidad` | `PrivacyPage` | Aviso de Privacidad Integral conforme a la **LFPDPPP** (México, decisión del propietario): responsable, datos que se recaban (incluidos los de Spotify), finalidades primarias y secundarias, transferencias y proveedores (Spotify, DiceBear, correo, alojamiento), derechos ARCO (20 y 15 días hábiles), revocación, almacenamiento en el navegador, seguridad, cambios y autoridad. |
+
+- Los textos están en `data/termsOfService.ts` y `data/privacyNotice.ts` como datos (`LegalDocument`); `LegalPage` los pinta con logo, título, fecha, secciones, listas y un pie con los dos enlaces. Cambia el `document.title`.
+- **Es una propuesta:** cada página muestra un aviso ("Documento en revisión…") y los datos pendientes van entre corchetes, resaltados con `<mark>` (responsable, domicilio, correos, proveedores, edad mínima, ciudad, autoridad vigente: la LFPDPPP cambió en 2025 y el INAI desapareció). Debe revisarlo un profesional en derecho antes de publicarse.
+- Guardar la aceptación (fecha y versión) en el servidor sigue pendiente (AUTH-03).
+
+### 5.4 Verificación (2026-11-06)
+
+| Prueba | Resultado |
+|---|---|
+| `pnpm typecheck` · `pnpm lint` | ✅ |
+| Tarjeta al pasar el ratón, Claro y Oscuro | ✅ "César David Beltrán Loredo / @cesar_beltran" |
+| Menú: "Configuración" (deshabilitada) y "Cerrar sesión"; la tarjeta se oculta al abrir | ✅ |
+| Avatar de cesar | ✅ Robot `bottts?seed=cesar` |
+| Registro: pulsar el texto no marca la casilla; pulsar la casilla sí | ✅ |
+| Enlaces legales en Registro y en el pie | ✅ `/terminos` y `/privacidad` en otra pestaña |
+| `/terminos` y `/privacidad` en escritorio claro y móvil oscuro | ✅ 7 y 8 datos pendientes resaltados |
+| Consola | ✅ Sin errores |
+
+---
+
+## 6. Módulo 4: Buscador
+
+### 6.1 Pantallas de Figma
+
+| Pantalla | Móvil Claro | Móvil Oscuro | Escritorio Claro | Escritorio Oscuro |
+|---|---|---|---|---|
+| Buscador · Música | `14244:50703` | `14263:21885` | `14244:50815` | `14263:22014` |
+| Buscador · Usuarios | `14244:50943` | — | `14244:51045` | — |
+
+Componentes: `SearchField` (14296:4081), `SegmentedControl` (14296:15842), `MusicRow` (14296:8113), `Button` (14296:3647), `StarRating` (14296:5021).
+
+### 6.2 Rutas y Estructura
+
+| Ruta | Acceso | Vista |
+|---|---|---|
+| `/buscar?q=` | Con sesión (`AppLayout`) | `SearchPage` |
+
+- **Móvil:** márgenes 16/12, título "Tu próxima escucha." (24), una columna con Canciones, Álbumes y Artistas como `MusicRow`.
+- **Escritorio:** márgenes 80/32, título "Encuentra tu próxima escucha." (32), cabecera de 800; Canciones a la izquierda y, a 48 px, una columna de 384 con las tarjetas **AlbumResult** (álbum destacado: carátula 128, título 28, año, estrellas y "N valoraciones", "Ver álbum", "Ver todos") y **ArtistResult**.
+
+### 6.3 Contrato con el Backend
+
+| Acción | Endpoint | Notas |
+|---|---|---|
+| Buscar | `GET /api/v1/music/search?q=&type=track\|album\|artist&limit=` (Bearer) | Tres llamadas en paralelo: 20 canciones, 10 álbumes y 5 artistas. Si una falla, las otras se muestran; `401` cierra la sesión. |
+| Calificación del álbum destacado | `GET /api/v1/music/albums/{id}` | La búsqueda no trae `ratings` (SEARCH-03). |
+
+La búsqueda compara con `strict_word_similarity` sobre "título + artista" en la base local y, si no hay resultados buenos (puntaje < 0.8), consulta Spotify y **guarda** lo encontrado (backend `README.md` endpoint 11).
+
+### 6.4 Decisiones de Implementación
+
+1. **La consulta vive en la URL** (`?q=`): se puede compartir y "atrás" vuelve a la búsqueda anterior. Escribir la actualiza tras 400 ms sin teclear (con `replace`, sin llenar el historial); Enter busca al momento; la ✕ borra. Si la URL cambia desde fuera, el campo la sigue.
+2. **Estado derivado** (`useSearchController`): cada resultado se guarda con su clave `intento:consulta` y el estado (inicial, cargando, listo, error) se calcula en el render, sin `setState` síncrono en efectos (regla `set-state-in-effect` de oxlint).
+3. **Carátula de las canciones:** el backend no la da (HOME-02); si el álbum de la canción aparece entre los álbumes encontrados (mismo título y artista), se usa su carátula.
+4. **"Ver todas las canciones"** despliega hasta 20 (se ven 5); **"Ver todos"** despliega el resto de álbumes en la tarjeta.
+5. **Pestaña "Usuarios"** visible pero deshabilitada (SEARCH-04). **Estrellas por fila** solo si hay calificación (SEARCH-03).
+6. **Botón ▶** de cada canción visible y deshabilitado hasta que exista el reproductor.
+7. **Filas, título y "Ver álbum"** enlazan a las fichas (§7).
+8. **Estados que Figma no define:** "Busca canciones, álbumes o artistas.", "Buscando “…”…", "No encontramos resultados para “…”." y error con "Reintentar".
+
+**Buscador de la Navbar (`NavbarSearch`).** A petición del propietario, el SearchField de la Navbar es un campo real en todas las pantallas con sesión:
+
+- Tras 300 ms muestra las **4 mejores coincidencias de cualquier tipo** (`searchService.suggest`, 4 de cada tipo). La API no da un puntaje común, así que se ordenan por relevancia propia: nombre igual (3) · la consulta es exactamente el artista (2,5) · empieza igual (2) · lo contiene (1); sin repetir la misma canción (sencillo y álbum).
+- La última opción es "Ver todos los resultados de “…”" (Buscador completo).
+- Patrón ARIA **combobox + listbox**: flechas, Enter (opción activa o Buscador), Escape.
+- Al elegir, el campo **vuelve a quedar vacío** con su placeholder y se abre la ficha del elemento.
+- En móvil la lista ocupa el ancho de la pantalla bajo la barra; en escritorio mide 400 px. No está en Figma (mismos estilos que `MusicRow`).
+
+### 6.5 Accesibilidad
+
+- `<form role="search">` con campo etiquetado; `SegmentedControl` como `tablist` (Usuarios con `aria-disabled`).
+- Resultados en una región `aria-live` con `aria-busy` durante la carga; cada sección con `aria-label`.
+- Filas como enlaces que cubren la fila; el botón ▶ queda por encima y tiene su propio nombre.
+
+### 6.6 Limitaciones Conocidas
+
+- **SEARCH-01:** un artista que no está en la base pero cuyo nombre coincide con palabras de títulos locales no consulta Spotify ("Hoke" solo). Tras abrir su ficha (cascada, §7) sus canciones ya quedan en la base y la búsqueda las encuentra.
+- **SEARCH-02/03/04:** sin discografía directa, sin calificación en los resultados y sin búsqueda de usuarios.
+- Consultas sin sentido no dan "sin resultados": Spotify siempre devuelve algo.
+
+### 6.7 Verificación (2026-11-06)
+
+| Prueba | Resultado |
+|---|---|
+| `pnpm typecheck` · `pnpm lint` | ✅ |
+| Navbar → `/buscar` con el foco en el campo; escribir "Hoke" → `?q=Hoke` | ✅ |
+| Secciones con "Hoke": canciones, álbumes (BBO con carátula) y artistas | ✅ |
+| "The Weeknd" en escritorio oscuro; "Ver todas" → 20 filas | ✅ |
+| ✕ vacía la URL; "atrás" restaura la búsqueda anterior y el campo | ✅ |
+| Navbar: "Hoke" → Hoke (artista), Medallones, BBO, TRES CREUS | ✅ |
+| Navbar: flechas + Enter abre la ficha; el campo queda vacío | ✅ |
+| Capturas móvil/escritorio, Claro/Oscuro · consola | ✅ Sin errores |
+
+---
+
+## 7. Módulo 5: Fichas del catálogo (Canción, Álbum, Artista)
+
+### 7.1 Pantallas de Figma
+
+| Pantalla | Móvil Claro | Móvil Oscuro | Escritorio Claro | Escritorio Oscuro |
+|---|---|---|---|---|
+| Ficha de Canción | `14244:51392` | `14263:22646` | `14244:51550` | `14263:22818` |
+| Ficha de Álbum | `14244:51705` | `14263:22986` | `14244:51880` | `14263:23177` |
+| Ficha de Artista | `14244:52049` | `14263:23361` | `14244:52191` | `14263:23515` |
+
+Componentes: `MusicHero` (14296:12425), `Button` · Review (14296:3509), `SpotifyButton` · OpenSpotify (14296:5708), `StarRating`, `MusicRow`, `ReviewCard` (14296:11962), `ArtistReviewCard` (14296:11995).
+
+### 7.2 Rutas y Estructura
+
+| Ruta | Vista | `id` |
+|---|---|---|
+| `/cancion/:id` | `SongPage` | ID de Spotify (o entero local) |
+| `/album/:id` | `AlbumPage` | UUID local (o ID de Spotify) |
+| `/artista/:id` | `ArtistPage` | UUID local (o ID de Spotify) |
+
+Se llega desde el Buscador, las sugerencias de la Navbar, las tarjetas de Inicio y los enlaces entre fichas (`songPath`, `albumPath`, `artistPath` en `catalog/models/catalogPaths.ts`).
+
+Estructura común (`views/DetailParts.tsx`):
+
+- **Breadcrumb:** flecha (vuelve atrás o al Buscador) + "Buscador / Hoke / BBO".
+- **MusicHero:** franja con la carátula difuminada (171/304 px), artwork 136/240 (redondo en el artista), tipo, título 24/56, subtítulo con enlaces, metadatos y la calificación de la comunidad.
+- **MusicActions:** "Calificar / Reseñar" (→ §8), "Reproducir en Spotify" (abre `open.spotify.com/{track|album|artist}/{id}` en otra pestaña; "No disponible en Spotify" si el artista no tiene ID de Spotify) y compartir (solo escritorio: `navigator.share` o copia el enlace).
+- **CommunityRating** ("La comunidad opina"): promedio 36, estrellas 76×12, "sobre 5 estrellas" y, si ya voté, "Tu calificación: 4,5 · Cambiar".
+- **ReviewsSection:** las 3 reseñas más recientes (`ReviewCard`; en el artista, `ArtistReviewCard`).
+
+| Ficha | Contenido propio | Escritorio |
+|---|---|---|
+| Canción | Metadatos "año · duración · género · Spotify"; "Acerca de esta canción" con su álbum y su artista como `MusicRow` enlazadas (no están en Figma: muestran lo recopilado en cascada); "Reseñas recientes". | SongStats 424 · reseñas (separación 48) |
+| Álbum | "año · N canciones · M min · Spotify" (los minutos solo si el álbum está completo); "Pistas destacadas" (5 y "Ver las N"; "Tenemos 10 de 11 canciones" si falta alguna); "Reseñas del álbum". | Rejilla 360 · reseñas (40); en móvil: comunidad, reseñas y pistas, como Figma |
+| Artista | Géneros; "Artista en Spotify"; "N lanzamientos y M canciones en Junkbox"; "Lo que dice la comunidad"; "Imprescindibles" (3 lanzamientos + 5 canciones y "Ver toda la discografía"). Sin foto (artistas del CSV): círculo neutro y el fondo usa la carátula más reciente. | 360 · reseñas · 272 (40) |
+
+### 7.3 Catálogo en cascada (`music/services/catalogService.ts`)
+
+Decisión del propietario: al abrir una ficha se recopila el artista, sus álbumes y las canciones de esos álbumes, para que **queden guardados en la base** y sus imágenes aparezcan. El backend no tiene un endpoint para ello (CAT-01); la única vía del frontend es `GET /music/search`, que guarda lo que trae de Spotify.
+
+`hydrateArtist({ id, name })`:
+
+1. En paralelo: `search type=artist` (puede traer la foto), `type=album q=<artista>` (50) y `type=track q=<artista>` (50).
+2. Detalle de cada álbum del artista (`GET /music/albums/{id}`).
+3. Completar los álbumes incompletos (`tracks.length < total_tracks`): `search type=track q="<álbum> <artista>"` y volver a pedir el álbum. Hasta **8 álbumes**, los más grandes primero, **3 a la vez**.
+4. Devuelve `{ albums, topTracks, incompleteAlbums }`.
+
+- Se hace **una vez por artista y sesión** (la promesa se guarda en memoria; si falla, se olvida). No se cancela al salir de la ficha.
+- `fillAlbum` completa un álbum suelto (ficha de álbum) y `findAlbumForTrack` encuentra el álbum de una canción del CSV sin `album_id` (el que la contiene o su sencillo).
+- `musicApi.getAlbum` normaliza `tracks` a `[]`: el backend omite el campo cuando el álbum no tiene canciones en la base.
+
+**Prueba en vivo (2026-11-06):**
+
+| Artista | Tiempo (2ª vez) | Álbumes con carátula | Canciones guardadas |
+|---|---|---|---|
+| Hoke | 0,9 s (0 ms) | 5 de 5 | TRES CREUS 10/10 · BBO 10/11 |
+| Muse | 3,2 s (0 ms) | 6 de 6 | Black Holes and Revelations 12/12 · Will Of The People 0/10 |
+| Daft Punk | 2,9 s (0 ms) | 5 de 5 | Discovery 14/14 · Random Access Memories 12/13 · Homework 15/16 |
+
+Efecto secundario útil: "Get Lucky" (CSV) quedó enlazada a *Random Access Memories*, y la búsqueda de "Hoke" ya devuelve sus canciones. Lo que no se completa son los álbumes cuyas canciones chocan con títulos del CSV (SEARCH-01): se resolverá con CAT-01.
+
+### 7.4 Carga de datos: `useLoad`
+
+`catalog/controllers/useLoad.ts`: `useLoad(key, loader)` hace una petición por clave (o reintento), cancela la anterior y **deriva** el estado (`idle` · `loading` · `ready` · `error` con `notFound`) de la clave de la última respuesta, sin `setState` síncrono en efectos. `key = null` = aún no hay qué cargar (cargas encadenadas: ficha → cascada → reseñas). Un `401` cierra la sesión. Los cargadores son funciones de módulo estables (`catalogLoaders.ts`). Las piezas secundarias (artista, álbum) no rompen la ficha si fallan.
+
+### 7.5 Contrato con el Backend
+
+| Acción | Endpoint |
+|---|---|
+| Datos de la ficha | `GET /api/v1/music/tracks/{id}` · `/albums/{id}` · `/artists/{id}` (incluyen `ratings: { count, average }`) |
+| Cascada | `GET /api/v1/music/search` (§7.3) |
+| Reseñas de la ficha | `GET /api/v1/reviews?target_type=&target_id=&limit=3` |
+| Mi calificación | `GET /api/v1/ratings/my?target_type=&target_id=` (`404` → no voté) |
+
+### 7.6 Accesibilidad
+
+- `<nav aria-label="Ruta de navegación">` con `aria-current="page"` en el último tramo; la flecha es un botón "Volver".
+- Un `<h1>` por ficha (el título del hero) y `<h2>` por sección; las estrellas son `role="img"` con "4,5 de 5 estrellas".
+- Acciones sin backend con `aria-disabled` y `title`; compartir anuncia "Enlace copiado" con `aria-live`.
+
+### 7.7 Limitaciones Conocidas
+
+- **CAT-01:** álbumes incompletos y artistas del CSV sin foto. **RATE-01:** las barras de reparto de votos no se muestran (decisión del propietario). **REV-01:** Me gusta, comentarios, guardar y seguir sin acción. **ART-01:** sin ubicación ni oyentes del artista.
+- Las fichas solo existen para lo que ya está en la base (los IDs de Spotify nunca importados dan `404`).
+- La Navbar no marca "Buscador" como activo dentro de una ficha (Figma sí lo hace).
+
+### 7.8 Verificación (2026-11-06)
+
+| Prueba | Resultado |
+|---|---|
+| `pnpm typecheck` · `pnpm lint` · `pnpm build` | ✅ |
+| Buscador "Hoke" → "TT" → `/cancion/6mQGOlMMCOMww9wMglS9FB`, con álbum BBO y artista enlazados | ✅ |
+| Álbum BBO (oscuro y móvil claro): "11 canciones", 10 pistas, "Tenemos 10 de 11" | ✅ |
+| Artista Hoke: Imprescindibles con lanzamientos y canciones; Muse sin foto (círculo neutro) | ✅ |
+| Barra → sugerencia → `/artista/…` con el campo vacío; tarjeta de Inicio → `/cancion/…` | ✅ |
+| `/cancion/0000000000000000000000` → "No encontramos esta canción" | ✅ |
+| Reseña y calificación temporales (4,5): media estrella, "1 valoración", ReviewCard con el robot; borradas al terminar | ✅ |
+| Consola | ✅ Sin errores |
+
+---
+
+## 8. Módulo 6: Calificaciones y Reseñas
+
+### 8.1 Pantallas de Figma
+
+| Pantalla | Móvil | Escritorio |
+|---|---|---|
+| Escribir Reseña (Claro) | `14244:51146` | `14244:51275` |
+
+Componentes: `SearchField`, `StarRating` · Rating-08 (176×32), `ReviewTextarea` (14296:4102), `AudioSnippetPicker` (14296:6377), `Button` · PublishReview (14296:3558).
+
+### 8.2 Rutas y Flujo
+
+| Ruta | Vista |
+|---|---|
+| `/resena/nueva?tipo=song\|album\|artist&id=…` | `WriteReviewPage` |
+
+- Desde **"Calificar / Reseñar"** de una ficha (`writeReviewPath(tipo, id)`), con el elemento ya elegido.
+- Desde **"Crear Reseña"** (Navbar y BottomBar), sin elemento: se busca con el buscador de la pantalla (mismas sugerencias que la Navbar) y al elegir uno se escribe en la URL.
+- Al publicar, quitar o eliminar, vuelve a la ficha, que ya muestra el promedio nuevo y "Tu calificación".
+
+### 8.3 Contrato con el Backend
+
+Referencia: backend `README.md` (endpoints 15–22) e `implementacion.md` §6.
+
+| Acción | Endpoint | Respuesta OK | Errores |
+|---|---|---|---|
+| Calificar / cambiar | `POST /api/v1/ratings` `{ target_type, target_id, score }` | `201` nuevo · `200` reemplazado | `400` (score fuera de 0,5–5 o no múltiplo de 0,5) · `404` objetivo no importado |
+| Mi calificación | `GET /api/v1/ratings/my?target_type=&target_id=` | `200 Rating` | `404` → no voté |
+| Quitar calificación | `DELETE /api/v1/ratings/{id}` | `200` | `403` · `404` |
+| Publicar reseña | `POST /api/v1/reviews` `{ target_type, target_id, content }` | `201 Review` | `409` → ya existe: se edita con `PUT` |
+| Editar reseña | `PUT /api/v1/reviews/{id}` `{ content }` | `200 Review` | `403` · `404` |
+| Eliminar reseña | `DELETE /api/v1/reviews/{id}` | `200` | `403` · `404` |
+| Reseñas del objetivo | `GET /api/v1/reviews?target_type=&target_id=&limit=&page=` | `200 { total, reviews[] }` | — |
+
+`target_id`: ID de Spotify para canciones y UUID local para álbumes y artistas (el backend acepta ambos). `rating_score` de cada reseña es el voto **actual** de su autor.
+
+### 8.4 Decisiones de Implementación
+
+1. **Calificar en Escribir Reseña** (decisión del propietario, como Figma): las estrellas guardan la calificación (obligatoria) y el texto, si se escribe, la reseña (opcional).
+2. **Estrellas de media en media** (`StarRatingInput`, recurso de Figma de 176×32 como máscara): mitad izquierda de una estrella = media, derecha = entera; vista previa al pasar el ratón; teclado ← ↓ / → ↑ (±0,5), Inicio (0,5) y Fin (5).
+3. **Texto por nivel** (Figma solo define "5 de 5 · Brutal"; propuesta): 0,5 Nada para mí · 1 Malo · 1,5 Flojo · 2 Regular · 2,5 Pasable · 3 Bueno · 3,5 Muy bueno · 4 Excelente · 4,5 Increíble · 5 Brutal.
+4. **Validación** (`writeReview.ts`): estrellas obligatorias; texto de **5 a 2.000** caracteres (el contador de Figma; el backend admite 5.000), contados como el backend (code points). Un texto vacío con reseña existente pide usar «Eliminar mi reseña».
+5. **Publicar:** `POST /ratings` y, si hay texto, `PUT` de mi reseña o `POST` (si responde `409`, la busca y hace `PUT`).
+6. **Precarga:** mi calificación (`GET /ratings/my`) y mi reseña, que se busca en `GET /reviews` paginado porque no existe `GET /reviews/my` (REV-02). El borrador va ligado a su objetivo, así que se muestra lo publicado hasta que se edita (sin `setState` en efectos). Con algo publicado, el botón dice "Guardar cambios" y aparecen "Quitar mi calificación (4,5)" y "Eliminar mi reseña".
+7. **"Elige tus 30 segundos"** se muestra atenuado y "próximamente": no hay reproductor (HOME-06).
+8. **Textos cambiados respecto a Figma:** "Seleccionado: TT — Hoke" (en lugar de "Sugerencia: …") y "La reseña es opcional; la calificación, no" (en lugar de "Reproducción en pausa").
+9. **ComposerContext** (escritorio, desde `lg`): carátula 296 y los textos de Figma.
+
+### 8.5 Accesibilidad
+
+- Las estrellas son un `slider` (`aria-valuemin` 0,5, `aria-valuemax` 5, `aria-valuetext` "4,5 de 5 estrellas" o "Sin calificar") descrito por el texto del nivel.
+- El buscador de la pantalla es un `combobox` con su `listbox`; la textarea tiene nombre ("Tu reseña (opcional)") y `aria-invalid`.
+- Errores con `role="alert"`; el botón usa el estado Loading de `PrimaryButton`.
+
+### 8.6 Limitaciones Conocidas
+
+- **REV-02:** encontrar mi reseña recorre las páginas de `GET /reviews` (50 por página).
+- **REV-01:** sin Me gusta, comentarios ni seguir. **RATE-01:** sin reparto de votos.
+- El fragmento de 30 s no existe en el backend.
+
+### 8.7 Verificación (2026-11-06, flujo completo en Edge headless con `cesar`)
+
+| Prueba | Resultado |
+|---|---|
+| `pnpm typecheck` · `pnpm lint` · `pnpm build` | ✅ |
+| "Calificar / Reseñar" en "TT" → `/resena/nueva?tipo=song&id=…` con el elemento elegido | ✅ |
+| Publicar sin estrellas · texto de 3 caracteres | ✅ "Elige de media a cinco estrellas." · "…al menos 5 caracteres." |
+| Clic en la mitad izquierda de la 5.ª estrella | ✅ "4,5 de 5 · Increíble" |
+| Publicar → ficha con 4,5, "1 valoración", "Tu calificación: 4,5" y la reseña | ✅ |
+| "Cambiar": precarga 4,5 y el texto; ← ← ← y texto nuevo → ficha con 3,0 y la reseña editada (PUT) | ✅ |
+| "Eliminar mi reseña" y "Quitar mi calificación" → API: `404` y 0 reseñas | ✅ Sin datos de prueba |
+| "Crear Reseña" (móvil oscuro) → estrellas deshabilitadas; buscar "Muse" y elegir → `?tipo=artist&id=…` | ✅ |
+| Consola | ✅ Sin errores |
+
+---
+
+## 9. Verificación
 
 Antes de cerrar cualquier módulo:
 
@@ -461,7 +815,7 @@ Además: probar las rutas del módulo con el backend en marcha (`pnpm dev`), rev
 
 ---
 
-## 6. Historial
+## 10. Historial
 
 | Fecha | Cambio |
 |---|---|
@@ -471,3 +825,9 @@ Además: probar las rutas del módulo con el backend en marcha (`pnpm dev`), rev
 | 2026-11-03 | El backend ya tiene CORS: se documenta (§2.5, §3.8, README, `.env.example`). El proxy de Vite sigue siendo el modo por defecto; no cambia el comportamiento. |
 | 2026-11-04 | Módulo 2: Inicio (§4). Estructura común (`AppLayout`, Navbar, BottomBar), "Hecho para tus oídos" con plantilla, menú de cuenta provisional, favicon y renovación compartida del access token. Tokens `surface-nav`, `surface-quickplay` y `text-caption-2xs`. Se elimina `SessionPlaceholderPage`. |
 | 2026-11-06 | Autenticación: recuperación de contraseña (`/recuperar-contrasena`, `/restablecer-contrasena`) y verificación de correo (`/verificar-correo`) con los endpoints del commit `51ec315` del backend (§3.10). "¿Olvidaste tu contraseña?" pasa a ser un enlace. `email_verified` en `UserProfile`. |
+| 2026-11-06 | Módulo 3 · Cuenta (§5): menú del avatar con tarjeta, "Configuración" y "Cerrar sesión"; avatar robot por defecto; casilla de términos solo en el cuadro; páginas `/terminos` y `/privacidad` (propuesta LFPDPPP). |
+| 2026-11-06 | Inicio: carátulas con el álbum de cada canción fijado en la plantilla (§4.3). Tipos y adaptador de música pasan a `features/music/`. |
+| 2026-11-06 | Módulo 4 · Buscador (§6): `/buscar?q=` y buscador de la Navbar con las 4 mejores sugerencias. Componentes `MusicRow`, `SecondaryButton`, `StarRating`; token `fg-soft`. |
+| 2026-11-06 | Módulo 5 · Fichas (§7): `/cancion`, `/album`, `/artista` con cascada del catálogo (`catalogService`), `useLoad`, `ReviewCard`, enlaces a Spotify. El cliente HTTP admite `PUT`/`DELETE`. |
+| 2026-11-06 | Módulo 6 · Calificaciones y Reseñas (§8): `/resena/nueva`, estrellas de 0,5 (`StarRatingInput`), publicar/editar/quitar/eliminar y "Tu calificación" en las fichas. |
+| 2026-11-10 | Documentación de los módulos 3–6. Se restaura `.env.example` (borrado en el commit `9e0ee3e`) con `VITE_SPOTIFY_CLIENT_ID` y el modo Kubernetes del backend (commit `2d05563`, API en el puerto 80; sin cambios de contrato). |

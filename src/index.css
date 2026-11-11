@@ -131,3 +131,32 @@
     transform: translateX(200%);
   }
 }
+
+/*
+ * Desplazamiento continuo (infinite marquee) de la landing: la pista contiene su lista dos veces
+ * y se mueve la mitad de su tamaño, así el bucle no tiene salto. La duración se fija en cada pista
+ * (animation-duration) y el sentido con animation-direction. Con prefers-reduced-motion se detiene
+ * (motion-reduce:animate-none en el componente).
+ */
+@theme {
+  --animate-marquee-x: jb-marquee-x 60s linear infinite;
+  --animate-marquee-y: jb-marquee-y 60s linear infinite;
+}
+
+@keyframes jb-marquee-x {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+@keyframes jb-marquee-y {
+  from {
+    transform: translateY(0);
+  }
+  to {
+    transform: translateY(-50%);
+  }
+}
