@@ -2,7 +2,7 @@ import type { CSSProperties } from 'react'
 import { cn } from '../../../shared/utils/cn'
 import { LANDING_COVERS, type LandingCover } from '../data/landingCovers'
 
-/** Portadas por columna diagonal (escritorio) y por carrusel (móvil). */
+/** Portadas por fila (escritorio) y por carrusel (móvil). */
 const PER_COLUMN = 10
 const PER_STRIP = 20
 
@@ -37,12 +37,15 @@ interface ColumnProps {
   reverse?: boolean
 }
 
-/** Columna vertical sin fin: la lista va dos veces y se desplaza la mitad de la pista. */
-function MarqueeColumn({ covers, duration, reverse = false }: ColumnProps) {
+/**
+ * Fila tipo carrusel: la lista va dos veces y se desplaza la mitad de la pista. `reverse` =
+ * de izquierda a derecha (keyframes jb-marquee-x en sentido inverso); si no, de derecha a izquierda.
+ */
+function MarqueeRow({ covers, duration, reverse = false }: ColumnProps) {
   const style: CSSProperties = { animationDuration: `${duration}s`, animationDirection: reverse ? 'reverse' : 'normal' }
   return (
-    <div className="h-[150vh] w-28 shrink-0 overflow-hidden lg:w-32">
-      <div className="flex flex-col gap-3 animate-marquee-y motion-reduce:animate-none" style={style}>
+    <div className="w-[75vw] overflow-hidden">
+      <div className="flex w-max gap-3 animate-marquee-x" style={style}>
         {[...covers, ...covers].map((cover, index) => (
           <Cover key={`${cover.imageUrl}-${index}`} cover={cover} className="size-28 lg:size-32" />
         ))}
@@ -51,29 +54,30 @@ function MarqueeColumn({ covers, duration, reverse = false }: ColumnProps) {
   )
 }
 
-/** Grupo de 4 columnas diagonales en una esquina (escritorio). */
+/**
+ * Grupo de 4 filas en una esquina (escritorio), con una ligera inclinación diagonal. Las filas
+ * alternan sentido (izquierda → derecha, derecha → izquierda…) y velocidad.
+ */
 function CornerCluster({ corner, offset }: { corner: 'top-left' | 'bottom-right'; offset: number }) {
-  const columns = [0, 1, 2, 3].map((index) => rotate(LANDING_COVERS, offset + index * PER_COLUMN).slice(0, PER_COLUMN))
+  const rows = [0, 1, 2, 3].map((index) => rotate(LANDING_COVERS, offset + index * PER_COLUMN).slice(0, PER_COLUMN))
   return (
     <div
-      className={cn(
-        'absolute flex gap-3',
-        corner === 'top-left' ? 'top-0 left-0' : 'right-0 bottom-0',
-      )}
-      // Centrado sobre su esquina y girado: lo más denso queda en la esquina y la máscara lo desvanece hacia el centro.
-      style={{ transform: `translate(${corner === 'top-left' ? '-50%, -50%' : '50%, 50%'}) rotate(-35deg)` }}
+      className={cn('absolute flex flex-col gap-3', corner === 'top-left' ? '-top-[14vh] -left-[18vw]' : '-right-[18vw] -bottom-[14vh]')}
+      style={{ transform: 'rotate(-12deg)' }}
     >
-      {columns.map((covers, index) => (
-        <MarqueeColumn key={index} covers={covers} duration={70 + index * 12} reverse={index % 2 === 1} />
+      {rows.map((covers, index) => (
+        <MarqueeRow key={index} covers={covers} duration={60 + index * 10} reverse={index % 2 === 0} />
       ))}
     </div>
   )
 }
 
 /**
- * Fondo de escritorio (md+): 4 columnas diagonales arriba a la izquierda y 4 abajo a la derecha,
- * con desplazamiento continuo. Opacidad 75 % y una máscara radial que deja el centro despejado
+ * Fondo de escritorio (md+): 4 filas arriba a la izquierda y 4 abajo a la derecha, ligeramente
+ * inclinadas, que se desplazan como carrusel alternando sentido: una de izquierda a derecha y la
+ * siguiente de derecha a izquierda (petición del propietario). Opacidad 75 % y una máscara radial que deja el centro despejado
  * para el logo, el eslogan y los botones. Decorativo (`aria-hidden`).
+ * Se mueve siempre, aunque el sistema pida "reducir movimiento" (decisión del propietario, 2026-11-11).
  */
 export function CoverWall() {
   const mask = 'radial-gradient(ellipse 62% 68% at 50% 50%, transparent 0%, transparent 42%, black 88%)'
@@ -103,7 +107,7 @@ export function CoverStrip({ position }: { position: 'top' | 'bottom' }) {
       style={{ maskImage: mask, WebkitMaskImage: mask }}
     >
       <div
-        className="flex w-max gap-3 animate-marquee-x motion-reduce:animate-none"
+        className="flex w-max gap-3 animate-marquee-x"
         style={{ animationDuration: '60s', animationDirection: position === 'top' ? 'normal' : 'reverse' }}
       >
         {[...covers, ...covers].map((cover, index) => (

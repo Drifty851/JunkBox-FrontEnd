@@ -31,7 +31,7 @@ cp .env.example .env.local     # opcional: los valores por defecto ya funcionan 
 pnpm dev                       # http://localhost:5173
 ```
 
-Abre `http://localhost:5173/login`.
+Abre `http://localhost:5173/`: sin sesión verás la landing, con enlaces a registro e inicio de sesión.
 
 ---
 
@@ -105,7 +105,8 @@ src/
     ├── search/              # Buscador (/buscar) y buscador de la Navbar con sugerencias
     ├── catalog/             # fichas de Canción, Álbum y Artista (rutas, useLoad, vistas)
     ├── reviews/             # Calificaciones y Reseñas (/resena/nueva, /ratings, /reviews)
-    └── legal/               # Términos de Servicio y Aviso de Privacidad
+    ├── legal/               # Términos de Servicio y Aviso de Privacidad
+    └── landing/             # landing de `/` sin sesión (portadas fijas en carrusel)
 ```
 
 ---
@@ -114,6 +115,7 @@ src/
 
 | Módulo | Rutas | Estado | Endpoints |
 |---|---|---|---|
+| Landing | `/` (sin sesión) | ✅ Implementado (`implementacion.md` §9). Portadas fijas (LANDING-01) | — |
 | Autenticación | `/login`, `/register`, `/recuperar-contrasena`, `/restablecer-contrasena`, `/verificar-correo` | ✅ Implementado | `POST /auth/login`, `POST /auth/register`, `GET /auth/me`, `POST /auth/refresh`, `POST /auth/logout`, `POST /auth/password/forgot`, `POST /auth/password/reset`, `POST /auth/email/verify` |
 | Inicio | `/` | ✅ Base implementada con carátulas: crece con los demás módulos (`implementacion.md` §4) | `GET /music/tracks/{id}`, `GET /music/albums/{id}`, `GET /music/search` |
 | Cuenta y legales | `/terminos`, `/privacidad` · menú del avatar | ✅ Implementado (§5). Textos legales en revisión | — (avatar por defecto en `POST /auth/register`) |

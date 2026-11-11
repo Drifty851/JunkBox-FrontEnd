@@ -22,8 +22,9 @@ Se actualiza **al terminar cada módulo**. La documentación del backend (`junkb
 - [6. Módulo 4: Buscador](#6-módulo-4-buscador)
 - [7. Módulo 5: Fichas del catálogo (Canción, Álbum, Artista)](#7-módulo-5-fichas-del-catálogo-canción-álbum-artista)
 - [8. Módulo 6: Calificaciones y Reseñas](#8-módulo-6-calificaciones-y-reseñas)
-- [9. Verificación](#9-verificación)
-- [10. Historial](#10-historial)
+- [9. Módulo 7: Landing (usuarios sin sesión)](#9-módulo-7-landing-usuarios-sin-sesión)
+- [10. Verificación](#10-verificación)
+- [11. Historial](#11-historial)
 
 ---
 
@@ -74,6 +75,7 @@ Módulos posteriores (misma estructura de capas; solo las que necesitan):
 | Cuenta / legales | `features/legal/` | `models/` (rutas y tipos), `data/` (textos), `views/` (`LegalPage`, `TermsPage`, `PrivacyPage`). §5. |
 | Buscador | `features/search/` | `models/search.types.ts`, `services/searchService.ts`, `controllers/` (`useSearchController`, `useSearchSuggestions`), `views/` (`SearchPage`, `SearchHeader`, `SearchResultsView`, `NavbarSearch`). §6. |
 | Fichas | `features/catalog/` | `models/catalogPaths.ts`, `controllers/` (`useLoad`, `catalogLoaders`), `views/` (`SongPage`, `AlbumPage`, `ArtistPage`, `DetailParts`, `ReviewsSection`). §7. |
+| Landing | `features/landing/` | `data/landingCovers.ts` (40 portadas fijas), `views/` (`LandingPage`, `CoverWall` con `CoverStrip`). §9. |
 | Calificaciones y Reseñas | `features/reviews/` | `models/` (`review.types.ts`, `writeReview.ts`), `infrastructure/reviewsApi.ts`, `services/reviewsService.ts`, `controllers/useWriteReviewController.ts`, `views/WriteReviewPage.tsx`. §8. |
 
 Lo reutilizable entre módulos vive en `src/shared/` (`api/`, `ui/`, `layout/`, `utils/`). La composición global (proveedores, router, guardas y `AppLayout`) está en `src/app/`.
@@ -124,6 +126,8 @@ Lo reutilizable entre módulos vive en `src/shared/` (`api/`, `ui/`, `layout/`, 
 Otras variables de Figma de las pantallas nuevas se resolvieron con tokens existentes: `surface/default-3` y `action/background-3` → `surface-input-disabled`; `surface/default-4` y `brand/accent-2` (Segment activo, Button) → `action`; `surface/default-5` (ReviewCard) → `surface-quickplay`.
 
 **Espaciado y radios:** las variables `space/4…80` y `radius/4, 8` coinciden con la escala de Tailwind (`gap-1`=4, `gap-4`=16, `px-6`=24, `rounded`=4, `rounded-lg`=8), así que no se usan valores arbitrarios para ellas.
+
+**Animaciones:** `@theme` expone `animate-marquee-x` y `animate-marquee-y` (`@keyframes jb-marquee-x/y`: de `translate 0` a `-50%`, en bucle lineal) para los carruseles de la landing (§9). La duración y el sentido se fijan en cada pista.
 
 **Tema activo:** se sigue `prefers-color-scheme` y se puede forzar con `<html data-theme="light|dark">`. El variante `dark:` de Tailwind se redefine con `@custom-variant` para respetar ambas cosas.
 
@@ -227,9 +231,9 @@ Componentes de formulario: `LoginForm` (14296:16086) y `RegisterForm` (14296:162
 | `/recuperar-contrasena` | Solo sin sesión | `ForgotPasswordPage` (§3.10) |
 | `/restablecer-contrasena#token=…` | Con o sin sesión (sin guarda) | `ResetPasswordPage` (§3.10) |
 | `/verificar-correo#token=…` | Con o sin sesión (sin guarda) | `VerifyEmailPage` (§3.10) |
-| `/` | Solo con sesión (`ProtectedRoute`) | `HomePage` (módulo Inicio, §4) |
+| `/` | Sin sesión: landing (§9) · con sesión: Inicio (`HomeRoute`) | `LandingPage` / `HomePage` (§4) |
 
-Si un usuario con sesión entra en `/login`, se le redirige a `/`. Sin sesión, `/` redirige a `/login`. Tras iniciar sesión o registrarse, se navega a `/`.
+Si un usuario con sesión entra en `/login`, se le redirige a `/`. Sin sesión, `/` muestra la landing y las rutas protegidas redirigen a ella (desde 2026-11-11; antes iban a `/login`). Tras iniciar sesión o registrarse, se navega a `/`.
 
 ### 3.3 Contrato con el Backend
 
@@ -799,7 +803,73 @@ Referencia: backend `README.md` (endpoints 15–22) e `implementacion.md` §6.
 
 ---
 
-## 9. Verificación
+## 9. Módulo 7: Landing (usuarios sin sesión)
+
+### 9.1 Diseño
+
+**No hay landing en Figma** (la página "Pagina de Referencia" solo trae plantillas genéricas y variantes del logo). La especificación es del propietario (2026-11-11) y se implementa con los tokens y componentes existentes:
+
+| Zona | Escritorio (`md:`) | Móvil |
+|---|---|---|
+| Centro | Logo de Junkbox (424 px), eslogan "Califica, reseña y descubre música." y dos botones en fila | Logo (280–340 px), eslogan y los botones a todo el ancho (alto 48, táctiles) |
+| Fondo | 4 filas arriba a la izquierda y 4 abajo a la derecha (10 portadas cada una, inclinadas −12°), que se desplazan como carrusel **alternando sentido**: izquierda → derecha, derecha → izquierda… Opacidad 75 % y máscara radial que deja el centro despejado | Un carrusel arriba (hacia la izquierda) y otro abajo (hacia la derecha), con los bordes difuminados |
+| Pie | "Términos de Servicio · Política de Privacidad" | Igual |
+
+- **"Registrarse"** (estilo de `PrimaryButton`, acción principal) y **"Iniciar sesión"** (estilo de `SecondaryButton`) son **enlaces** a `/register` y `/login`, no modales.
+- El eslogan lo eligió el propietario. El `<h1>` contiene el logo (texto alternativo "Junkbox") y el eslogan; el título de la pestaña es "Junkbox · Califica, reseña y descubre música".
+
+### 9.2 Rutas
+
+| Ruta | Sin sesión | Con sesión |
+|---|---|---|
+| `/` | `LandingPage` | `AppLayout` + `HomePage` (ruta índice) |
+| Rutas protegidas (`/buscar`, fichas, `/resena/nueva`…) | Redirigen a `/` (la landing) | Su pantalla |
+| Rutas desconocidas | `/` | `/` |
+
+`HomeRoute` (`app/routes/RouteGuards.tsx`) decide qué mostrar en `/` según la sesión (mientras se comprueba, `SessionCheck`). `ProtectedRoute` redirige a `/` en lugar de a `/login`; cerrar sesión acaba en la landing.
+
+### 9.3 Portadas
+
+- Sin sesión no se puede pedir el catálogo (todos los endpoints de `/music` exigen Bearer). Por eso `features/landing/data/landingCovers.ts` es una **lista fija de 40 carátulas** que ya estaban en la base, recopiladas el 2026-11-11 con `GET /music/search?type=album` de los artistas importados (The Weeknd, Hoke, Muse, Daft Punk, Billie Eilish, Kendrick Lamar, Luis Fonsi, Avicii, Mark Ronson).
+- Se usa la variante de **300 px** del CDN de Spotify (prefijo `ab67616d00001e02` en lugar de `ab67616d0000b273`, de 640 px); las 40 se comprobaron (`HEAD 200`).
+- Una portada que no carga se oculta y deja el recuadro neutro (`surface-input-disabled`).
+- Pendiente del backend: un endpoint público para rotarlas (**LANDING-01**).
+
+### 9.4 Decisiones de Implementación
+
+1. **Carrusel infinito sin JavaScript** (`views/CoverWall.tsx`): cada pista contiene su lista dos veces y se desplaza la mitad de su tamaño con `@keyframes jb-marquee-x` (§2.3), así el bucle no tiene salto. La duración se fija por fila (60–90 s en escritorio, 60 s en móvil) y el sentido con `animation-direction`.
+2. **Se mueve siempre**, también con "reducir movimiento" (decisión del propietario, 2026-11-11): Windows con los *Efectos de animación* desactivados hace que el navegador lo pida, y la primera versión detenía las portadas.
+3. **Las esquinas se definen con la máscara** (`radial-gradient` 62 % × 68 %, transparente hasta el 42 %) sobre una capa al 75 % de opacidad; funciona igual en claro y oscuro porque el fondo es `bg`.
+4. Primero fueron columnas verticales; a petición del propietario pasaron a **filas en carrusel** con sentido alterno.
+
+### 9.5 Accesibilidad
+
+- Todo el fondo es decorativo: `aria-hidden`, `pointer-events-none`, imágenes con `alt=""` y `loading="lazy"`.
+- Los botones son enlaces con foco visible y alto táctil de 48 px.
+- Las portadas se mueven aunque el sistema pida reducir movimiento (decisión del propietario, §9.4.2).
+
+### 9.6 Limitaciones Conocidas
+
+- **LANDING-01:** las portadas no cambian hasta que se actualice la lista a mano.
+- Las carátulas se enlazan desde el CDN de Spotify; si se publica fuera del ámbito académico, conviene revisar las condiciones de Spotify sobre el uso de carátulas.
+- A 1440 px el pie legal queda sobre la parte difuminada de las filas inferiores (se lee, pero no queda sobre fondo liso).
+
+### 9.7 Verificación (2026-11-11)
+
+| Prueba | Resultado |
+|---|---|
+| `pnpm typecheck` · `pnpm lint` · `pnpm build` | ✅ |
+| Capturas headless sin sesión: 1440 claro/oscuro, 1024 oscuro, 390 claro/oscuro | ✅ |
+| Filas de escritorio: 1 izq → der · 2 der → izq · 3 izq → der · 4 der → izq | ✅ Medido con la posición de cada pista |
+| Movimiento con `prefers-reduced-motion: reduce` (escritorio y móvil) | ✅ Se mueve |
+| "Registrarse" → `/register` · "Iniciar sesión" → `/login` | ✅ |
+| `/buscar` y `/no-existe` sin sesión → landing | ✅ |
+| Con sesión, `/` → Inicio (Navbar), sin landing | ✅ |
+| Consola | ✅ Sin errores |
+
+---
+
+## 10. Verificación
 
 Antes de cerrar cualquier módulo:
 
@@ -815,7 +885,7 @@ Además: probar las rutas del módulo con el backend en marcha (`pnpm dev`), rev
 
 ---
 
-## 10. Historial
+## 11. Historial
 
 | Fecha | Cambio |
 |---|---|
@@ -831,3 +901,4 @@ Además: probar las rutas del módulo con el backend en marcha (`pnpm dev`), rev
 | 2026-11-06 | Módulo 5 · Fichas (§7): `/cancion`, `/album`, `/artista` con cascada del catálogo (`catalogService`), `useLoad`, `ReviewCard`, enlaces a Spotify. El cliente HTTP admite `PUT`/`DELETE`. |
 | 2026-11-06 | Módulo 6 · Calificaciones y Reseñas (§8): `/resena/nueva`, estrellas de 0,5 (`StarRatingInput`), publicar/editar/quitar/eliminar y "Tu calificación" en las fichas. |
 | 2026-11-10 | Documentación de los módulos 3–6. Se restaura `.env.example` (borrado en el commit `9e0ee3e`) con `VITE_SPOTIFY_CLIENT_ID` y el modo Kubernetes del backend (commit `2d05563`, API en el puerto 80; sin cambios de contrato). |
+| 2026-11-11 | Módulo 7 · Landing (§9): `/` sin sesión con logo, eslogan, botones a `/register` y `/login` y portadas en carrusel (filas alternas en escritorio, dos carriles en móvil). `HomeRoute`; `ProtectedRoute` lleva a `/`. Animaciones `marquee-x/y`. |
