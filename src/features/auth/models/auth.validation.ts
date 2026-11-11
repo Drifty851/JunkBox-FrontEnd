@@ -63,7 +63,7 @@ function looksLikeEmail(value: string): boolean {
 /** POST /auth/login: "identifier y password son requeridos". */
 export function validateLogin(values: LoginFormValues): FieldErrors<LoginFormValues> {
   const errors: FieldErrors<LoginFormValues> = {}
-  if (values.identifier.trim() === '') errors.identifier = 'Introduce tu correo electrónico.'
+  if (values.identifier.trim() === '') errors.identifier = 'Introduce tu correo o tu nombre de usuario.'
   if (values.password === '') errors.password = 'Introduce tu contraseña.'
   return errors
 }

@@ -27,15 +27,18 @@ export function LoginPage() {
     >
       <form noValidate onSubmit={handleSubmit} className="flex w-full flex-col gap-6" aria-label="Iniciar sesión">
         <div className="flex w-full flex-col gap-4">
-          {/* El backend acepta email o username en `identifier`; Figma etiqueta el campo como correo. */}
-          <FormField inputId="login-identifier" label="Correo electrónico" errorMessage={fieldErrors.identifier}>
+          {/* El backend acepta email o username en `identifier`. Figma etiqueta el campo como correo;
+              por decisión del propietario (2026-11-11) se deja claro que vale cualquiera de los dos (AUTH-05). */}
+          <FormField inputId="login-identifier" label="Correo o nombre de usuario" errorMessage={fieldErrors.identifier}>
             <TextInput
               id="login-identifier"
               name="identifier"
-              type="email"
-              inputMode="email"
+              type="text"
               autoComplete="username"
-              placeholder="correo@dominio.com"
+              autoCapitalize="none"
+              autoCorrect="off"
+              spellCheck={false}
+              placeholder="correo@dominio.com o tu_usuario"
               value={values.identifier}
               onChange={handleChange}
               invalid={Boolean(fieldErrors.identifier)}

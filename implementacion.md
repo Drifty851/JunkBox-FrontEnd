@@ -265,7 +265,7 @@ Referencia: `junkbox-backend/README.md` §API REST (endpoints 2 a 6) e `implemen
 
 El backend rechaza campos desconocidos (`DisallowUnknownFields` → `400 "solicitud inválida"`), así que **no se envía** la aceptación de términos (comprobado con una petición real).
 
-**Login:** Figma etiqueta el campo como "Correo electrónico". El backend acepta email o username en `identifier`, así que también funciona si el usuario escribe su username.
+**Login:** Figma etiqueta el campo como "Correo electrónico", pero el backend acepta email o username en `identifier`. Por decisión del propietario (2026-11-11) el campo dice **"Correo o nombre de usuario"**, con placeholder "correo@dominio.com o tu_usuario", `type="text"` (sin teclado de correo en móvil) y sin autocorrección ni mayúscula inicial. Pendiente de Diseño actualizar Figma (AUTH-05).
 
 ### 3.4 Validación en el Cliente
 
@@ -273,7 +273,7 @@ El backend rechaza campos desconocidos (`DisallowUnknownFields` → `400 "solici
 
 | Campo | Regla (backend) | Mensaje bajo el campo |
 |---|---|---|
-| Login: identificador | Obligatorio | "Introduce tu correo electrónico." |
+| Login: identificador | Obligatorio (correo o username) | "Introduce tu correo o tu nombre de usuario." |
 | Login: contraseña | Obligatoria | "Introduce tu contraseña." |
 | Recuperar: correo | `trim` + minúsculas y el mismo formato que en Registro | "Introduce un correo electrónico válido." |
 | Restablecer: nueva contraseña | La misma `validatePassword` que Registro (fila `password`) | Los mismos mensajes que Registro |
@@ -902,3 +902,4 @@ Además: probar las rutas del módulo con el backend en marcha (`pnpm dev`), rev
 | 2026-11-06 | Módulo 6 · Calificaciones y Reseñas (§8): `/resena/nueva`, estrellas de 0,5 (`StarRatingInput`), publicar/editar/quitar/eliminar y "Tu calificación" en las fichas. |
 | 2026-11-10 | Documentación de los módulos 3–6. Se restaura `.env.example` (borrado en el commit `9e0ee3e`) con `VITE_SPOTIFY_CLIENT_ID` y el modo Kubernetes del backend (commit `2d05563`, API en el puerto 80; sin cambios de contrato). |
 | 2026-11-11 | Módulo 7 · Landing (§9): `/` sin sesión con logo, eslogan, botones a `/register` y `/login` y portadas en carrusel (filas alternas en escritorio, dos carriles en móvil). `HomeRoute`; `ProtectedRoute` lleva a `/`. Animaciones `marquee-x/y`. |
+| 2026-11-11 | Login: el campo indica que se puede entrar con correo o nombre de usuario ("Correo o nombre de usuario"), a petición del propietario. AUTH-05 pasa a Diseño. |
