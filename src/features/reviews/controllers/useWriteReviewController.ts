@@ -39,13 +39,12 @@ async function loadTarget(key: string, signal: AbortSignal): Promise<ReviewTarge
   const id = rest.join(':')
   if (type === 'song') {
     const track = await catalogService.getTrack(id, signal)
-    const album = track.album_id ? await catalogService.getAlbum(track.album_id, signal).catch(() => null) : null
     return {
       type: 'song',
       id: track.spotify_id,
       title: track.track_name,
-      subtitle: [track.artist_name, album?.title, 'Canción'].filter(Boolean).join(' · '),
-      imageUrl: album?.image_url ?? null,
+      subtitle: [track.artist_name, track.album_title, 'Canción'].filter(Boolean).join(' · '),
+      imageUrl: track.album_image_url,
       href: songPath(track.spotify_id),
     }
   }

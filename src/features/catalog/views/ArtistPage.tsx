@@ -130,7 +130,7 @@ export function ArtistPage() {
                   <MusicRow
                     title={track.track_name}
                     subtitle={['Canción', track.year].filter(Boolean).join(' · ')}
-                    imageUrl={albums.find((album) => album.tracks.some((item) => item.spotify_id === track.spotify_id))?.image_url ?? null}
+                    imageUrl={track.album_image_url}
                     to={songPath(track.spotify_id)}
                     action={<PlayButton label={`Reproducir ${track.track_name}`} />}
                   />

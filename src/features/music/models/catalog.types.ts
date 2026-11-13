@@ -15,6 +15,10 @@ export interface TrackSummary {
   artist_name: string
   /** Solo viene si la canción tiene álbum en el catálogo (omitempty). */
   album_title?: string
+  /** Portada del álbum (commit 9e0794d); null si el backend aún no la conoce. */
+  album_image_url: string | null
+  /** Foto del artista principal (commit 9e0794d); null si aún no se conoce. */
+  artist_image_url: string | null
   year: number | null
   genre: string | null
   popularity: number | null

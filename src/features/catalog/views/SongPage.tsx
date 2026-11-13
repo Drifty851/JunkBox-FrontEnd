@@ -62,7 +62,7 @@ export function SongPage() {
   const album =
     state.data.album ??
     catalogService.findAlbumForTrack(track, discography.status === 'ready' ? discography.data : null)
-  const imageUrl = album?.image_url ?? null
+  const imageUrl = track.album_image_url ?? album?.image_url ?? null
   const meta = [
     track.year ?? album?.release_year,
     track.duration_ms ? formatDuration(track.duration_ms) : null,
@@ -138,7 +138,7 @@ export function SongPage() {
                   <MusicRow
                     title={artist.name}
                     subtitle={artist.genres[0] ? `Artista · ${artist.genres[0]}` : 'Artista'}
-                    imageUrl={artist.image_url}
+                    imageUrl={artist.image_url ?? track.artist_image_url}
                     shape="circle"
                     to={artistPath(artist.id)}
                   />

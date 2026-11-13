@@ -40,26 +40,13 @@ function toArtistResult(artist: Artist): ArtistResult {
   return { id: artist.id, name: artist.name, genre: artist.genres[0] ?? null, imageUrl: artist.image_url }
 }
 
-/**
- * La canción no trae imagen (HOME-02). Si su álbum aparece entre los álbumes encontrados
- * (mismo título y artista), se usa su carátula.
- */
-function toSongResult(track: TrackSummary, albums: Album[]): SongResult {
-  const albumTitle = track.album_title ?? null
-  const album =
-    albumTitle === null
-      ? undefined
-      : albums.find(
-          (candidate) =>
-            normalize(candidate.title) === normalize(albumTitle) &&
-            normalize(candidate.artist_name) === normalize(track.artist_name),
-        )
+function toSongResult(track: TrackSummary): SongResult {
   return {
     spotifyId: track.spotify_id,
     title: track.track_name,
     artist: track.artist_name,
-    album: albumTitle,
-    imageUrl: album?.image_url ?? null,
+    album: track.album_title ?? null,
+    imageUrl: track.album_image_url,
   }
 }
 
@@ -162,7 +149,7 @@ export const searchService = {
     const albumList = albums.status === 'fulfilled' ? albums.value.results : []
     return {
       query,
-      songs: tracks.status === 'fulfilled' ? tracks.value.results.map((track) => toSongResult(track, albumList)) : [],
+      songs: tracks.status === 'fulfilled' ? tracks.value.results.map(toSongResult) : [],
       albums: albumList.map(toAlbumResult),
       artists: artists.status === 'fulfilled' ? artists.value.results.map(toArtistResult) : [],
     }

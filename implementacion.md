@@ -424,12 +424,12 @@ Componentes: `Navbar` (14296:14145), `BottomBar` (14296:15745), `SearchField` (1
 | Acción | Endpoint | Respuesta OK | Errores tratados |
 |---|---|---|---|
 | Canciones de "Hecho para tus oídos" | `GET /api/v1/music/tracks/{id}` (Bearer), una por canción y en paralelo | `200 TrackDetail` | `404` → se omite la canción · `401` → se renueva la sesión; si no se puede, se cierra · red/`500` → estado de error si no cargó ninguna |
-| Carátula de cada canción (2026-11-06) | `GET /api/v1/music/albums/{spotifyId}` y, si da `404`, `GET /api/v1/music/search?type=album&q=…` | `image_url` del álbum | Cualquier fallo → la tarjeta se muestra sin carátula |
+| Carátula de cada canción (desde 2026-11-12) | La misma respuesta de `GET /api/v1/music/tracks/{id}` | `album_image_url` | `null` → la tarjeta se muestra con el recuadro neutro |
 | Avatar de la Navbar | `GET /api/v1/auth/me` (ya lo hace `AuthProvider`) | `avatar_url` | `null` o imagen que no carga → placeholder |
 
 **Plantilla:** no hay endpoint de recomendaciones. `features/home/data/homeTemplate.ts` lista 8 **IDs de Spotify** del dataset, verificados en el catálogo y aprobados por el propietario, iguales para todos los usuarios. Se guardan los IDs de Spotify porque son estables; los IDs locales dependen del orden de carga del dataset. La vista recibe una lista de `RecommendedTrack` y no sabe de dónde salen: cuando exista el endpoint solo cambia `homeService.getRecommendations()`.
 
-**Carátulas (2026-11-06).** Las canciones del dataset no tienen álbum enlazado (`album_id: null`, HOME-02), y buscar el álbum por el título de la canción fallaba (con "bad guy" salía "No Time To Die"; con "HUMBLE.", nada). Por eso la plantilla fija **a mano el álbum de cada canción** (`album.spotifyId` + `album.search`), verificado contra el backend:
+**Carátulas.** Desde el 2026-11-12 cada canción trae `album_image_url` (commit `9e0794d` del backend) y la plantilla solo guarda el ID de la canción. Las canciones del dataset solo tienen álbum cuando el backend las enlaza con Spotify, lo que ocurre al aparecer en una búsqueda: las 8 se enlazaron el 2026-11-12 buscándolas una vez. **Una canción nueva en la plantilla hay que buscarla una vez** para que tenga carátula. Del 2026-11-06 al 2026-11-12, sin ese campo, la plantilla fijaba a mano el álbum de cada canción; son los mismos que enlazó el backend:
 
 | Canción | Álbum |
 |---|---|
@@ -478,7 +478,7 @@ Inicio es el primer módulo que llama a endpoints protegidos después de abrir l
 ### 4.7 Limitaciones Conocidas
 
 - **Recomendaciones:** no hay endpoint. Se usa una plantilla igual para todos los usuarios.
-- **Carátulas:** hasta el 2026-11-12 el backend no exponía imagen por canción (HOME-02). Ya la da (`album_image_url`, commit `9e0794d`); falta decidir si la plantilla deja de fijar el álbum a mano. La plantilla fija el álbum de cada canción a mano; con el endpoint de recomendaciones habrá que pedir la imagen en la respuesta.
+- **Carátulas:** salen de `album_image_url` (HOME-02, resuelta el 2026-11-12). Una canción del dataset que nunca apareció en una búsqueda llega sin álbum ni carátula (recuadro neutro) hasta que el backend la enlaza.
 - **Una petición por canción:** no hay endpoint para pedir varias canciones a la vez (8 peticiones al cargar Inicio).
 - **Reseñas, sugerencias de usuarios y reproducción:** no hay backend, así que esas secciones de Figma no se muestran y QuickPlay no reproduce.
 - **Perfil y "Ver todo"** no tienen destino todavía.
@@ -499,7 +499,7 @@ Inicio es el primer módulo que llama a endpoints protegidos después de abrir l
 
 En desarrollo se ven 16 peticiones a `/music/tracks`: `StrictMode` monta el efecto dos veces y la primera tanda se cancela. En producción son 8.
 
-**Carátulas (2026-11-06):** las 8 se resuelven por el ID de Spotify de su álbum (tabla de §4.3), con capturas headless en móvil Claro/Oscuro y sin errores en la consola.
+**Carátulas (2026-11-12):** las 8 salen de `album_image_url`, con capturas headless en escritorio claro y sin errores en la consola. Antes (2026-11-06) se resolvían por el ID de Spotify de su álbum.
 
 ---
 
@@ -584,7 +584,7 @@ La búsqueda compara con `strict_word_similarity` sobre "título + artista" en l
 
 1. **La consulta vive en la URL** (`?q=`): se puede compartir y "atrás" vuelve a la búsqueda anterior. Escribir la actualiza tras 400 ms sin teclear (con `replace`, sin llenar el historial); Enter busca al momento; el botón de borrar la vacía. Si la URL cambia desde fuera, el campo la sigue.
 2. **Estado derivado** (`useSearchController`): cada resultado se guarda con su clave `intento:consulta` y el estado (inicial, cargando, listo, error) se calcula en el render, sin `setState` síncrono en efectos (regla `set-state-in-effect` de oxlint).
-3. **Carátula de las canciones:** hasta el 2026-11-12 el backend no la daba (HOME-02, ya resuelta con `album_image_url`; pendiente adaptar el frontend); si el álbum de la canción aparece entre los álbumes encontrados (mismo título y artista), se usa su carátula.
+3. **Carátula de las canciones:** `album_image_url` de cada resultado (desde el 2026-11-12). Si el backend no la completa a tiempo llega `null` y la fila muestra el recuadro neutro; en la siguiente búsqueda ya suele estar. Antes se buscaba el álbum de la canción entre los álbumes encontrados.
 4. **"Ver todas las canciones"** despliega hasta 20 (se ven 5); **"Ver todos"** despliega el resto de álbumes en la tarjeta.
 5. **Pestaña "Usuarios"** visible pero deshabilitada (SEARCH-04). **Estrellas por fila** solo si hay calificación (SEARCH-03).
 6. **Botón ▶** de cada canción visible y deshabilitado hasta que exista el reproductor.
@@ -674,7 +674,7 @@ Decisión del propietario: al abrir una ficha se recopila el artista, sus álbum
 4. Devuelve `{ albums, topTracks, incompleteAlbums }`.
 
 - Se hace **una vez por artista y sesión** (la promesa se guarda en memoria; si falla, se olvida). No se cancela al salir de la ficha.
-- `fillAlbum` completa un álbum suelto (ficha de álbum) y `findAlbumForTrack` encuentra el álbum de una canción del CSV sin `album_id` (el que la contiene o su sencillo).
+- `fillAlbum` completa un álbum suelto (ficha de álbum) y `findAlbumForTrack` encuentra el álbum de una canción del CSV sin `album_id` (el que la contiene o su sencillo). La portada de la ficha de canción sale primero de `album_image_url` (desde el 2026-11-12) y, si es `null`, del álbum encontrado; en la ficha de artista, cada canción usa su `album_image_url`.
 - `musicApi.getAlbum` normaliza `tracks` a `[]`: el backend omite el campo cuando el álbum no tiene canciones en la base.
 
 **Prueba en vivo (2026-11-06):**
@@ -904,4 +904,5 @@ Además: probar las rutas del módulo con el backend en marcha (`pnpm dev`), rev
 | 2026-11-11 | Módulo 7 · Landing (§9): `/` sin sesión con logo, eslogan, botones a `/register` y `/login` y portadas en carrusel (filas alternas en escritorio, dos carriles en móvil). `HomeRoute`; `ProtectedRoute` lleva a `/`. Animaciones `marquee-x/y`. |
 | 2026-11-11 | Login: el campo indica que se puede entrar con correo o nombre de usuario ("Correo o nombre de usuario"), a petición del propietario. AUTH-05 pasa a Diseño. |
 | 2026-11-11 | Figma al día con la app: etiqueta "Correo o nombre de usuario" en `LoginForm` y nueva ayuda de contraseña en `RegisterForm`; pantallas nuevas en Interfaces (recuperación y verificación, Términos, Privacidad, Landing, menú de la cuenta y sugerencias del buscador; §3, §5, §6.4, §9.1). `SOLICITUDES_BACKEND.md` queda solo con peticiones al backend. |
-| 2026-11-12 | Revisión del backend (commits `9e0794d`, `560b33f`, `4855a38`): AUTH-03, AUTH-06 y HOME-02 resueltas. Registro: envía `terms_accepted` con el valor de la casilla y `EMAIL_PATTERN` admite TLD en punycode, como el backend. Pendiente: usar `album_image_url`/`artist_image_url`. Se quitan los emojis de la documentación (regla del proyecto). |
+| 2026-11-12 | Revisión del backend (commits `9e0794d`, `560b33f`, `4855a38`): AUTH-03, AUTH-06 y HOME-02 resueltas. Registro: envía `terms_accepted` con el valor de la casilla y `EMAIL_PATTERN` admite TLD en punycode, como el backend. Se quitan los emojis de la documentación (regla del proyecto). |
+| 2026-11-12 | Carátulas desde `album_image_url`/`artist_image_url` de `Track` (HOME-02): Inicio deja de fijar el álbum de cada canción en la plantilla, el Buscador y las sugerencias dejan de cruzar canciones con álbumes, la ficha de artista usa la portada de cada canción y Escribir Reseña ya no pide el álbum aparte. Las 8 canciones de la plantilla se enlazaron en el backend buscándolas una vez. |

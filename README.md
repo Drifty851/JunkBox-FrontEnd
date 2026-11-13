@@ -96,7 +96,7 @@ src/
     │   ├── controllers/     # Controlador: contexto de sesión y hooks de cada formulario
     │   └── views/           # Vista: páginas y layout del módulo
     ├── home/
-    │   ├── data/            # plantilla de canciones recomendadas y su álbum (carátula)
+    │   ├── data/            # plantilla de canciones recomendadas (IDs de Spotify)
     │   ├── models/          # tipos de la vista
     │   ├── services/        # caso de uso: recomendaciones de Inicio
     │   ├── controllers/     # carga, error y reintento
@@ -117,7 +117,7 @@ src/
 |---|---|---|---|
 | Landing | `/` (sin sesión) | Implementado (`implementacion.md` §9). Portadas fijas (LANDING-01) | — |
 | Autenticación | `/login`, `/register`, `/recuperar-contrasena`, `/restablecer-contrasena`, `/verificar-correo` | Implementado. El registro envía `terms_accepted` (obligatorio en el backend desde el 2026-11-12) | `POST /auth/login`, `POST /auth/register`, `GET /auth/me`, `POST /auth/refresh`, `POST /auth/logout`, `POST /auth/password/forgot`, `POST /auth/password/reset`, `POST /auth/email/verify` |
-| Inicio | `/` | Base implementada con carátulas: crece con los demás módulos (`implementacion.md` §4) | `GET /music/tracks/{id}`, `GET /music/albums/{id}`, `GET /music/search` |
+| Inicio | `/` | Base implementada con carátulas (`album_image_url`): crece con los demás módulos (`implementacion.md` §4) | `GET /music/tracks/{id}` |
 | Cuenta y legales | `/terminos`, `/privacidad` · menú del avatar | Implementado (§5). Textos legales en revisión | — (avatar por defecto en `POST /auth/register`) |
 | Buscador | `/buscar?q=` · campo de la Navbar | Implementado (§6) | `GET /music/search`, `GET /music/albums/{id}` |
 | Fichas del catálogo | `/cancion/:id`, `/album/:id`, `/artista/:id` | Implementado (§7) | `GET /music/tracks\|albums\|artists/{id}`, `GET /music/search` (cascada), `GET /reviews`, `GET /ratings/my` |

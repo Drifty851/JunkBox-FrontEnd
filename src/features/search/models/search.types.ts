@@ -9,7 +9,7 @@ export interface SongResult {
   artist: string
   /** Álbum, si la canción tiene uno en el catálogo. */
   album: string | null
-  /** Carátula del álbum si aparece entre los resultados de álbumes (HOME-02: el backend no la da). */
+  /** Carátula del álbum (`album_image_url`); null si el backend aún no la conoce. */
   imageUrl: string | null
 }
 
