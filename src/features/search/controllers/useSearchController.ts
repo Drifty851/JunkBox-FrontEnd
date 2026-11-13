@@ -6,8 +6,11 @@ import { toUserMessage } from '../../auth/services/errorMessages'
 import type { AlbumRating, SearchResults } from '../models/search.types'
 import { searchService } from '../services/searchService'
 
-/** Espera tras la última tecla antes de buscar. */
-const DEBOUNCE_MS = 400
+/**
+ * Espera tras la última tecla antes de buscar. 250 ms (antes 400): con datos ya guardados el
+ * backend responde en 10–90 ms, así que la espera era casi todo el tiempo de carga.
+ */
+const DEBOUNCE_MS = 250
 /** Límite del backend para `q`. */
 export const MAX_QUERY_LENGTH = 200
 

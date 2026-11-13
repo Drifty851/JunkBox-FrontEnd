@@ -582,7 +582,7 @@ La búsqueda compara con `strict_word_similarity` sobre "título + artista" en l
 
 ### 6.4 Decisiones de Implementación
 
-1. **La consulta vive en la URL** (`?q=`): se puede compartir y "atrás" vuelve a la búsqueda anterior. Escribir la actualiza tras 400 ms sin teclear (con `replace`, sin llenar el historial); Enter busca al momento; el botón de borrar la vacía. Si la URL cambia desde fuera, el campo la sigue.
+1. **La consulta vive en la URL** (`?q=`): se puede compartir y "atrás" vuelve a la búsqueda anterior. Escribir la actualiza tras 250 ms sin teclear (con `replace`, sin llenar el historial); Enter busca al momento; el botón de borrar la vacía. Si la URL cambia desde fuera, el campo la sigue.
 2. **Estado derivado** (`useSearchController`): cada resultado se guarda con su clave `intento:consulta` y el estado (inicial, cargando, listo, error) se calcula en el render, sin `setState` síncrono en efectos (regla `set-state-in-effect` de oxlint).
 3. **Carátula de las canciones:** `album_image_url` de cada resultado (desde el 2026-11-12). Si el backend no la completa a tiempo llega `null` y la fila muestra el recuadro neutro; en la siguiente búsqueda ya suele estar. Antes se buscaba el álbum de la canción entre los álbumes encontrados.
 4. **"Ver todas las canciones"** despliega hasta 20 (se ven 5); **"Ver todos"** despliega el resto de álbumes en la tarjeta.
@@ -593,7 +593,7 @@ La búsqueda compara con `strict_word_similarity` sobre "título + artista" en l
 
 **Buscador de la Navbar (`NavbarSearch`).** A petición del propietario, el SearchField de la Navbar es un campo real en todas las pantallas con sesión:
 
-- Tras 300 ms muestra las **4 mejores coincidencias de cualquier tipo** (`searchService.suggest`, 4 de cada tipo). La API no da un puntaje común, así que se ordenan por relevancia propia: nombre igual (3) · la consulta es exactamente el artista (2,5) · empieza igual (2) · lo contiene (1); sin repetir la misma canción (sencillo y álbum).
+- Tras 150 ms sin teclear muestra las **4 mejores coincidencias de cualquier tipo** (`searchService.suggest`, 4 de cada tipo). La API no da un puntaje común, así que se ordenan por relevancia propia: nombre igual (3) · la consulta es exactamente el artista (2,5) · empieza igual (2) · lo contiene (1); sin repetir la misma canción (sencillo y álbum).
 - La última opción es "Ver todos los resultados de “…”" (Buscador completo).
 - Patrón ARIA **combobox + listbox**: flechas, Enter (opción activa o Buscador), Escape.
 - Al elegir, el campo **vuelve a quedar vacío** con su placeholder y se abre la ficha del elemento.
@@ -906,3 +906,4 @@ Además: probar las rutas del módulo con el backend en marcha (`pnpm dev`), rev
 | 2026-11-11 | Figma al día con la app: etiqueta "Correo o nombre de usuario" en `LoginForm` y nueva ayuda de contraseña en `RegisterForm`; pantallas nuevas en Interfaces (recuperación y verificación, Términos, Privacidad, Landing, menú de la cuenta y sugerencias del buscador; §3, §5, §6.4, §9.1). `SOLICITUDES_BACKEND.md` queda solo con peticiones al backend. |
 | 2026-11-12 | Revisión del backend (commits `9e0794d`, `560b33f`, `4855a38`): AUTH-03, AUTH-06 y HOME-02 resueltas. Registro: envía `terms_accepted` con el valor de la casilla y `EMAIL_PATTERN` admite TLD en punycode, como el backend. Se quitan los emojis de la documentación (regla del proyecto). |
 | 2026-11-12 | Carátulas desde `album_image_url`/`artist_image_url` de `Track` (HOME-02): Inicio deja de fijar el álbum de cada canción en la plantilla, el Buscador y las sugerencias dejan de cruzar canciones con álbumes, la ficha de artista usa la portada de cada canción y Escribir Reseña ya no pide el álbum aparte. Las 8 canciones de la plantilla se enlazaron en el backend buscándolas una vez. |
+| 2026-11-12 | Buscador: la espera antes de buscar baja de 300 a 150 ms en la barra y de 400 a 250 ms en `/buscar`. Medido en el navegador (escritorio, consultas ya guardadas): de 340–680 ms a 240–280 ms hasta ver resultados. La petición de canciones sigue siendo la más lenta en consultas nuevas (0,4–0,6 s, consulta a Spotify en el backend). |

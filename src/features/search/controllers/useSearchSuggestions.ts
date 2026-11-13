@@ -4,8 +4,11 @@ import { useAuth } from '../../auth/controllers/authContext'
 import type { Suggestion } from '../models/search.types'
 import { searchService } from '../services/searchService'
 
-/** Espera tras la última tecla antes de pedir sugerencias. */
-const DEBOUNCE_MS = 300
+/**
+ * Espera tras la última tecla antes de pedir sugerencias. 150 ms (antes 300): la petición
+ * anterior se cancela al seguir escribiendo, así que esperar menos no acumula respuestas.
+ */
+const DEBOUNCE_MS = 150
 
 export type SuggestionsState =
   | { status: 'idle' }
