@@ -14,7 +14,9 @@ import { AuthSwitchLink } from './AuthSwitchLink'
  * Iniciar sesión · Figma: móvil 14296:2388 (claro) / 14296:2489 (oscuro),
  * escritorio 14296:2442 (claro) / 14296:2543 (oscuro). Formulario: LoginForm (14296:16086).
  * Endpoint: POST /api/v1/auth/login { identifier, password }.
- */
+*/
+
+
 export function LoginPage() {
   const { values, fieldErrors, formError, submitting, handleChange, handleSubmit } = useLoginController()
 
@@ -27,8 +29,8 @@ export function LoginPage() {
     >
       <form noValidate onSubmit={handleSubmit} className="flex w-full flex-col gap-6" aria-label="Iniciar sesión">
         <div className="flex w-full flex-col gap-4">
-          {/* El backend acepta email o username en `identifier`. Figma etiqueta el campo como correo;
-              por decisión del propietario (2026-11-11) se deja claro que vale cualquiera de los dos (AUTH-05). */}
+          {/* El backend acepta email o username en `identifier`; la etiqueta lo deja claro
+              (decisión del propietario, 2026-11-11; LoginForm de Figma actualizado). */}
           <FormField inputId="login-identifier" label="Correo o nombre de usuario" errorMessage={fieldErrors.identifier}>
             <TextInput
               id="login-identifier"

@@ -265,7 +265,7 @@ Referencia: `junkbox-backend/README.md` §API REST (endpoints 2 a 6) e `implemen
 
 El backend rechaza campos desconocidos (`DisallowUnknownFields` → `400 "solicitud inválida"`), así que **no se envía** la aceptación de términos (comprobado con una petición real).
 
-**Login:** Figma etiqueta el campo como "Correo electrónico", pero el backend acepta email o username en `identifier`. Por decisión del propietario (2026-11-11) el campo dice **"Correo o nombre de usuario"**, con placeholder "correo@dominio.com o tu_usuario", `type="text"` (sin teclado de correo en móvil) y sin autocorrección ni mayúscula inicial. Pendiente de Diseño actualizar Figma (AUTH-05).
+**Login:** El backend acepta email o username en `identifier`. Por decisión del propietario (2026-11-11) el campo dice **"Correo o nombre de usuario"**, con placeholder "correo@dominio.com o tu_usuario", `type="text"` (sin teclado de correo en móvil) y sin autocorrección ni mayúscula inicial. Figma ya lo refleja (`LoginForm`, 2026-11-11).
 
 ### 3.4 Validación en el Cliente
 
@@ -326,7 +326,7 @@ Cuando un campo falla, el input pasa al estado **Error** de Figma (borde `brand/
 - **Estados de error del servicio** (§3.6.1) son provisionales.
 - **Tablet:** Figma no lo define. Se usa el layout móvil centrado hasta 768 px.
 - **Favicon:** Figma no lo define. Se quitó el de la plantilla de Vite y, por decisión del equipo, se usa el logo de Junkbox (§4.5).
-- **Recuperación y verificación sin diseño en Figma:** las pantallas de §3.10 son un boceto aprobado por el propietario. Se ajustarán cuando Diseño las publique.
+- **Recuperación y verificación en Figma (2026-11-11):** las pantallas de §3.10 (boceto aprobado por el propietario) ya están en la página Interfaces, construidas con `FormField` y `PrimaryButton`: Recuperar contraseña (y=13357), Correo enviado (14417), Restablecer contraseña (15477), Enlace inválido (16537), Contraseña actualizada (17597), Verificar correo · Verificado (18657) y · Enlace inválido (19717), cada una en móvil/escritorio y claro/oscuro.
 - **Correo sin verificar:** la app todavía no avisa de `email_verified = false` ni ofrece reenviar el enlace (`POST /auth/email/verify/resend`, con Bearer). Espera a que Diseño lo defina.
 
 ### 3.9 Verificación del Módulo (2026-11-02)
@@ -505,7 +505,7 @@ En desarrollo se ven 16 peticiones a `/music/tracks`: `StrictMode` monta el efec
 
 ## 5. Módulo 3: Cuenta (menú, avatar y documentos legales)
 
-Cambios pedidos por el propietario el 2026-11-06. **Nada de esto está en Figma**: son propuestas aprobadas que usan los tokens y componentes existentes.
+Cambios pedidos por el propietario el 2026-11-06, implementados como propuestas con los tokens y componentes existentes. **Desde el 2026-11-11 están en Figma** (página Interfaces): "Menú de la cuenta" (y=28345: `16285:6932`, `16285:6985`, `16285:7046`, `16285:7099`), "Términos de Servicio" (y=21837: `16273:6827`, `16275:6827`, `16276:6827`, `16277:6827`) y "Aviso de Privacidad" (y=24627: `16278:6827`, `16279:6827`, `16280:6827`, `16281:6827`), en el orden Móvil Claro, Desktop Claro, Móvil Oscuro, Desktop Oscuro.
 
 ### 5.1 Menú de cuenta (`shared/layout/AccountMenu.tsx`)
 
@@ -597,7 +597,7 @@ La búsqueda compara con `strict_word_similarity` sobre "título + artista" en l
 - La última opción es "Ver todos los resultados de “…”" (Buscador completo).
 - Patrón ARIA **combobox + listbox**: flechas, Enter (opción activa o Buscador), Escape.
 - Al elegir, el campo **vuelve a quedar vacío** con su placeholder y se abre la ficha del elemento.
-- En móvil la lista ocupa el ancho de la pantalla bajo la barra; en escritorio mide 400 px. No está en Figma (mismos estilos que `MusicRow`).
+- En móvil la lista ocupa el ancho de la pantalla bajo la barra; en escritorio mide 400 px. En Figma desde el 2026-11-11: "Sugerencias del buscador" (Interfaces, y=29405: `16286:7632`, `16286:7866`, `16286:8139`, `16286:8373`).
 
 ### 6.5 Accesibilidad
 
@@ -807,7 +807,7 @@ Referencia: backend `README.md` (endpoints 15–22) e `implementacion.md` §6.
 
 ### 9.1 Diseño
 
-**No hay landing en Figma** (la página "Pagina de Referencia" solo trae plantillas genéricas y variantes del logo). La especificación es del propietario (2026-11-11) y se implementa con los tokens y componentes existentes:
+La especificación es del propietario (2026-11-11) y se implementa con los tokens y componentes existentes. **En Figma** desde el 2026-11-11, capturada de la app: "Landing" (Interfaces, y=20777: `16270:6827`, `16269:6827`, `16274:6827`, `16271:6827`, en el orden Móvil Claro, Desktop Claro, Móvil Oscuro, Desktop Oscuro).
 
 | Zona | Escritorio (`md:`) | Móvil |
 |---|---|---|
@@ -903,3 +903,4 @@ Además: probar las rutas del módulo con el backend en marcha (`pnpm dev`), rev
 | 2026-11-10 | Documentación de los módulos 3–6. Se restaura `.env.example` (borrado en el commit `9e0ee3e`) con `VITE_SPOTIFY_CLIENT_ID` y el modo Kubernetes del backend (commit `2d05563`, API en el puerto 80; sin cambios de contrato). |
 | 2026-11-11 | Módulo 7 · Landing (§9): `/` sin sesión con logo, eslogan, botones a `/register` y `/login` y portadas en carrusel (filas alternas en escritorio, dos carriles en móvil). `HomeRoute`; `ProtectedRoute` lleva a `/`. Animaciones `marquee-x/y`. |
 | 2026-11-11 | Login: el campo indica que se puede entrar con correo o nombre de usuario ("Correo o nombre de usuario"), a petición del propietario. AUTH-05 pasa a Diseño. |
+| 2026-11-11 | Figma al día con la app: etiqueta "Correo o nombre de usuario" en `LoginForm` y nueva ayuda de contraseña en `RegisterForm`; pantallas nuevas en Interfaces (recuperación y verificación, Términos, Privacidad, Landing, menú de la cuenta y sugerencias del buscador; §3, §5, §6.4, §9.1). `SOLICITUDES_BACKEND.md` queda solo con peticiones al backend. |
