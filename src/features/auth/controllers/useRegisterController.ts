@@ -32,13 +32,14 @@ function toRegisterRequest(values: RegisterFormValues): RegisterRequest {
     avatar_url: defaultAvatarUrl(normalizeUsername(values.username)),
     // display_name es opcional: si está vacío no se envía (el backend lo guarda como NULL).
     ...(displayName !== '' && { display_name: displayName }),
+    terms_accepted: values.termsAccepted,
   }
 }
 
 /**
  * Controlador de "Registrarse".
- * La aceptación de términos se valida solo en el cliente: el backend no tiene ese campo
- * (implementacion.md §3.8). Mientras no se marque, el botón queda en estado Disabled de Figma.
+ * La aceptación de términos se envía en `terms_accepted`; el backend la exige y guarda fecha y
+ * versión (implementacion.md §3.8). Mientras no se marque, el botón queda en estado Disabled de Figma.
  */
 export function useRegisterController() {
   const { register } = useAuth()

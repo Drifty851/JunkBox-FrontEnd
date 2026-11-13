@@ -29,6 +29,8 @@ export interface RegisterRequest {
   password: string
   display_name?: string
   avatar_url?: string
+  /** Obligatorio: `false` o ausente responde 400 (AUTH-03, commit 560b33f). */
+  terms_accepted: boolean
 }
 
 /** domain.TokenPair: respuesta de POST /auth/refresh. */

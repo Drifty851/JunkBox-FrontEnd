@@ -3,20 +3,18 @@ import { utf8ByteLength } from '../../../shared/utils/byteLength'
 /**
  * Validación en el cliente que REPLICA las reglas que ya aplica el backend
  * (internal/core/services/auth_service.go · validateRegister y handlers_auth.go).
- * Solo adelanta los errores que el servidor devolvería con 400, con una excepción
- * deliberada: el formato de correo es más estricto que `net/mail` (ver EMAIL_PATTERN
- * e implementacion.md §3.8). El servidor sigue siendo la fuente de verdad.
+ * Solo adelanta los errores que el servidor devolvería con 400. El servidor sigue siendo
+ * la fuente de verdad.
  */
 
 export const USERNAME_PATTERN = /^[a-z0-9_.]{3,50}$/
 /**
  * Formato de correo exigido por el formulario de registro.
- * Es MÁS ESTRICTO que `net/mail` del backend, que acepta dominios sin punto
- * ("usuario@dominio") y permitiría crear cuentas con correos inexistentes.
- * Se exige al menos un punto en el dominio y un TLD de 2 o más letras.
- * Pendiente de que el backend aplique la misma regla (implementacion.md §3.8).
+ * Se exige al menos un punto en el dominio y un TLD de 2 o más letras, la misma regla
+ * que aplica el backend desde el 2026-11-12 (AUTH-06, `tldPattern`), incluidos los TLD
+ * internacionales en punycode (`xn--…`).
  */
-export const EMAIL_PATTERN = /^[^\s@]+@([^\s@.]+\.)+[A-Za-z]{2,}$/
+export const EMAIL_PATTERN = /^[^\s@]+@([^\s@.]+\.)+([A-Za-z]{2,63}|xn--[A-Za-z0-9-]{1,59})$/
 /** Mínimo en caracteres (runas Unicode, igual que `utf8.RuneCountInString` del backend). */
 export const PASSWORD_MIN_CHARS = 8
 /** Máximo en bytes UTF-8: bcrypt ignora lo que pasa de 72 bytes. */

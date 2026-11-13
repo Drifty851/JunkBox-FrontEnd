@@ -218,7 +218,7 @@ Componentes de formulario: `LoginForm` (14296:16086) y `RegisterForm` (14296:162
 
 - Se añadió **"Nombre de usuario"** (`FormField · Variant=Username`, placeholder `tu_usuario`) a RegisterForm.
 - El texto de los **términos** ya usa tokens legibles en claro, y existe el estado `Checked`.
-- La ayuda de la contraseña ahora dice **"De 8 a 72 bytes. Algunos caracteres ocupan más de un byte."**. **Desactualizada desde 2026-11-03:** el backend endureció la regla (§3.4), así que el frontend muestra de forma provisional "Al menos 8 caracteres, con letras, números y caracteres especiales." hasta que Diseño actualice Figma (§3.8).
+- La ayuda de la contraseña ahora dice **"De 8 a 72 bytes. Algunos caracteres ocupan más de un byte."**. Desde el 2026-11-03 el backend endureció la regla (§3.4); el frontend y Figma (`RegisterForm`, actualizado el 2026-11-11) dicen "Al menos 8 caracteres, con letras, números y caracteres especiales."
 - Se añadieron estados **Focus / Error / Disabled / Visible** a los inputs y **Disabled / Loading** al botón.
 - El pie legal se movió dentro de AuthFooter en móvil.
 
@@ -260,10 +260,10 @@ Referencia: `junkbox-backend/README.md` §API REST (endpoints 2 a 6) e `implemen
 | Nombre de usuario | `username` | `trim` + minúsculas. |
 | Correo electrónico | `email` | `trim` + minúsculas. |
 | Contraseña | `password` | Sin cambios. |
-| Acepto los términos… | — (no existe en el backend) | Solo en el cliente. |
-| — (no existe en Figma) | `avatar_url` (opcional) | No se envía: el formulario no tiene campo de avatar. |
+| Acepto los términos… | `terms_accepted` (obligatorio desde el 2026-11-12) | Se envía el valor de la casilla; el backend guarda fecha y versión. |
+| — (no existe en Figma) | `avatar_url` (opcional) | Se envía el robot por defecto (§5.2). |
 
-El backend rechaza campos desconocidos (`DisallowUnknownFields` → `400 "solicitud inválida"`), así que **no se envía** la aceptación de términos (comprobado con una petición real).
+El backend rechaza campos desconocidos (`DisallowUnknownFields` → `400 "solicitud inválida"`). Hasta el 2026-11-12 eso impedía enviar la aceptación de términos; desde el commit `560b33f` el campo existe y es obligatorio (AUTH-03).
 
 **Login:** El backend acepta email o username en `identifier`. Por decisión del propietario (2026-11-11) el campo dice **"Correo o nombre de usuario"**, con placeholder "correo@dominio.com o tu_usuario", `type="text"` (sin teclado de correo en móvil) y sin autocorrección ni mayúscula inicial. Figma ya lo refleja (`LoginForm`, 2026-11-11).
 
@@ -280,7 +280,7 @@ El backend rechaza campos desconocidos (`DisallowUnknownFields` → `400 "solici
 | Restablecer: confirmar contraseña | Solo en el cliente: obligatoria e igual a la nueva | "Repite la nueva contraseña." · "Las contraseñas no coinciden." |
 | `display_name` | ≤ 100 caracteres | "No puede superar 100 caracteres." |
 | `username` | `^[a-z0-9_.]{3,50}$` | "De 3 a 50 caracteres: letras, números, '_' o '.'." |
-| `email` | ≤ 255 y formato válido. El backend usa `net/mail` (acepta dominios sin punto); el formulario es más estricto: exige punto y TLD de 2+ letras (§3.8). | "Introduce un correo electrónico válido." |
+| `email` | ≤ 255 y formato válido: dominio con punto y TLD de 2+ letras. Es la misma regla que aplica el backend desde el 2026-11-12 (AUTH-06, commit `4855a38`). | "Introduce un correo electrónico válido." |
 | `password` | `validatePassword` (desde el commit `63b6626` del backend), en este orden: ≥ 8 **caracteres** (se cuentan code points, como `utf8.RuneCountInString`); ≤ 72 **bytes** UTF-8 (se miden con `TextEncoder`); al menos una letra (`\p{L}`), un número (`\p{Nd}`) y un carácter especial (`\p{P}` o `\p{S}`, como `unicode.IsPunct`/`IsSymbol`) | "Debe tener al menos 8 caracteres." · "No puede superar 72 bytes. Algunos caracteres ocupan más de un byte." · "Debe incluir letras, números y caracteres especiales." |
 
 Cuando un campo falla, el input pasa al estado **Error** de Figma (borde `brand/accent` + "Revisa el campo"), y el motivo concreto aparece en el hueco de ayuda, enlazado con `aria-describedby`.
@@ -300,7 +300,7 @@ Cuando un campo falla, el input pasa al estado **Error** de Figma (borde `brand/
 
 1. **Errores del servicio (401, 409, red):** Figma todavía no define dónde se muestran ("No se define aquí ciclo de sesión, errores del servicio ni destinos", nota del LoginForm). Se muestran encima del botón con `FormAlert`, que reutiliza el icono `alert-circle` y el estilo del ErrorIndicator. El texto es el del backend (ya en español), con mayúscula inicial; la única excepción es el `401` de login, que muestra «Usuario o contraseña incorrectos.» en lugar de «credenciales inválidas» (el backend devuelve el mismo `401` si el identificador no existe o si la contraseña no coincide, así que el mensaje no revela cuál falló). **Provisional** hasta que diseño defina el estado.
 2. **"¿Olvidaste tu contraseña?":** desde 2026-11-06 es un enlace a `/recuperar-contrasena` (§3.10), con el estilo de PasswordRecovery de Figma. Antes, sin endpoint, se mostraba sin acción y con `aria-disabled`.
-3. **Botón "Crear cuenta" deshabilitado hasta aceptar los términos:** se usa el estado **Disabled** de PrimaryButton. Es la forma de exigir la aceptación sin enviarla al backend.
+3. **Botón "Crear cuenta" deshabilitado hasta aceptar los términos:** se usa el estado **Disabled** de PrimaryButton. Además, el backend valida `terms_accepted` y responde `400` si llega `false`.
 4. **Mientras se envía:** los inputs pasan a `readOnly` (no a Disabled, que en Figma muestra "No disponible") y el botón muestra el estado **Loading** ("Iniciando sesión…" / "Creando cuenta…"). La barra de progreso se anima de forma sutil y respeta `prefers-reduced-motion`.
 5. **Términos y Política de Privacidad** (casilla y pie legal) enlazan a `/terminos` y `/privacidad` en otra pestaña, para no perder lo escrito (§5). La casilla **solo cambia al pulsar el cuadro**: el texto no es un `<label>` y el nombre accesible llega con `aria-labelledby` (decisión del propietario, 2026-11-06).
 6. **Pie legal:** en móvil sigue a AuthFooter (separación 24 en Login, 16 en Registro). En escritorio baja al fondo de la página (`md:mt-auto`), como en los frames de escritorio de Login.
@@ -318,7 +318,7 @@ Cuando un campo falla, el input pasa al estado **Error** de Figma (borde `brand/
 
 ### 3.8 Limitaciones Conocidas
 
-- **Términos:** la aceptación no se guarda en el servidor (el backend no tiene ese campo, AUTH-03). Los textos de `/terminos` y `/privacidad` son una propuesta pendiente de revisión legal (§5).
+- **Términos:** el backend ya exige `terms_accepted: true` y guarda fecha y versión (AUTH-03, resuelta el 2026-11-12, commit `560b33f`). El registro envía `terms_accepted` con el valor de la casilla (2026-11-12). Los textos de `/terminos` y `/privacidad` son una propuesta pendiente de revisión legal (§5).
 - **Correo:** el backend acepta dominios sin punto (`usuario@dominio`). El formulario es más estricto, pero la API sigue aceptándolos si se llama directamente.
 - **Ayuda de la contraseña:** Figma sigue con el texto de la regla anterior ("De 8 a 72 bytes…"). El frontend muestra uno provisional que describe la regla actual del backend.
 - **Tokens en `localStorage`:** quedan expuestos si alguna vez hay un XSS. El backend entrega los tokens en el cuerpo JSON (no usa cookies `httpOnly`).
@@ -333,14 +333,14 @@ Cuando un campo falla, el input pasa al estado **Error** de Figma (borde `brand/
 
 | Prueba | Resultado |
 |---|---|
-| `pnpm typecheck` | ✅ Sin errores |
-| `pnpm lint` | ✅ Sin avisos |
-| `pnpm build` | ✅ Build correcto (JS ≈ 105 kB gzip) |
-| Proxy `/api` → backend en WSL (`/healthz`) | ✅ 200 |
-| Login con credenciales incorrectas | ✅ `401 {"error":"credenciales inválidas"}` |
-| Login con usuario seed (`cesar@junkbox.local`) + `GET /auth/me` | ✅ 200 con `UserProfile` |
-| Enviar un campo desconocido al registro | ✅ `400 "solicitud inválida"` (confirma que no se envía `terms_accepted`) |
-| Capturas headless (Edge) Claro/Oscuro, ~500 px y 1440 px | ✅ Coinciden con los frames de Figma |
+| `pnpm typecheck` | Sin errores |
+| `pnpm lint` | Sin avisos |
+| `pnpm build` | Build correcto (JS ≈ 105 kB gzip) |
+| Proxy `/api` → backend en WSL (`/healthz`) | 200 |
+| Login con credenciales incorrectas | `401 {"error":"credenciales inválidas"}` |
+| Login con usuario seed (`cesar@junkbox.local`) + `GET /auth/me` | 200 con `UserProfile` |
+| Enviar un campo desconocido al registro | `400 "solicitud inválida"` (verificación de 2026-11-02; desde el 2026-11-12 `terms_accepted` es un campo válido) |
+| Capturas headless (Edge) Claro/Oscuro, ~500 px y 1440 px | Coinciden con los frames de Figma |
 
 No se ejecutó un registro real para no crear usuarios de prueba en la base de datos del backend.
 
@@ -372,19 +372,19 @@ Se apoya en el commit `51ec315` del backend, que añadió los endpoints de §3.3
 
 | Prueba | Resultado |
 |---|---|
-| `pnpm typecheck` · `pnpm lint` | ✅ Sin errores ni avisos |
-| "¿Olvidaste tu contraseña?" en Login | ✅ Lleva a `/recuperar-contrasena` |
-| Enviar vacío o con un correo inválido | ✅ "Introduce un correo electrónico válido." |
-| Enviar con `cesar@junkbox.local` | ✅ "Revisa tu correo"; el correo llega a Mailpit con `http://localhost:5173/restablecer-contrasena#token=…` |
-| Abrir el enlace | ✅ La URL queda en `/restablecer-contrasena`, sin `#token` |
-| Contraseña débil · no coinciden · confirmación vacía | ✅ Mensaje bajo el campo correspondiente |
-| Contraseña válida | ✅ "Contraseña actualizada" y `junkbox.session` borrada |
-| Reabrir el mismo enlace y enviar | ✅ "Este enlace ya no sirve" (`401`) |
-| Login con la contraseña nueva | ✅ `200` |
-| Sesión abierta antes del reset | ✅ El refresh da `401` y la UI acaba en `/login` |
-| `/verificar-correo#token=inventado` | ✅ "No pudimos verificar tu correo"; el fragmento se quita de la URL |
-| `/restablecer-contrasena` y `/verificar-correo` sin token | ✅ Estado "enlace inválido" sin llamar al backend |
-| Consola del navegador | ✅ Sin errores |
+| `pnpm typecheck` · `pnpm lint` | Sin errores ni avisos |
+| "¿Olvidaste tu contraseña?" en Login | Lleva a `/recuperar-contrasena` |
+| Enviar vacío o con un correo inválido | "Introduce un correo electrónico válido." |
+| Enviar con `cesar@junkbox.local` | "Revisa tu correo"; el correo llega a Mailpit con `http://localhost:5173/restablecer-contrasena#token=…` |
+| Abrir el enlace | La URL queda en `/restablecer-contrasena`, sin `#token` |
+| Contraseña débil · no coinciden · confirmación vacía | Mensaje bajo el campo correspondiente |
+| Contraseña válida | "Contraseña actualizada" y `junkbox.session` borrada |
+| Reabrir el mismo enlace y enviar | "Este enlace ya no sirve" (`401`) |
+| Login con la contraseña nueva | `200` |
+| Sesión abierta antes del reset | El refresh da `401` y la UI acaba en `/login` |
+| `/verificar-correo#token=inventado` | "No pudimos verificar tu correo"; el fragmento se quita de la URL |
+| `/restablecer-contrasena` y `/verificar-correo` sin token | Estado "enlace inválido" sin llamar al backend |
+| Consola del navegador | Sin errores |
 
 El caso de éxito de la verificación no se probó aquí: necesita un usuario sin verificar, y eso solo se consigue registrando una cuenta.
 
@@ -404,12 +404,12 @@ Componentes: `Navbar` (14296:14145), `BottomBar` (14296:15745), `SearchField` (1
 
 | Bloque de Figma | En esta versión |
 |---|---|
-| Navbar y BottomBar | ✅ Estructura común (`AppLayout`) para todas las pantallas con sesión. |
-| Feed introduction (escritorio): "Tu próxima obsesión empieza aquí." | ✅ |
-| "Hecho para tus oídos" (`MusicCard`) | ✅ Con una plantilla de canciones con carátula (§4.3); cada tarjeta abre su ficha (§7). |
-| Tabs "Para ti (Popular)" / "Siguiendo" y `ReviewCard` | ❌ No hay feed de reseñas en el backend (HOME-04); las reseñas sí se ven en cada ficha (§7). |
-| "Conecta por lo que suena" (escritorio) | ❌ No hay sugerencias de usuarios. |
-| `MiniPlayer` y `SnippetPlayer` | ❌ No hay audio. |
+| Navbar y BottomBar | Estructura común (`AppLayout`) para todas las pantallas con sesión. |
+| Feed introduction (escritorio): "Tu próxima obsesión empieza aquí." | Correcto |
+| "Hecho para tus oídos" (`MusicCard`) | Con una plantilla de canciones con carátula (§4.3); cada tarjeta abre su ficha (§7). |
+| Tabs "Para ti (Popular)" / "Siguiendo" y `ReviewCard` | Pendiente: no hay feed de reseñas en el backend (HOME-04); las reseñas sí se ven en cada ficha (§7). |
+| "Conecta por lo que suena" (escritorio) | Pendiente: no hay sugerencias de usuarios. |
+| `MiniPlayer` y `SnippetPlayer` | Pendiente: no hay audio. |
 
 ### 4.2 Rutas y Estructura
 
@@ -478,7 +478,7 @@ Inicio es el primer módulo que llama a endpoints protegidos después de abrir l
 ### 4.7 Limitaciones Conocidas
 
 - **Recomendaciones:** no hay endpoint. Se usa una plantilla igual para todos los usuarios.
-- **Carátulas:** el backend no expone imagen por canción (HOME-02). La plantilla fija el álbum de cada canción a mano; con el endpoint de recomendaciones habrá que pedir la imagen en la respuesta.
+- **Carátulas:** hasta el 2026-11-12 el backend no exponía imagen por canción (HOME-02). Ya la da (`album_image_url`, commit `9e0794d`); falta decidir si la plantilla deja de fijar el álbum a mano. La plantilla fija el álbum de cada canción a mano; con el endpoint de recomendaciones habrá que pedir la imagen en la respuesta.
 - **Una petición por canción:** no hay endpoint para pedir varias canciones a la vez (8 peticiones al cargar Inicio).
 - **Reseñas, sugerencias de usuarios y reproducción:** no hay backend, así que esas secciones de Figma no se muestran y QuickPlay no reproduce.
 - **Perfil y "Ver todo"** no tienen destino todavía.
@@ -489,13 +489,13 @@ Inicio es el primer módulo que llama a endpoints protegidos después de abrir l
 
 | Prueba | Resultado |
 |---|---|
-| `pnpm typecheck` | ✅ Sin errores |
-| `pnpm lint` | ✅ Sin avisos |
-| `pnpm build` | ✅ Build correcto (JS ≈ 110 kB gzip) |
-| Las 8 canciones de la plantilla con `GET /music/tracks/{id}` | ✅ 200 |
-| Capturas headless (Edge) con sesión, Claro/Oscuro, 390, 900 y 1440 px | ✅ Coinciden con los frames de Figma |
-| Menú de cuenta: abre con "Cerrar sesión" y le pasa el foco | ✅ |
-| Consola del navegador | ✅ Sin errores ni avisos |
+| `pnpm typecheck` | Sin errores |
+| `pnpm lint` | Sin avisos |
+| `pnpm build` | Build correcto (JS ≈ 110 kB gzip) |
+| Las 8 canciones de la plantilla con `GET /music/tracks/{id}` | 200 |
+| Capturas headless (Edge) con sesión, Claro/Oscuro, 390, 900 y 1440 px | Coinciden con los frames de Figma |
+| Menú de cuenta: abre con "Cerrar sesión" y le pasa el foco | Correcto |
+| Consola del navegador | Sin errores ni avisos |
 
 En desarrollo se ven 16 peticiones a `/music/tracks`: `StrictMode` monta el efecto dos veces y la primera tanda se cancela. En producción son 8.
 
@@ -534,20 +534,20 @@ Cambios pedidos por el propietario el 2026-11-06, implementados como propuestas 
 
 - Los textos están en `data/termsOfService.ts` y `data/privacyNotice.ts` como datos (`LegalDocument`); `LegalPage` los pinta con logo, título, fecha, secciones, listas y un pie con los dos enlaces. Cambia el `document.title`.
 - **Es una propuesta:** cada página muestra un aviso ("Documento en revisión…") y los datos pendientes van entre corchetes, resaltados con `<mark>` (responsable, domicilio, correos, proveedores, edad mínima, ciudad, autoridad vigente: la LFPDPPP cambió en 2025 y el INAI desapareció). Debe revisarlo un profesional en derecho antes de publicarse.
-- Guardar la aceptación (fecha y versión) en el servidor sigue pendiente (AUTH-03).
+- El backend ya guarda la aceptación con fecha y versión (`TERMS_VERSION`, AUTH-03 resuelta el 2026-11-12). El registro envía `terms_accepted` (§3). Cuando cambien los textos hay que avisar al backend para que actualice `TERMS_VERSION`.
 
 ### 5.4 Verificación (2026-11-06)
 
 | Prueba | Resultado |
 |---|---|
-| `pnpm typecheck` · `pnpm lint` | ✅ |
-| Tarjeta al pasar el ratón, Claro y Oscuro | ✅ "César David Beltrán Loredo / @cesar_beltran" |
-| Menú: "Configuración" (deshabilitada) y "Cerrar sesión"; la tarjeta se oculta al abrir | ✅ |
-| Avatar de cesar | ✅ Robot `bottts?seed=cesar` |
-| Registro: pulsar el texto no marca la casilla; pulsar la casilla sí | ✅ |
-| Enlaces legales en Registro y en el pie | ✅ `/terminos` y `/privacidad` en otra pestaña |
-| `/terminos` y `/privacidad` en escritorio claro y móvil oscuro | ✅ 7 y 8 datos pendientes resaltados |
-| Consola | ✅ Sin errores |
+| `pnpm typecheck` · `pnpm lint` | Correcto |
+| Tarjeta al pasar el ratón, Claro y Oscuro | "César David Beltrán Loredo / @cesar_beltran" |
+| Menú: "Configuración" (deshabilitada) y "Cerrar sesión"; la tarjeta se oculta al abrir | Correcto |
+| Avatar de cesar | Robot `bottts?seed=cesar` |
+| Registro: pulsar el texto no marca la casilla; pulsar la casilla sí | Correcto |
+| Enlaces legales en Registro y en el pie | `/terminos` y `/privacidad` en otra pestaña |
+| `/terminos` y `/privacidad` en escritorio claro y móvil oscuro | 7 y 8 datos pendientes resaltados |
+| Consola | Sin errores |
 
 ---
 
@@ -582,9 +582,9 @@ La búsqueda compara con `strict_word_similarity` sobre "título + artista" en l
 
 ### 6.4 Decisiones de Implementación
 
-1. **La consulta vive en la URL** (`?q=`): se puede compartir y "atrás" vuelve a la búsqueda anterior. Escribir la actualiza tras 400 ms sin teclear (con `replace`, sin llenar el historial); Enter busca al momento; la ✕ borra. Si la URL cambia desde fuera, el campo la sigue.
+1. **La consulta vive en la URL** (`?q=`): se puede compartir y "atrás" vuelve a la búsqueda anterior. Escribir la actualiza tras 400 ms sin teclear (con `replace`, sin llenar el historial); Enter busca al momento; el botón de borrar la vacía. Si la URL cambia desde fuera, el campo la sigue.
 2. **Estado derivado** (`useSearchController`): cada resultado se guarda con su clave `intento:consulta` y el estado (inicial, cargando, listo, error) se calcula en el render, sin `setState` síncrono en efectos (regla `set-state-in-effect` de oxlint).
-3. **Carátula de las canciones:** el backend no la da (HOME-02); si el álbum de la canción aparece entre los álbumes encontrados (mismo título y artista), se usa su carátula.
+3. **Carátula de las canciones:** hasta el 2026-11-12 el backend no la daba (HOME-02, ya resuelta con `album_image_url`; pendiente adaptar el frontend); si el álbum de la canción aparece entre los álbumes encontrados (mismo título y artista), se usa su carátula.
 4. **"Ver todas las canciones"** despliega hasta 20 (se ven 5); **"Ver todos"** despliega el resto de álbumes en la tarjeta.
 5. **Pestaña "Usuarios"** visible pero deshabilitada (SEARCH-04). **Estrellas por fila** solo si hay calificación (SEARCH-03).
 6. **Botón ▶** de cada canción visible y deshabilitado hasta que exista el reproductor.
@@ -615,14 +615,14 @@ La búsqueda compara con `strict_word_similarity` sobre "título + artista" en l
 
 | Prueba | Resultado |
 |---|---|
-| `pnpm typecheck` · `pnpm lint` | ✅ |
-| Navbar → `/buscar` con el foco en el campo; escribir "Hoke" → `?q=Hoke` | ✅ |
-| Secciones con "Hoke": canciones, álbumes (BBO con carátula) y artistas | ✅ |
-| "The Weeknd" en escritorio oscuro; "Ver todas" → 20 filas | ✅ |
-| ✕ vacía la URL; "atrás" restaura la búsqueda anterior y el campo | ✅ |
-| Navbar: "Hoke" → Hoke (artista), Medallones, BBO, TRES CREUS | ✅ |
-| Navbar: flechas + Enter abre la ficha; el campo queda vacío | ✅ |
-| Capturas móvil/escritorio, Claro/Oscuro · consola | ✅ Sin errores |
+| `pnpm typecheck` · `pnpm lint` | Correcto |
+| Navbar → `/buscar` con el foco en el campo; escribir "Hoke" → `?q=Hoke` | Correcto |
+| Secciones con "Hoke": canciones, álbumes (BBO con carátula) y artistas | Correcto |
+| "The Weeknd" en escritorio oscuro; "Ver todas" → 20 filas | Correcto |
+| El botón de borrar vacía la URL; "atrás" restaura la búsqueda anterior y el campo | Correcto |
+| Navbar: "Hoke" → Hoke (artista), Medallones, BBO, TRES CREUS | Correcto |
+| Navbar: flechas + Enter abre la ficha; el campo queda vacío | Correcto |
+| Capturas móvil/escritorio, Claro/Oscuro · consola | Sin errores |
 
 ---
 
@@ -716,14 +716,14 @@ Efecto secundario útil: "Get Lucky" (CSV) quedó enlazada a *Random Access Memo
 
 | Prueba | Resultado |
 |---|---|
-| `pnpm typecheck` · `pnpm lint` · `pnpm build` | ✅ |
-| Buscador "Hoke" → "TT" → `/cancion/6mQGOlMMCOMww9wMglS9FB`, con álbum BBO y artista enlazados | ✅ |
-| Álbum BBO (oscuro y móvil claro): "11 canciones", 10 pistas, "Tenemos 10 de 11" | ✅ |
-| Artista Hoke: Imprescindibles con lanzamientos y canciones; Muse sin foto (círculo neutro) | ✅ |
-| Barra → sugerencia → `/artista/…` con el campo vacío; tarjeta de Inicio → `/cancion/…` | ✅ |
-| `/cancion/0000000000000000000000` → "No encontramos esta canción" | ✅ |
-| Reseña y calificación temporales (4,5): media estrella, "1 valoración", ReviewCard con el robot; borradas al terminar | ✅ |
-| Consola | ✅ Sin errores |
+| `pnpm typecheck` · `pnpm lint` · `pnpm build` | Correcto |
+| Buscador "Hoke" → "TT" → `/cancion/6mQGOlMMCOMww9wMglS9FB`, con álbum BBO y artista enlazados | Correcto |
+| Álbum BBO (oscuro y móvil claro): "11 canciones", 10 pistas, "Tenemos 10 de 11" | Correcto |
+| Artista Hoke: Imprescindibles con lanzamientos y canciones; Muse sin foto (círculo neutro) | Correcto |
+| Barra → sugerencia → `/artista/…` con el campo vacío; tarjeta de Inicio → `/cancion/…` | Correcto |
+| `/cancion/0000000000000000000000` → "No encontramos esta canción" | Correcto |
+| Reseña y calificación temporales (4,5): media estrella, "1 valoración", ReviewCard con el robot; borradas al terminar | Correcto |
+| Consola | Sin errores |
 
 ---
 
@@ -791,15 +791,15 @@ Referencia: backend `README.md` (endpoints 15–22) e `implementacion.md` §6.
 
 | Prueba | Resultado |
 |---|---|
-| `pnpm typecheck` · `pnpm lint` · `pnpm build` | ✅ |
-| "Calificar / Reseñar" en "TT" → `/resena/nueva?tipo=song&id=…` con el elemento elegido | ✅ |
-| Publicar sin estrellas · texto de 3 caracteres | ✅ "Elige de media a cinco estrellas." · "…al menos 5 caracteres." |
-| Clic en la mitad izquierda de la 5.ª estrella | ✅ "4,5 de 5 · Increíble" |
-| Publicar → ficha con 4,5, "1 valoración", "Tu calificación: 4,5" y la reseña | ✅ |
-| "Cambiar": precarga 4,5 y el texto; ← ← ← y texto nuevo → ficha con 3,0 y la reseña editada (PUT) | ✅ |
-| "Eliminar mi reseña" y "Quitar mi calificación" → API: `404` y 0 reseñas | ✅ Sin datos de prueba |
-| "Crear Reseña" (móvil oscuro) → estrellas deshabilitadas; buscar "Muse" y elegir → `?tipo=artist&id=…` | ✅ |
-| Consola | ✅ Sin errores |
+| `pnpm typecheck` · `pnpm lint` · `pnpm build` | Correcto |
+| "Calificar / Reseñar" en "TT" → `/resena/nueva?tipo=song&id=…` con el elemento elegido | Correcto |
+| Publicar sin estrellas · texto de 3 caracteres | "Elige de media a cinco estrellas." · "…al menos 5 caracteres." |
+| Clic en la mitad izquierda de la 5.ª estrella | "4,5 de 5 · Increíble" |
+| Publicar → ficha con 4,5, "1 valoración", "Tu calificación: 4,5" y la reseña | Correcto |
+| "Cambiar": precarga 4,5 y el texto; ← ← ← y texto nuevo → ficha con 3,0 y la reseña editada (PUT) | Correcto |
+| "Eliminar mi reseña" y "Quitar mi calificación" → API: `404` y 0 reseñas | Sin datos de prueba |
+| "Crear Reseña" (móvil oscuro) → estrellas deshabilitadas; buscar "Muse" y elegir → `?tipo=artist&id=…` | Correcto |
+| Consola | Sin errores |
 
 ---
 
@@ -858,14 +858,14 @@ La especificación es del propietario (2026-11-11) y se implementa con los token
 
 | Prueba | Resultado |
 |---|---|
-| `pnpm typecheck` · `pnpm lint` · `pnpm build` | ✅ |
-| Capturas headless sin sesión: 1440 claro/oscuro, 1024 oscuro, 390 claro/oscuro | ✅ |
-| Filas de escritorio: 1 izq → der · 2 der → izq · 3 izq → der · 4 der → izq | ✅ Medido con la posición de cada pista |
-| Movimiento con `prefers-reduced-motion: reduce` (escritorio y móvil) | ✅ Se mueve |
-| "Registrarse" → `/register` · "Iniciar sesión" → `/login` | ✅ |
-| `/buscar` y `/no-existe` sin sesión → landing | ✅ |
-| Con sesión, `/` → Inicio (Navbar), sin landing | ✅ |
-| Consola | ✅ Sin errores |
+| `pnpm typecheck` · `pnpm lint` · `pnpm build` | Correcto |
+| Capturas headless sin sesión: 1440 claro/oscuro, 1024 oscuro, 390 claro/oscuro | Correcto |
+| Filas de escritorio: 1 izq → der · 2 der → izq · 3 izq → der · 4 der → izq | Correcto. Medido con la posición de cada pista |
+| Movimiento con `prefers-reduced-motion: reduce` (escritorio y móvil) | Se mueve |
+| "Registrarse" → `/register` · "Iniciar sesión" → `/login` | Correcto |
+| `/buscar` y `/no-existe` sin sesión → landing | Correcto |
+| Con sesión, `/` → Inicio (Navbar), sin landing | Correcto |
+| Consola | Sin errores |
 
 ---
 
@@ -904,3 +904,4 @@ Además: probar las rutas del módulo con el backend en marcha (`pnpm dev`), rev
 | 2026-11-11 | Módulo 7 · Landing (§9): `/` sin sesión con logo, eslogan, botones a `/register` y `/login` y portadas en carrusel (filas alternas en escritorio, dos carriles en móvil). `HomeRoute`; `ProtectedRoute` lleva a `/`. Animaciones `marquee-x/y`. |
 | 2026-11-11 | Login: el campo indica que se puede entrar con correo o nombre de usuario ("Correo o nombre de usuario"), a petición del propietario. AUTH-05 pasa a Diseño. |
 | 2026-11-11 | Figma al día con la app: etiqueta "Correo o nombre de usuario" en `LoginForm` y nueva ayuda de contraseña en `RegisterForm`; pantallas nuevas en Interfaces (recuperación y verificación, Términos, Privacidad, Landing, menú de la cuenta y sugerencias del buscador; §3, §5, §6.4, §9.1). `SOLICITUDES_BACKEND.md` queda solo con peticiones al backend. |
+| 2026-11-12 | Revisión del backend (commits `9e0794d`, `560b33f`, `4855a38`): AUTH-03, AUTH-06 y HOME-02 resueltas. Registro: envía `terms_accepted` con el valor de la casilla y `EMAIL_PATTERN` admite TLD en punycode, como el backend. Pendiente: usar `album_image_url`/`artist_image_url`. Se quitan los emojis de la documentación (regla del proyecto). |
