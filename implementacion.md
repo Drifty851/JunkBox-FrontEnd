@@ -23,8 +23,9 @@ Se actualiza **al terminar cada módulo**. La documentación del backend (`junkb
 - [7. Módulo 5: Fichas del catálogo (Canción, Álbum, Artista)](#7-módulo-5-fichas-del-catálogo-canción-álbum-artista)
 - [8. Módulo 6: Calificaciones y Reseñas](#8-módulo-6-calificaciones-y-reseñas)
 - [9. Módulo 7: Landing (usuarios sin sesión)](#9-módulo-7-landing-usuarios-sin-sesión)
-- [10. Verificación](#10-verificación)
-- [11. Historial](#11-historial)
+- [10. Módulo 8: Configuración](#10-módulo-8-configuración)
+- [11. Verificación](#11-verificación)
+- [12. Historial](#12-historial)
 
 ---
 
@@ -878,7 +879,101 @@ La especificación es del propietario (2026-11-11, ajustada el 2026-11-13) y se 
 
 ---
 
-## 10. Verificación
+## 10. Módulo 8: Configuración
+
+### 10.1 Pantallas de Figma
+
+| Pantalla | Móvil | Escritorio |
+|---|---|---|
+| Configuración · Claro | `14244:53364` | `14244:53464` |
+| Configuración · Oscuro | `14263:24792` | `14263:24903` |
+
+Solo existe la sección **"Cuenta y música"**. Componentes: `SettingsNavigation` (14296:15752), `SpotifyButton` · ConnectSpotify (14296:5579 / 14296:5598), `FrequencyOption` (14296:4240 / 14296:4283), `ProfileField` (14296:4439 / 14296:4469) y `Button` · SaveChanges.
+
+**Cambios del propietario respecto a Figma (2026-11-13):**
+- Se quita **"Bio musical"**.
+- "Información pública" añade el **correo** (privado) y **"Cambiar contraseña"**, en lugar de una tarjeta aparte.
+- Las secciones del menú lateral sin diseño ("Perfil público", "Privacidad", "Ayuda") se muestran **deshabilitadas**.
+- Lo que no tiene backend queda como **plantilla**: los campos se pueden editar y validar, pero "Guardar cambios", "Cambiar foto" y la frecuencia están deshabilitados, con la nota "Pendiente del backend".
+- "Vincular Cuenta de Spotify" queda **deshabilitado** hasta el módulo Spotify + Reproductor.
+
+### 10.2 Rutas y Estructura
+
+- `/configuracion` (`features/settings/models/settings.ts` · `SETTINGS_PATH`), dentro de `ProtectedRoute` → `AppLayout`.
+- Se llega desde **"Configuración"** del menú del avatar: `app/layout/navigation.ts` · `SETTINGS_PATH` deja de ser `null`.
+- La flecha de la cabecera vuelve a la página anterior (`navigate(-1)`).
+
+```
+features/settings/
+├── models/settings.ts                 # ruta, opciones de frecuencia y validación del perfil
+├── controllers/useSettingsController.ts
+└── views/
+    ├── SettingsPage.tsx               # cabecera, columnas y "Información pública"
+    └── SettingsSections.tsx           # SettingsNav, SpotifySection, FrequencySection, ProfileField
+```
+
+### 10.3 Contrato con el Backend
+
+| Acción | Endpoint | Estado |
+|---|---|---|
+| Datos del usuario | `GET /auth/me` (ya cargado por `AuthProvider`) | Disponible |
+| Cambiar contraseña | `POST /auth/password/forgot { email }` con el correo del usuario: envía el enlace de recuperación (alternativa aprobada para USER-02) | Disponible |
+| Cerrar sesión (menú lateral) | `POST /auth/logout` | Disponible |
+| Guardar nombre, usuario, correo y foto | — | **USER-01** |
+| Cambiar la contraseña con sesión iniciada | — | **USER-02** |
+| Frecuencia de recomendaciones | — | **PREF-01** |
+| Vincular Spotify | API de Spotify (PKCE) | Módulo Spotify + Reproductor |
+
+### 10.4 Decisiones de Implementación
+
+1. **Validación del perfil** (`validateProfile`): mismas reglas que el registro, reutilizando `auth.validation.ts` (`USERNAME_PATTERN`, `EMAIL_PATTERN`, `DISPLAY_NAME_MAX_LENGTH`). Los errores solo aparecen en los campos que el usuario cambió. El nombre visible puede repetirse entre usuarios.
+2. **ProfileField**: caja de 48 px con la etiqueta dentro (Caption/10) y el valor (Body/13), como en Figma. Figma solo define el estado por defecto; el foco y el error reutilizan los bordes del `TextInput` (text/primary y brand/accent).
+3. **"Cambiar contraseña"** usa el botón pequeño de Figma (Variant=Button, alto 32, el mismo que "Cambiar foto") y anuncia el mensaje del backend con `aria-live`.
+4. **Colocación por tamaño:**
+   - Móvil: una columna, como en Figma (sin menú lateral y sin "Cambiar foto", que Figma no muestra en móvil).
+   - De 768 a 1279 px: menú lateral más una columna con "Tu cuenta de música", "Frecuencia" e "Información pública" debajo, porque a 1024 px la columna central de Figma quedaría de unos 136 px.
+   - Desde 1280 px: las tres columnas de Figma (menú de 192, contenido y tarjeta de 440).
+5. **Colores:**
+   - `surface/default-3` y `action/background-3` → `surface-input-disabled`;
+   - `text/secondary-3` → `fg-soft`;
+   - `text/secondary-2` → `fg-placeholder`;
+   - opción elegida (`brand/accent-2`) → `border-action`;
+   - círculo de la opción no elegida (`border/default-7`) → `border-fg-placeholder`.
+6. **Recursos de Figma** (`src/assets/icons`): `arrow-left-20.svg`, `circle-minus-16.svg` y `radio-checked-16.svg`, pintados con `MaskIcon` para que tomen el color del tema. El logo de Spotify reutiliza `assets/brand/spotify-logo.png`.
+7. El **MiniPlayer** de Figma no se muestra: llega con el módulo Spotify + Reproductor.
+
+### 10.5 Accesibilidad
+
+- Un solo `<h1>` ("Configuración") y un `<h2>` por sección. "Información pública" es un `<form>` etiquetado por su título.
+- Los controles sin backend usan `aria-disabled` o `disabled` y apuntan a su nota con `aria-describedby`. "Vincular Cuenta de Spotify" tiene un texto oculto: "Disponible próximamente".
+- La frecuencia es un `fieldset` con `legend` y radios reales (ocultos visualmente), deshabilitados.
+- El menú lateral es un `nav` con `aria-current="page"` en "Cuenta y música".
+- Los errores de cada campo se anuncian (`role="alert"`) y se enlazan con `aria-describedby`.
+
+### 10.6 Limitaciones Conocidas
+
+- **USER-01:** no se puede guardar el nombre, el usuario, el correo ni la foto.
+- **USER-02:** no se puede cambiar la contraseña con la actual; se usa el enlace por correo.
+- **PREF-01:** la frecuencia se queda en "Semanal".
+- **Spotify:** la vinculación llega con el módulo Spotify + Reproductor.
+- Las secciones "Perfil público", "Privacidad" y "Ayuda" no tienen diseño en Figma.
+
+### 10.7 Verificación (2026-11-13)
+
+| Prueba | Resultado |
+|---|---|
+| `pnpm typecheck` · `pnpm lint` | Correcto |
+| Capturas headless con sesión: 390 claro/oscuro, 1440 claro/oscuro y 1024 claro | Coinciden con Figma; a 1024 la tarjeta de perfil va debajo |
+| Menú del avatar → "Configuración" | Lleva a `/configuracion` |
+| Usuario "A B" | "De 3 a 50 caracteres: letras, números, '_' o '.'." |
+| "Guardar cambios" | Deshabilitado |
+| "Cambiar contraseña" | Muestra el mensaje del backend ("Si el correo está registrado, recibirás un enlace…") |
+| Opciones de frecuencia · "Perfil público", "Privacidad", "Ayuda" | Deshabilitadas |
+| Consola | Sin errores |
+
+---
+
+## 11. Verificación
 
 Antes de cerrar cualquier módulo:
 
@@ -894,7 +989,7 @@ Además: probar las rutas del módulo con el backend en marcha (`pnpm dev`), rev
 
 ---
 
-## 11. Historial
+## 12. Historial
 
 | Fecha | Cambio |
 |---|---|
@@ -918,3 +1013,4 @@ Además: probar las rutas del módulo con el backend en marcha (`pnpm dev`), rev
 | 2026-11-12 | Buscador: la espera antes de buscar baja de 300 a 150 ms en la barra y de 400 a 250 ms en `/buscar`. Medido en el navegador (escritorio, consultas ya guardadas): de 340–680 ms a 240–280 ms hasta ver resultados. La petición de canciones sigue siendo la más lenta en consultas nuevas (0,4–0,6 s, consulta a Spotify en el backend). |
 | 2026-11-13 | Landing: 80 portadas elegidas por el propietario (más chicas en escritorio), móvil a pantalla completa con 40 al azar por visita y la misma opacidad y máscara que escritorio, y easter egg "TRAP STORY" si el sorteo (1–137 500) da 67 (§9). |
 | 2026-11-13 | Landing (escritorio): 8 filas que cruzan la pantalla de lado a lado a −8° en un solo bloque, con portadas que escalan para cubrir todo el fondo sin huecos; se ven siempre las 4 filas de arriba y las 4 de abajo (§9.4). |
+| 2026-11-13 | Módulo 8 · Configuración (§10): `/configuracion` desde el menú del avatar, con "Tu cuenta de música" (Spotify deshabilitado hasta su módulo), frecuencia de recomendaciones (PREF-01) e "Información pública" sin "Bio musical", con correo y "Cambiar contraseña" (enlace por correo). Guardar el perfil queda pendiente (USER-01). |

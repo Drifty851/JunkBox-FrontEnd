@@ -106,7 +106,8 @@ src/
     ├── catalog/             # fichas de Canción, Álbum y Artista (rutas, useLoad, vistas)
     ├── reviews/             # Calificaciones y Reseñas (/resena/nueva, /ratings, /reviews)
     ├── legal/               # Términos de Servicio y Aviso de Privacidad
-    └── landing/             # landing de `/` sin sesión (portadas fijas en carrusel)
+    ├── landing/             # landing de `/` sin sesión (portadas fijas en carrusel)
+    └── settings/            # Configuración (/configuracion): cuenta de música, frecuencia e información pública
 ```
 
 ---
@@ -122,10 +123,10 @@ src/
 | Buscador | `/buscar?q=` · campo de la Navbar | Implementado (§6) | `GET /music/search`, `GET /music/albums/{id}` |
 | Fichas del catálogo | `/cancion/:id`, `/album/:id`, `/artista/:id` | Implementado (§7) | `GET /music/tracks\|albums\|artists/{id}`, `GET /music/search` (cascada), `GET /reviews`, `GET /ratings/my` |
 | Calificaciones y Reseñas | `/resena/nueva?tipo=&id=` | Implementado (§8) | `POST/GET/DELETE /ratings`, `POST/GET/PUT/DELETE /reviews` |
-| Configuración | — | ⏳ Pendiente | — |
-| Spotify y Reproductor | — | ⏳ Pendiente | API de Spotify (PKCE) |
+| Configuración | `/configuracion` · menú del avatar | Implementado (§10). Guardar el perfil y la frecuencia, pendientes del backend (USER-01, PREF-01) | `GET /auth/me`, `POST /auth/password/forgot`, `POST /auth/logout` |
+| Spotify y Reproductor | — | Pendiente | API de Spotify (PKCE) |
 
-Perfil, Configuración y Spotify/Reproductor se implementarán **un módulo cada vez**. Las carencias del backend están en `../SOLICITUDES_BACKEND.md`.
+Perfil y Spotify/Reproductor se implementarán **un módulo cada vez**. Las carencias del backend están en `SOLICITUDES_BACKEND.md`.
 
 ---
 

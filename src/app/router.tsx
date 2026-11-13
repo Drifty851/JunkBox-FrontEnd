@@ -16,6 +16,8 @@ import { WRITE_REVIEW_PATH } from '../features/reviews/models/writeReview'
 import { WriteReviewPage } from '../features/reviews/views/WriteReviewPage'
 import { SEARCH_PATH } from '../features/search/models/search.types'
 import { SearchPage } from '../features/search/views/SearchPage'
+import { SETTINGS_PATH } from '../features/settings/models/settings'
+import { SettingsPage } from '../features/settings/views/SettingsPage'
 import { TermsPage } from '../features/legal/views/TermsPage'
 import { AppLayout } from './layout/AppLayout'
 import { HomeRoute, ProtectedRoute, PublicOnlyRoute } from './routes/RouteGuards'
@@ -31,6 +33,7 @@ import { HomeRoute, ProtectedRoute, PublicOnlyRoute } from './routes/RouteGuards
  *  - Sin sesión, las rutas protegidas y las desconocidas llevan a la landing.
  *  - /cancion/:id, /album/:id, /artista/:id: fichas del catálogo.
  *  - /resena/nueva?tipo=&id=: Escribir Reseña (calificaciones y reseñas).
+ *  - /configuracion: Configuración (menú del avatar).
  */
 export const router = createBrowserRouter([
   {
@@ -57,6 +60,7 @@ export const router = createBrowserRouter([
           { path: ALBUM_PATH, element: <AlbumPage /> },
           { path: ARTIST_PATH, element: <ArtistPage /> },
           { path: WRITE_REVIEW_PATH, element: <WriteReviewPage /> },
+          { path: SETTINGS_PATH, element: <SettingsPage /> },
         ],
       },
     ],
