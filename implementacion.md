@@ -75,7 +75,7 @@ Módulos posteriores (misma estructura de capas; solo las que necesitan):
 | Cuenta / legales | `features/legal/` | `models/` (rutas y tipos), `data/` (textos), `views/` (`LegalPage`, `TermsPage`, `PrivacyPage`). §5. |
 | Buscador | `features/search/` | `models/search.types.ts`, `services/searchService.ts`, `controllers/` (`useSearchController`, `useSearchSuggestions`), `views/` (`SearchPage`, `SearchHeader`, `SearchResultsView`, `NavbarSearch`). §6. |
 | Fichas | `features/catalog/` | `models/catalogPaths.ts`, `controllers/` (`useLoad`, `catalogLoaders`), `views/` (`SongPage`, `AlbumPage`, `ArtistPage`, `DetailParts`, `ReviewsSection`). §7. |
-| Landing | `features/landing/` | `data/landingCovers.ts` (40 portadas fijas), `views/` (`LandingPage`, `CoverWall` con `CoverStrip`). §9. |
+| Landing | `features/landing/` | `data/landingCovers.ts` (80 portadas fijas y el easter egg), `views/` (`LandingPage`, `CoverWall` con `MobileCoverWall`). §9. |
 | Calificaciones y Reseñas | `features/reviews/` | `models/` (`review.types.ts`, `writeReview.ts`), `infrastructure/reviewsApi.ts`, `services/reviewsService.ts`, `controllers/useWriteReviewController.ts`, `views/WriteReviewPage.tsx`. §8. |
 
 Lo reutilizable entre módulos vive en `src/shared/` (`api/`, `ui/`, `layout/`, `utils/`). La composición global (proveedores, router, guardas y `AppLayout`) está en `src/app/`.
@@ -807,12 +807,12 @@ Referencia: backend `README.md` (endpoints 15–22) e `implementacion.md` §6.
 
 ### 9.1 Diseño
 
-La especificación es del propietario (2026-11-11) y se implementa con los tokens y componentes existentes. **En Figma** desde el 2026-11-11, capturada de la app: "Landing" (Interfaces, y=20777: `16270:6827`, `16269:6827`, `16274:6827`, `16271:6827`, en el orden Móvil Claro, Desktop Claro, Móvil Oscuro, Desktop Oscuro).
+La especificación es del propietario (2026-11-11, ajustada el 2026-11-13) y se implementa con los tokens y componentes existentes. **En Figma** desde el 2026-11-11, capturada de la app (versión anterior al ajuste del 2026-11-13: dos carriles en móvil y portadas más grandes): "Landing" (Interfaces, y=20777: `16270:6827`, `16269:6827`, `16274:6827`, `16271:6827`, en el orden Móvil Claro, Desktop Claro, Móvil Oscuro, Desktop Oscuro).
 
 | Zona | Escritorio (`md:`) | Móvil |
 |---|---|---|
 | Centro | Logo de Junkbox (424 px), eslogan "Califica, reseña y descubre música." y dos botones en fila | Logo (280–340 px), eslogan y los botones a todo el ancho (alto 48, táctiles) |
-| Fondo | 4 filas arriba a la izquierda y 4 abajo a la derecha (10 portadas cada una, inclinadas −12°), que se desplazan como carrusel **alternando sentido**: izquierda → derecha, derecha → izquierda… Opacidad 75 % y máscara radial que deja el centro despejado | Un carrusel arriba (hacia la izquierda) y otro abajo (hacia la derecha), con los bordes difuminados |
+| Fondo | **80 portadas distintas** en **8 filas que cruzan la pantalla de lado a lado**, inclinadas −8° (lo más horizontal posible sin dejar de ser diagonales) y apiladas sin cruzarse: las 4 de arriba con las 40 primeras y las 4 de abajo con las 40 siguientes, alternando sentido y velocidad. La portada mide `calc((100vh + 14vw) / 8 - 12px)` para que las 8 filas cubran toda la pantalla ya inclinadas, sin fondo vacío. Opacidad 75 % y máscara radial que deja el centro despejado | **40 portadas al azar** (96 px) en 8 filas de 5 que cubren **toda la pantalla**, alternando sentido y velocidad, con la misma opacidad (75 %) y la misma máscara radial que escritorio |
 | Pie | "Términos de Servicio · Política de Privacidad" | Igual |
 
 - **"Registrarse"** (estilo de `PrimaryButton`, acción principal) y **"Iniciar sesión"** (estilo de `SecondaryButton`) son **enlaces** a `/register` y `/login`, no modales.
@@ -830,16 +830,19 @@ La especificación es del propietario (2026-11-11) y se implementa con los token
 
 ### 9.3 Portadas
 
-- Sin sesión no se puede pedir el catálogo (todos los endpoints de `/music` exigen Bearer). Por eso `features/landing/data/landingCovers.ts` es una **lista fija de 40 carátulas** que ya estaban en la base, recopiladas el 2026-11-11 con `GET /music/search?type=album` de los artistas importados (The Weeknd, Hoke, Muse, Daft Punk, Billie Eilish, Kendrick Lamar, Luis Fonsi, Avicii, Mark Ronson).
-- Se usa la variante de **300 px** del CDN de Spotify (prefijo `ab67616d00001e02` en lugar de `ab67616d0000b273`, de 640 px); las 40 se comprobaron (`HEAD 200`).
+- Sin sesión no se puede pedir el catálogo (todos los endpoints de `/music` exigen Bearer). Por eso `features/landing/data/landingCovers.ts` es una **lista fija de 80 álbumes elegidos por el propietario** (2026-11-13), en su orden. Las URLs salen de `GET /music/search?type=album`; los que no estaban en la base los importó el backend de Spotify al buscarlos. Casos particulares: "Weezer (Green Album)" es el "Weezer" de 2001; "Audioslave" se tomó del álbum de la canción "Cochise" (la búsqueda de álbumes no lo devolvía); "DEPR</3$$ED MFKZ" está a nombre de Junior H en el catálogo (es de Gael Valenzuela y Junior H); varios son la edición remasterizada o ampliada (misma portada).
+- Se usa la variante de **300 px** del CDN de Spotify (prefijo `ab67616d00001e02` en lugar de `ab67616d0000b273`, de 640 px); las 80 se comprobaron (`HEAD 200`).
+- **Selección:** escritorio muestra las 80; móvil, **40 al azar en cada visita** (`pickRandomCovers`, Fisher–Yates). Se sortea una vez al montar `LandingPage` (inicializador de `useState`), así no cambian al volver a renderizar.
+- **Easter egg (decisión del propietario, 2026-11-13):** en el mismo sorteo sale un número entre 1 y 137 500 (`EASTER_EGG_RANGE`); si es **67** (`EASTER_EGG_NUMBER`), todas las portadas, en escritorio y en móvil, son **"TRAP STORY"**. No es un álbum sino la portada de una lista pública de Spotify (`1NaTVrYp7vkBAU5v6pxNWP`), obtenida con el oEmbed público de Spotify; si quien la creó cambia la imagen, la URL puede dejar de funcionar. El número no se muestra.
 - Una portada que no carga se oculta y deja el recuadro neutro (`surface-input-disabled`).
 - Pendiente del backend: un endpoint público para rotarlas (**LANDING-01**).
 
 ### 9.4 Decisiones de Implementación
 
-1. **Carrusel infinito sin JavaScript** (`views/CoverWall.tsx`): cada pista contiene su lista dos veces y se desplaza la mitad de su tamaño con `@keyframes jb-marquee-x` (§2.3), así el bucle no tiene salto. La duración se fija por fila (60–90 s en escritorio, 60 s en móvil) y el sentido con `animation-direction`.
+1. **Carrusel infinito sin JavaScript** (`views/CoverWall.tsx`): cada pista contiene su lista dos veces y se desplaza la mitad de su tamaño con `@keyframes jb-marquee-x` (§2.3), así el bucle no tiene salto. La duración se fija por fila (60–90 s en escritorio, 40–64 s en móvil) y el sentido con `animation-direction`.
 2. **Se mueve siempre**, también con "reducir movimiento" (decisión del propietario, 2026-11-11): Windows con los *Efectos de animación* desactivados hace que el navegador lo pida, y la primera versión detenía las portadas.
-3. **Las esquinas se definen con la máscara** (`radial-gradient` 62 % × 68 %, transparente hasta el 42 %) sobre una capa al 75 % de opacidad; funciona igual en claro y oscuro porque el fondo es `bg`.
+3. **Las esquinas se definen con la máscara** sobre una capa al 75 % de opacidad; funciona igual en claro y oscuro porque el fondo es `bg`. Móvil: `radial-gradient` 62 % × 68 %, transparente hasta el 42 %. Escritorio (2026-11-13): 45 % × 40 %, transparente hasta el 55 %, para que se vea la fila de cada esquina más cercana al centro.
+5. **Escritorio a pantalla completa** (2026-11-13, en tres ajustes pedidos por el propietario): (a) antes los grupos de las esquinas se colocaban con `-top-[14vh] -left-[18vw]` y al girarlos la fila exterior quedaba fuera de la pantalla (se veían 3 de 4); (b) se agrandaron las portadas para rellenar las esquinas; (c) las filas pasan a cruzar toda la pantalla, menos inclinadas (−8° en lugar de −12°) y en un solo bloque de 8 filas centrado (`w-[140vw]`, `translateY(-50%) rotate(-8deg)`), porque con dos grupos de filas largas se cruzaban a media pantalla. Cada fila repite sus 10 portadas para que la pista siempre sea más larga que la pantalla.
 4. Primero fueron columnas verticales; a petición del propietario pasaron a **filas en carrusel** con sentido alterno.
 
 ### 9.5 Accesibilidad
@@ -851,10 +854,11 @@ La especificación es del propietario (2026-11-11) y se implementa con los token
 ### 9.6 Limitaciones Conocidas
 
 - **LANDING-01:** las portadas no cambian hasta que se actualice la lista a mano.
+- Las portadas de móvil cubren también la zona del pie legal: se lee, pero no queda sobre fondo liso.
 - Las carátulas se enlazan desde el CDN de Spotify; si se publica fuera del ámbito académico, conviene revisar las condiciones de Spotify sobre el uso de carátulas.
 - A 1440 px el pie legal queda sobre la parte difuminada de las filas inferiores (se lee, pero no queda sobre fondo liso).
 
-### 9.7 Verificación (2026-11-11)
+### 9.7 Verificación (2026-11-11; ajuste del 2026-11-13 al final)
 
 | Prueba | Resultado |
 |---|---|
@@ -866,6 +870,11 @@ La especificación es del propietario (2026-11-11) y se implementa con los token
 | `/buscar` y `/no-existe` sin sesión → landing | Correcto |
 | Con sesión, `/` → Inicio (Navbar), sin landing | Correcto |
 | Consola | Sin errores |
+| (2026-11-13) Escritorio claro/oscuro: imágenes del fondo | 80 distintas (160 nodos: la pista va dos veces) |
+| (2026-11-13) Móvil claro/oscuro: imágenes del fondo, dos recargas | 40 distintas en cada una, y distintas entre recargas |
+| (2026-11-13) Easter egg forzado (`Math.random` fijado solo en la prueba) | Escritorio y móvil: todas las portadas son TRAP STORY |
+| (2026-11-13) `pnpm typecheck` · `pnpm lint` · consola | Correcto, sin errores |
+| (2026-11-13) Escritorio a 1920×1080, 1440×900, 1366×768, 1280×720 y 1024×768: filas visibles y fondo vacío dentro de la zona opaca de la máscara (rejilla de 20 px) | Las 8 filas visibles; fondo vacío 0 % (con las esquinas separadas era 36 %) |
 
 ---
 
@@ -907,3 +916,5 @@ Además: probar las rutas del módulo con el backend en marcha (`pnpm dev`), rev
 | 2026-11-12 | Revisión del backend (commits `9e0794d`, `560b33f`, `4855a38`): AUTH-03, AUTH-06 y HOME-02 resueltas. Registro: envía `terms_accepted` con el valor de la casilla y `EMAIL_PATTERN` admite TLD en punycode, como el backend. Se quitan los emojis de la documentación (regla del proyecto). |
 | 2026-11-12 | Carátulas desde `album_image_url`/`artist_image_url` de `Track` (HOME-02): Inicio deja de fijar el álbum de cada canción en la plantilla, el Buscador y las sugerencias dejan de cruzar canciones con álbumes, la ficha de artista usa la portada de cada canción y Escribir Reseña ya no pide el álbum aparte. Las 8 canciones de la plantilla se enlazaron en el backend buscándolas una vez. |
 | 2026-11-12 | Buscador: la espera antes de buscar baja de 300 a 150 ms en la barra y de 400 a 250 ms en `/buscar`. Medido en el navegador (escritorio, consultas ya guardadas): de 340–680 ms a 240–280 ms hasta ver resultados. La petición de canciones sigue siendo la más lenta en consultas nuevas (0,4–0,6 s, consulta a Spotify en el backend). |
+| 2026-11-13 | Landing: 80 portadas elegidas por el propietario (más chicas en escritorio), móvil a pantalla completa con 40 al azar por visita y la misma opacidad y máscara que escritorio, y easter egg "TRAP STORY" si el sorteo (1–137 500) da 67 (§9). |
+| 2026-11-13 | Landing (escritorio): 8 filas que cruzan la pantalla de lado a lado a −8° en un solo bloque, con portadas que escalan para cubrir todo el fondo sin huecos; se ven siempre las 4 filas de arriba y las 4 de abajo (§9.4). |

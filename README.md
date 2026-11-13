@@ -115,7 +115,7 @@ src/
 
 | Módulo | Rutas | Estado | Endpoints |
 |---|---|---|---|
-| Landing | `/` (sin sesión) | Implementado (`implementacion.md` §9). Portadas fijas (LANDING-01) | — |
+| Landing | `/` (sin sesión) | Implementado (`implementacion.md` §9). 80 portadas fijas elegidas por el propietario; 40 al azar en móvil (LANDING-01) | — |
 | Autenticación | `/login`, `/register`, `/recuperar-contrasena`, `/restablecer-contrasena`, `/verificar-correo` | Implementado. El registro envía `terms_accepted` (obligatorio en el backend desde el 2026-11-12) | `POST /auth/login`, `POST /auth/register`, `GET /auth/me`, `POST /auth/refresh`, `POST /auth/logout`, `POST /auth/password/forgot`, `POST /auth/password/reset`, `POST /auth/email/verify` |
 | Inicio | `/` | Base implementada con carátulas (`album_image_url`): crece con los demás módulos (`implementacion.md` §4) | `GET /music/tracks/{id}` |
 | Cuenta y legales | `/terminos`, `/privacidad` · menú del avatar | Implementado (§5). Textos legales en revisión | — (avatar por defecto en `POST /auth/register`) |

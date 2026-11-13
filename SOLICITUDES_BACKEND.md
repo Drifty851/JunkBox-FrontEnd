@@ -310,7 +310,7 @@ Sin solicitudes abiertas.
   - Response: `200 { "covers": [ { "title": string, "artist_name": string, "image_url": string } ] }`: álbumes con imagen, variados (por popularidad o al azar).
   - Errores: `400` si `limit` está fuera de rango.
   - Solo datos públicos del catálogo; nada de usuarios.
-- **Alternativa en el frontend (implementada):** lista fija de 40 carátulas que ya estaban en la base (recopiladas el 2026-11-11), en `FrontEnd/src/features/landing/data/landingCovers.ts`, con la variante de 300 px del CDN de Spotify.
+- **Alternativa en el frontend (implementada):** lista fija de 80 álbumes elegidos por el propietario (2026-11-13; antes, 40 de los artistas importados), en `FrontEnd/src/features/landing/data/landingCovers.ts`, con la variante de 300 px del CDN de Spotify. Escritorio muestra las 80 y móvil 40 al azar por visita.
 - **Impacto en el frontend:** las portadas no cambian hasta que se actualice la lista a mano.
 
 ---
@@ -352,3 +352,4 @@ Sin solicitudes abiertas.
 | 2026-11-11 | AUTH-05: el Login del frontend dice "Correo o nombre de usuario" (decisión del propietario); se pide a Diseño actualizar Figma. |
 | 2026-11-11 | El archivo queda solo con peticiones al backend. **Retiradas por resueltas en Figma:** AUTH-05 (etiqueta "Correo o nombre de usuario" en `LoginForm`) y AUTH-07 (ayuda de la contraseña en `RegisterForm`). Las pantallas que faltaban (recuperación y verificación, Términos, Privacidad, Landing, menú de la cuenta y sugerencias del buscador) ya están en la página Interfaces. |
 | 2026-11-12 | Revisión del backend (commits `9e0794d`, `560b33f` y `4855a38`), con lectura del README, `implementacion.md`, `docs/solicitudes.md` y pruebas en vivo. **Retiradas por resueltas:** AUTH-03 (`terms_accepted` obligatorio, guardado en `user_consents` con fecha y versión; sin él, `400`), AUTH-06 (el registro rechaza `a@dominio` y `a@b.c` con `400 "email inválido"`) y HOME-02 (`album_image_url` y `artist_image_url` en `Track`, en la búsqueda y en el detalle; comprobado con "Hoke"). **El frontend aún no envía `terms_accepted`, así que el registro devuelve `400` hasta que se añada.** El resto sigue pendiente. |
+| 2026-11-13 | LANDING-01: la alternativa del frontend pasa a 80 álbumes elegidos por el propietario. Sigue pendiente. |
