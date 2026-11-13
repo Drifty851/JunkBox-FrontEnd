@@ -22,8 +22,18 @@ const SMALL_BUTTON =
  */
 export function SettingsPage() {
   const navigate = useNavigate()
-  const { user, values, fieldErrors, handleChange, canSave, passwordReset, requestPasswordReset, logout } =
-    useSettingsController()
+  const {
+    user,
+    values,
+    fieldErrors,
+    handleChange,
+    canSave,
+    passwordReset,
+    passwordResetCooldown,
+    requestPasswordReset,
+    logout,
+  } = useSettingsController()
+  const passwordLocked = passwordReset.status === 'sending' || passwordResetCooldown > 0
 
   useEffect(() => {
     const previous = document.title
@@ -60,7 +70,7 @@ export function SettingsPage() {
             noValidate
             onSubmit={(event) => event.preventDefault()}
             aria-labelledby="profile-title"
-            className="flex w-full flex-col gap-2 md:gap-4 md:rounded-lg md:border md:border-line md:p-6 xl:w-[440px] xl:shrink-0"
+            className="flex w-full flex-col gap-2 md:order-first md:gap-4 md:rounded-lg md:border md:border-line md:p-6 xl:order-none xl:w-[440px] xl:shrink-0"
           >
             <SectionTitle id="profile-title">Información pública</SectionTitle>
 
@@ -117,16 +127,20 @@ export function SettingsPage() {
                 <button
                   type="button"
                   onClick={() => void requestPasswordReset()}
-                  aria-disabled={passwordReset.status === 'sending' || undefined}
+                  aria-disabled={passwordLocked || undefined}
                   className={SMALL_BUTTON}
                 >
-                  {passwordReset.status === 'sending' ? 'Enviando…' : 'Cambiar contraseña'}
+                  {passwordReset.status === 'sending'
+                    ? 'Enviando…'
+                    : passwordResetCooldown > 0
+                      ? `Espera ${passwordResetCooldown} s`
+                      : 'Cambiar contraseña'}
                 </button>
               </div>
               <p aria-live="polite" className="text-xs leading-[1.4] text-fg-muted">
                 {passwordReset.status === 'sent' || passwordReset.status === 'error'
                   ? passwordReset.message
-                  : 'Te enviaremos un enlace a tu correo para elegir una nueva.'}
+                  : 'Te enviaremos un enlace a tu correo para elegir una nueva (hasta 3 por hora).'}
               </p>
             </div>
 

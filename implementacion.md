@@ -928,10 +928,10 @@ features/settings/
 
 1. **Validación del perfil** (`validateProfile`): mismas reglas que el registro, reutilizando `auth.validation.ts` (`USERNAME_PATTERN`, `EMAIL_PATTERN`, `DISPLAY_NAME_MAX_LENGTH`). Los errores solo aparecen en los campos que el usuario cambió. El nombre visible puede repetirse entre usuarios.
 2. **ProfileField**: caja de 48 px con la etiqueta dentro (Caption/10) y el valor (Body/13), como en Figma. Figma solo define el estado por defecto; el foco y el error reutilizan los bordes del `TextInput` (text/primary y brand/accent).
-3. **"Cambiar contraseña"** usa el botón pequeño de Figma (Variant=Button, alto 32, el mismo que "Cambiar foto") y anuncia el mensaje del backend con `aria-live`.
+3. **"Cambiar contraseña"** usa el botón pequeño de Figma (Variant=Button, alto 32, el mismo que "Cambiar foto") y anuncia el mensaje del backend con `aria-live`. **Bloqueo contra clics accidentales** (petición del propietario, 2026-11-13): tras cada clic queda deshabilitado 5 s (`PASSWORD_RESET_COOLDOWN_SECONDS`) con la cuenta atrás "Espera N s"; una referencia lo bloquea en el mismo instante, así que varios clics seguidos envían una sola petición. El backend, además, emite como máximo **3 enlaces por usuario y hora** (`maxEmailTokensPerHour` en `account_email_service.go`) e ignora los demás sin avisar (responde igual); la ayuda lo indica ("hasta 3 por hora").
 4. **Colocación por tamaño:**
    - Móvil: una columna, como en Figma (sin menú lateral y sin "Cambiar foto", que Figma no muestra en móvil).
-   - De 768 a 1279 px: menú lateral más una columna con "Tu cuenta de música", "Frecuencia" e "Información pública" debajo, porque a 1024 px la columna central de Figma quedaría de unos 136 px.
+   - De 768 a 1279 px: menú lateral más una columna, con **"Información pública" primero** (petición del propietario, 2026-11-13) y después "Tu cuenta de música" y "Frecuencia", porque a 1024 px la columna central de Figma quedaría de unos 136 px.
    - Desde 1280 px: las tres columnas de Figma (menú de 192, contenido y tarjeta de 440).
 5. **Colores:**
    - `surface/default-3` y `action/background-3` → `surface-input-disabled`;
@@ -969,6 +969,8 @@ features/settings/
 | "Guardar cambios" | Deshabilitado |
 | "Cambiar contraseña" | Muestra el mensaje del backend ("Si el correo está registrado, recibirás un enlace…") |
 | Opciones de frecuencia · "Perfil público", "Privacidad", "Ayuda" | Deshabilitadas |
+| Tres clics seguidos en "Cambiar contraseña" | Una sola petición; "Espera 5 s" con cuenta atrás y se habilita a los 5 s (un clic después envía otra) |
+| 1024 px: orden de las tarjetas | "Información pública" arriba, después "Tu cuenta de música" y "Frecuencia" |
 | Consola | Sin errores |
 
 ---
@@ -1014,3 +1016,4 @@ Además: probar las rutas del módulo con el backend en marcha (`pnpm dev`), rev
 | 2026-11-13 | Landing: 80 portadas elegidas por el propietario (más chicas en escritorio), móvil a pantalla completa con 40 al azar por visita y la misma opacidad y máscara que escritorio, y easter egg "TRAP STORY" si el sorteo (1–137 500) da 67 (§9). |
 | 2026-11-13 | Landing (escritorio): 8 filas que cruzan la pantalla de lado a lado a −8° en un solo bloque, con portadas que escalan para cubrir todo el fondo sin huecos; se ven siempre las 4 filas de arriba y las 4 de abajo (§9.4). |
 | 2026-11-13 | Módulo 8 · Configuración (§10): `/configuracion` desde el menú del avatar, con "Tu cuenta de música" (Spotify deshabilitado hasta su módulo), frecuencia de recomendaciones (PREF-01) e "Información pública" sin "Bio musical", con correo y "Cambiar contraseña" (enlace por correo). Guardar el perfil queda pendiente (USER-01). |
+| 2026-11-13 | Configuración: "Cambiar contraseña" se bloquea 5 s tras cada clic (el backend limita a 3 enlaces por hora) e "Información pública" va primero entre 768 y 1279 px (§10.4). |
