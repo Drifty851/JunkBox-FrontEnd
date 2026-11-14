@@ -1,5 +1,6 @@
 import { FormAlert } from '../../../shared/ui/FormAlert'
 import { MusicCard } from '../../../shared/ui/MusicCard'
+import { usePlayer } from '../../player/controllers/playerContext'
 import type { RecommendationsState } from '../controllers/useHomeController'
 import { songPath } from '../../catalog/models/catalogPaths'
 
@@ -20,6 +21,7 @@ const SKELETON_COUNT = 4
  * (carga) y FormAlert (error) para no inventar estilos nuevos.
  */
 export function RecommendationsSection({ state, onRetry }: RecommendationsSectionProps) {
+  const { play } = usePlayer()
   return (
     <section aria-labelledby="home-recommendations-title" className="flex flex-col gap-3 md:gap-6">
       <div className="flex items-center justify-between gap-4">
@@ -79,6 +81,7 @@ export function RecommendationsSection({ state, onRetry }: RecommendationsSectio
                 kind="Canción"
                 imageUrl={track.imageUrl}
                 to={songPath(track.spotifyId)}
+                onPlay={() => play(track.spotifyId)}
               />
             </li>
           ))}

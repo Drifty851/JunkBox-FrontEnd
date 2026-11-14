@@ -4,7 +4,7 @@ import { MaskIcon } from './MaskIcon'
 interface PlayButtonProps {
   /** Nombre accesible, p. ej. "Reproducir Medallones". */
   label: string
-  /** Sin `onPlay`, el botón se muestra pero no hace nada (el reproductor llega con Spotify). */
+  /** Reproduce la canción (features/player · usePlayer().play). Sin `onPlay` queda `aria-disabled`. */
   onPlay?: () => void
 }
 
@@ -15,7 +15,7 @@ export function PlayButton({ label, onPlay }: PlayButtonProps) {
       type="button"
       aria-label={label}
       aria-disabled={onPlay ? undefined : 'true'}
-      title={onPlay ? undefined : 'La reproducción llegará al vincular Spotify'}
+      title={onPlay ? undefined : 'Reproducción no disponible'}
       onClick={onPlay}
       className="flex size-7 shrink-0 cursor-pointer items-center justify-center rounded-full focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-fg aria-disabled:cursor-default"
     >

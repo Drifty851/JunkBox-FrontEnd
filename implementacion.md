@@ -986,7 +986,7 @@ features/settings/
 
 ## 11. Módulo 9: Spotify y Reproductor
 
-Se implementa en dos pasos: **(1) vincular Spotify** desde Configuración (2026-11-13) y **(2) el SDK y el MiniPlayer** (pendiente). Decisiones del propietario (2026-11-13):
+Se implementa en dos pasos: **(1) vincular Spotify** desde Configuración y **(2) el SDK y el MiniPlayer** (ambos 2026-11-13). Decisiones del propietario (2026-11-13):
 - **Módulo:** `features/player`, con un proveedor propio.
 - **Dónde se guarda la vinculación:** en este navegador, de la forma más segura posible, y se mantiene entre visitas.
 - **URL de retorno:** `http://127.0.0.1:5173/spotify/callback`.
@@ -1031,8 +1031,12 @@ features/player/
 ├── infrastructure/spotifyApi.ts         # accounts.spotify.com (token) y /v1/me
 ├── infrastructure/spotifyTokenVault.ts  # refresh token cifrado (AES-GCM, clave no extraíble)
 ├── services/spotifyAuthService.ts       # PKCE: vincular, completar, renovar, desvincular
+├── infrastructure/spotifyPlaybackSdk.ts # carga del Web Playback SDK y sus tipos
+├── models/player.ts                     # estado del reproductor y reglas
 ├── controllers/useSpotifyLink.ts        # estado para Configuración
-└── views/SpotifyCallbackPage.tsx        # /spotify/callback
+├── controllers/playerContext.ts         # usePlayer()
+├── controllers/PlayerProvider.tsx       # SDK, reproducción y estado global
+└── views/                               # SpotifyCallbackPage, MiniPlayer, PlayerControls, PlayerSheet
 ```
 
 **Verificación (2026-11-13):**
@@ -1045,11 +1049,72 @@ features/player/
 | Configuración desde `127.0.0.1` → "Vincular" | Lleva al inicio de sesión de Spotify con `client_id`, `redirect_uri` registrada, permisos, `code_challenge_method=S256` y `state` (Spotify aceptó la URL de retorno) |
 | `/spotify/callback?error=access_denied` | "Cancelaste la vinculación con Spotify." |
 | `/spotify/callback` con un `state` inventado | "La vinculación no es válida o caducó…" |
-| Vinculación completa con una cuenta real | **Pendiente de probar por el propietario** (requiere iniciar sesión en Spotify) |
+| Vinculación completa con una cuenta real | Correcto (probada por el propietario). Primero falló con "redirect_uri: Not matching configuration" porque la URL de retorno no estaba registrada en el panel de Spotify; Spotify la comprueba después de iniciar sesión, por eso la prueba sin cuenta no lo detectó |
+| Volver con "Atrás" desde Spotify | El botón vuelve a "Vincular Cuenta de Spotify" (antes se quedaba en "Abriendo Spotify…" por la caché de páginas del navegador; se reinicia en `pageshow`) |
 
 ### 11.2 Reproductor (SDK y MiniPlayer)
 
-Pendiente: siguiente paso.
+**Cómo suena:**
+- Se usa el **Web Playback SDK** de Spotify (`https://sdk.scdn.co/spotify-player.js`, cargado una sola vez): Junkbox aparece como un dispositivo de Spotify llamado "Junkbox".
+- La canción se pide con `PUT /v1/me/player/play?device_id=` y `{ uris: ["spotify:track:<id>"] }`. Si el dispositivo recién creado aún no está registrado (`404`), se reintenta una vez.
+- **Solo funciona con Spotify Premium** (lo exige el SDK) y en navegadores con DRM (Chrome, Edge, Firefox; no en navegadores sin Widevine).
+- Los tipos del SDK están escritos a mano (`infrastructure/spotifyPlaybackSdk.ts`), sin dependencias nuevas.
+
+**Reglas del propietario (2026-11-13):**
+- Una sola canción: la que elige el usuario.
+- **Atrás** (skip-back) reinicia la canción.
+- **Adelante** (skip-forward) la termina: queda al final, en pausa, y "reproducir" la vuelve a empezar.
+- **Volumen** de 0 a 100 que empieza siempre en 50.
+- **La X** detiene y oculta el reproductor.
+- Al terminar sola, la canción queda al final, en pausa.
+
+**Dónde se puede reproducir:**
+- el play-circle de las filas (Buscador, ficha de álbum y de artista);
+- el QuickPlay de las tarjetas de Inicio, que deja de ser decorativo (`MusicCard` · `onPlay`, con `z-[1]` sobre el enlace de la tarjeta);
+- un botón nuevo en la ficha de canción: círculo de 44 con el "play" de QuickPlay, antes de "Calificar / Reseñar". No está en Figma; aprobado. En móvil, con este botón, "Reproducir en Spotify" se acorta a "Spotify" para que quepa la fila.
+
+**Arquitectura** (decisión del propietario: módulo `features/player` con proveedor propio):
+- `PlayerProvider` envuelve `AppLayout`: la música sigue al cambiar de pantalla y se desconecta al cerrar sesión.
+- Las vistas usan `usePlayer()` (`controllers/playerContext.ts`, el mismo patrón que `authContext`).
+- El proveedor crea el reproductor del SDK la primera vez que se reproduce. `getOAuthToken` pide el token a `spotifyAuthService.getAccessToken`, que lo renueva solo. Comprueba una vez si la cuenta es Premium (`GET /v1/me` · `product`).
+- La posición se lee del SDK dos veces por segundo mientras suena.
+- El fin de la canción se detecta cuando Spotify pausa y vuelve la posición a 0 cerca del final.
+
+**MiniPlayer** (Figma · MiniPlayer 14296:15106):
+
+| | Móvil (MiniPlayer-04, 14296:14924) | Escritorio (MiniPlayer-03, 14296:14648) |
+|---|---|---|
+| Alto | 62 (60 + progreso de 2) | 76 |
+| Contenido | Artwork 36, título (13 SemiBold) y artista (11), pausa 24, chevron-up 20, x 16 | Artwork 44, título y artista (260 desde `lg`), skip-back 20, pausa 24, skip-forward 20, tiempos (11), progreso de 3 px, volume-2 20, chevron-up, x |
+| Posición | Pie fijo, encima de la BottomBar | Pie fijo |
+
+**Fuera de Figma** (propuestas aprobadas el 2026-11-13):
+- En pausa se muestra el "play" de QuickPlay a 24 px, porque Figma solo dibuja la pausa.
+- En escritorio, junto a volume-2, un control deslizante de volumen.
+- **Aviso** en la barra del reproductor cuando no hay vinculación ("Vincula tu cuenta de Spotify Premium en Configuración para reproducir.", con enlace a Configuración), cuando la cuenta no es Premium o cuando Spotify falla. Se cierra con la X.
+- **Vista ampliada** (`PlayerSheet`), que abre la flecha: pantalla completa en móvil y panel centrado en escritorio. Contiene la carátula grande, título, artista, progreso con tiempos, atrás, reproducir/pausa y adelante, y el volumen. Escape o la flecha la cierran.
+
+**Recursos de Figma** (`src/assets/icons`): `skip-back-20.svg`, `pause-24.svg`, `skip-forward-20.svg`, `volume-2-20.svg` y `chevron-up-20.svg`; se reutilizan `x-16.svg` y `play-14.svg`.
+
+**Accesibilidad:**
+- El reproductor es una región "Reproductor" con botones etiquetados: "Reiniciar canción", "Pausar"/"Reproducir", "Terminar canción", "Ampliar reproductor", "Cerrar reproductor".
+- El progreso es un `progressbar` con el tiempo en texto ("0:58 de 3:24").
+- El volumen es un control deslizante nativo.
+- La vista ampliada es un `dialog` modal que recibe el foco.
+
+**Importante en desarrollo:** la vinculación se guarda por dirección. Si se vinculó en `http://127.0.0.1:5173`, hay que usar Junkbox en esa dirección para reproducir; en `localhost` el reproductor no la ve y muestra el aviso.
+
+**Verificación (2026-11-13):**
+
+| Prueba | Resultado |
+|---|---|
+| `pnpm typecheck` · `pnpm lint` | Correcto |
+| Botones de reproducir: Inicio (8: tarjetas y QuickPlay), Buscador "Hoke" (5), ficha de canción (1) | Presentes y activos |
+| Reproducir sin vinculación (navegador de prueba) | Aviso con "Ir a Configuración" → `/configuracion` |
+| X del reproductor | Lo oculta |
+| Ficha de canción en 390 y 1440 | La fila de acciones cabe sin salirse |
+| Consola | Sin errores |
+| Reproducción real (SDK, Premium) | **Pendiente de probar por el propietario**: el navegador de prueba no tiene la cuenta ni DRM |
 
 ---
 
@@ -1098,3 +1163,4 @@ Además: probar las rutas del módulo con el backend en marcha (`pnpm dev`), rev
 | 2026-11-13 | Botón de tema `ThemeToggle` (sol/luna, iconos de Lucide): en la Navbar a la derecha del avatar y en Iniciar sesión y Registrarse; recuerda la elección (`localStorage`) y la aplica antes de pintar (§2.3). La landing no lo lleva. Verificado: cambia a oscuro, se mantiene al recargar, "Buscar música" cabe a 390 px y sin errores en consola. |
 | 2026-11-13 | Corrección: el botón de reproducir de `MusicRow` se sobreponía a la Navbar al desplazarse (los dos tenían `z-10` y la fila va después). Pasa a `z-[1]`, y la lista de sugerencias de Escribir Reseña de `z-20` a `z-[5]`. Verificado en `/buscar` (móvil): con el código anterior el botón quedaba encima del header en 45 de 45 posiciones; ahora el header queda encima en 45 de 45, y el botón visible sigue respondiendo al clic. |
 | 2026-11-13 | Módulo 9 · Spotify, paso 1 (§11.1): vinculación con PKCE desde Configuración (`features/player`), refresh token cifrado con AES-GCM y clave no extraíble en IndexedDB, access token solo en memoria, `/spotify/callback`; se borra al cerrar sesión o desvincular. Vite escucha en `127.0.0.1` para la URL de retorno de Spotify. |
+| 2026-11-13 | Módulo 9 · Spotify, paso 2 (§11.2): reproductor con el Web Playback SDK (`PlayerProvider`, `usePlayer`) y MiniPlayer de Figma al pie de las pantallas con sesión, con aviso sin Premium y vista ampliada. Reproducir desde filas, tarjetas de Inicio y la ficha de canción. Atrás reinicia, adelante termina, volumen 0–100 desde 50. |

@@ -12,32 +12,50 @@ interface MusicCardProps {
   imageUrl: string | null
   /** Ficha a la que lleva la tarjeta (toda la tarjeta es pulsable). */
   to?: string
+  /** QuickPlay: reproduce la canción. Sin él, el QuickPlay es decorativo. */
+  onPlay?: () => void
 }
 
 /**
  * Tarjeta musical (Figma · MusicCard).
  *  - Móvil (14296:3287): portada 112, título Body/13/SemiBold, subtítulo Caption/11, QuickPlay 28 con play 12.
  *  - Escritorio (14296:3195): portada 164, título Body/14/SemiBold, subtítulo Caption/12, QuickPlay 32 con play 14.
- * QuickPlay es decorativo hasta que haya reproducción de audio. Los textos largos se recortan
+ * QuickPlay reproduce la canción si recibe `onPlay` (reproductor de Spotify); si no, es decorativo. Los textos largos se recortan
  * con puntos suspensivos (Figma no define el desbordamiento) y el texto completo queda en `title`.
  */
-export function MusicCard({ title, artist, kind, imageUrl, to }: MusicCardProps) {
+export function MusicCard({ title, artist, kind, imageUrl, to, onPlay }: MusicCardProps) {
+  const quickPlayIcon = (
+    <>
+      {/* MaskIcon ya es inline-block: la visibilidad por tamaño se controla en el contenedor. */}
+      <span className="flex md:hidden">
+        <MaskIcon src={play12Icon} size={12} className="bg-fg" />
+      </span>
+      <span className="hidden md:flex">
+        <MaskIcon src={play14Icon} size={14} className="bg-fg" />
+      </span>
+    </>
+  )
+  const quickPlayClass =
+    'absolute right-2 bottom-2 flex size-7 items-center justify-center rounded-full bg-surface-quickplay md:size-8'
   return (
     <article className="relative flex w-28 flex-col gap-1 md:w-[164px]">
       <div className="relative size-28 overflow-hidden rounded bg-surface-input-disabled md:size-[164px]">
         {imageUrl !== null && <img src={imageUrl} alt="" className="size-full object-cover" />}
-        <span
-          aria-hidden="true"
-          className="absolute right-2 bottom-2 flex size-7 items-center justify-center rounded-full bg-surface-quickplay md:size-8"
-        >
-          {/* MaskIcon ya es inline-block: la visibilidad por tamaño se controla en el contenedor. */}
-          <span className="flex md:hidden">
-            <MaskIcon src={play12Icon} size={12} className="bg-fg" />
+        {onPlay ? (
+          // z-[1]: por encima del enlace que cubre la tarjeta (after:inset-0) y por debajo de la Navbar.
+          <button
+            type="button"
+            onClick={onPlay}
+            aria-label={`Reproducir ${title}`}
+            className={`${quickPlayClass} z-[1] cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-fg`}
+          >
+            {quickPlayIcon}
+          </button>
+        ) : (
+          <span aria-hidden="true" className={quickPlayClass}>
+            {quickPlayIcon}
           </span>
-          <span className="hidden md:flex">
-            <MaskIcon src={play14Icon} size={14} className="bg-fg" />
-          </span>
-        </span>
+        )}
       </div>
       <h3 title={title} className="truncate text-[13px] leading-[1.4] font-semibold text-fg md:text-sm">
         {to ? (

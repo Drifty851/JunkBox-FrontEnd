@@ -18,6 +18,16 @@ export function useSpotifyLink() {
   const key = `${userId}:${version}`
   const linked = userId !== null && spotifyAuthService.hasLink(userId)
 
+  // Al volver con "Atrás" desde Spotify, el navegador restaura la página tal cual (bfcache) y el
+  // botón se quedaba en "Abriendo Spotify…": se reinicia al mostrarse de nuevo.
+  useEffect(() => {
+    const onPageShow = (event: PageTransitionEvent) => {
+      if (event.persisted) setStarting(false)
+    }
+    window.addEventListener('pageshow', onPageShow)
+    return () => window.removeEventListener('pageshow', onPageShow)
+  }, [])
+
   useEffect(() => {
     if (!userId || !spotifyAuthService.hasLink(userId)) return
     let cancelled = false

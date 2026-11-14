@@ -5,6 +5,7 @@ import { StarRating } from '../../../shared/ui/StarRating'
 import { formatCount, formatRating } from '../../../shared/utils/formatRating'
 import type { AlbumRating, AlbumResult, ArtistResult, SearchResults, SongResult } from '../models/search.types'
 import { PlayButton } from '../../../shared/ui/PlayButton'
+import { usePlayer } from '../../player/controllers/playerContext'
 import { albumPath, artistPath, songPath } from '../../catalog/models/catalogPaths'
 import { Link } from 'react-router'
 
@@ -46,6 +47,7 @@ function SectionHeader({ title, aside }: { title: string; aside?: ReactNode }) {
 }
 
 function SongSection({ songs }: { songs: SongResult[] }) {
+  const { play } = usePlayer()
   const [expanded, setExpanded] = useState(false)
   const visible = expanded ? songs : songs.slice(0, SONGS_PREVIEW)
 
@@ -70,7 +72,7 @@ function SongSection({ songs }: { songs: SongResult[] }) {
                 subtitle={song.album ? `${song.artist} · ${song.album}` : song.artist}
                 imageUrl={song.imageUrl}
                 to={songPath(song.spotifyId)}
-                action={<PlayButton label={`Reproducir ${song.title}`} />}
+                action={<PlayButton label={`Reproducir ${song.title}`} onPlay={() => play(song.spotifyId)} />}
               />
             </li>
           ))}

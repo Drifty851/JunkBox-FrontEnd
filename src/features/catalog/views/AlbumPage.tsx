@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Link, useParams } from 'react-router'
 import { MusicRow } from '../../../shared/ui/MusicRow'
 import { PlayButton } from '../../../shared/ui/PlayButton'
+import { usePlayer } from '../../player/controllers/playerContext'
 import { formatDuration, formatMinutes } from '../../../shared/utils/formatTime'
 import { isAlbumIncomplete } from '../../music/services/catalogService'
 import {
@@ -40,6 +41,7 @@ const KIND: Record<string, string> = { album: 'ÁLBUM', single: 'SENCILLO', comp
  * Móvil: comunidad, reseñas y pistas, en ese orden (Figma).
  */
 export function AlbumPage() {
+  const { play } = usePlayer()
   const { id = '' } = useParams()
   const [state, retry] = useLoad(id, loadAlbum)
   const data = state.status === 'ready' ? state.data : null
@@ -159,7 +161,7 @@ export function AlbumPage() {
                     subtitle={[track.artist_name, track.duration_ms ? formatDuration(track.duration_ms) : null].filter(Boolean).join(' · ')}
                     imageUrl={album.image_url}
                     to={songPath(track.spotify_id)}
-                    action={<PlayButton label={`Reproducir ${track.track_name}`} />}
+                    action={<PlayButton label={`Reproducir ${track.track_name}`} onPlay={() => play(track.spotify_id)} />}
                   />
                 </li>
               ))}

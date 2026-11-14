@@ -46,6 +46,22 @@ export const spotifyApi = {
     return tokenRequest({ grant_type: 'refresh_token', client_id: clientId, refresh_token: refreshToken })
   },
 
+  /**
+   * PUT /v1/me/player/play?device_id=: reproduce una canción en el dispositivo del SDK (Junkbox).
+   * 204 si se acepta; 403 si la cuenta no es Premium; 404 si el dispositivo aún no está listo.
+   */
+  async play(accessToken: string, deviceId: string, spotifyTrackId: string): Promise<void> {
+    const response = await fetch(`${API}/me/player/play?device_id=${encodeURIComponent(deviceId)}`, {
+      method: 'PUT',
+      headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ uris: [`spotify:track:${spotifyTrackId}`] }),
+    })
+    if (!response.ok) {
+      const detail = (await response.json().catch(() => null)) as { error?: { message?: string } } | null
+      throw new SpotifyError(response.status, detail?.error?.message ?? 'Spotify no pudo reproducir la canción.')
+    }
+  },
+
   /** GET /v1/me: perfil del usuario de Spotify (incluye `product`). */
   async me(accessToken: string): Promise<SpotifyProfile> {
     const response = await fetch(`${API}/me`, { headers: { Authorization: `Bearer ${accessToken}` } })

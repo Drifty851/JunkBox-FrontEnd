@@ -1,6 +1,7 @@
 import { useState, type ReactNode } from 'react'
 import { Link, useNavigate } from 'react-router'
 import arrowLeftIcon from '../../../assets/icons/arrow-left-16.svg'
+import play14Icon from '../../../assets/icons/play-14.svg'
 import share2Icon from '../../../assets/icons/share-2.svg'
 import spotifyLogo from '../../../assets/brand/spotify-logo.png'
 import { FormAlert } from '../../../shared/ui/FormAlert'
@@ -137,6 +138,9 @@ interface MusicActionsProps {
   /** Enlace de Spotify; `null` si el elemento no tiene ID de Spotify. */
   spotifyHref: string | null
   shareTitle: string
+  /** Reproducir en Junkbox (solo la ficha de canción). No está en Figma: aprobado por el propietario, 2026-11-13. */
+  onPlay?: () => void
+  playLabel?: string
 }
 
 /**
@@ -145,7 +149,7 @@ interface MusicActionsProps {
  * cuenta ni inicia sesión") y compartir (share-2 20, solo escritorio). 220 px cada botón en
  * escritorio; mitad y mitad en móvil.
  */
-export function MusicActions({ reviewTo, spotifyHref, shareTitle }: MusicActionsProps) {
+export function MusicActions({ reviewTo, spotifyHref, shareTitle, onPlay, playLabel }: MusicActionsProps) {
   const [shared, setShared] = useState<string | null>(null)
 
   async function share() {
@@ -167,6 +171,17 @@ export function MusicActions({ reviewTo, spotifyHref, shareTitle }: MusicActions
 
   return (
     <div className="flex w-full items-center gap-3">
+      {onPlay && (
+        // Círculo de 44 con el "play" de QuickPlay: mismo alto que los botones de la fila.
+        <button
+          type="button"
+          onClick={onPlay}
+          aria-label={playLabel ?? 'Reproducir'}
+          className="flex size-11 shrink-0 cursor-pointer items-center justify-center rounded-full bg-action focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-fg"
+        >
+          <MaskIcon src={play14Icon} size={18} className="bg-on-action" />
+        </button>
+      )}
       {reviewTo !== null ? (
         <Link to={reviewTo} className={cn(buttonBase, 'border border-action bg-action text-sm text-on-action')}>
           Calificar / Reseñar
@@ -189,7 +204,15 @@ export function MusicActions({ reviewTo, spotifyHref, shareTitle }: MusicActions
           className={cn(buttonBase, 'bg-surface-input-disabled text-xs text-fg')}
         >
           <img src={spotifyLogo} alt="" width={20} height={20} className="size-5 shrink-0 object-cover" />
-          Reproducir en Spotify
+          {onPlay ? (
+            // Con el botón de reproducir, en móvil no cabe el texto completo.
+            <>
+              <span className="md:hidden">Spotify</span>
+              <span className="hidden md:inline">Reproducir en Spotify</span>
+            </>
+          ) : (
+            'Reproducir en Spotify'
+          )}
         </a>
       ) : (
         <span aria-disabled="true" className={cn(buttonBase, 'bg-surface-input-disabled text-xs text-fg-placeholder')}>

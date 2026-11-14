@@ -125,7 +125,7 @@ src/
 | Fichas del catálogo | `/cancion/:id`, `/album/:id`, `/artista/:id` | Implementado (§7) | `GET /music/tracks\|albums\|artists/{id}`, `GET /music/search` (cascada), `GET /reviews`, `GET /ratings/my` |
 | Calificaciones y Reseñas | `/resena/nueva?tipo=&id=` | Implementado (§8) | `POST/GET/DELETE /ratings`, `POST/GET/PUT/DELETE /reviews` |
 | Configuración | `/configuracion` · menú del avatar | Implementado (§10). Guardar el perfil y la frecuencia, pendientes del backend (USER-01, PREF-01) | `GET /auth/me`, `POST /auth/password/forgot`, `POST /auth/logout` |
-| Spotify y Reproductor | `/spotify/callback` · Configuración | Vinculación implementada (§11.1); reproductor pendiente | `accounts.spotify.com` (PKCE), `GET /v1/me` |
+| Spotify y Reproductor | `/spotify/callback` · Configuración · MiniPlayer | Implementado (§11): vinculación PKCE y reproductor con el Web Playback SDK (Spotify Premium) | `accounts.spotify.com` (PKCE), `GET /v1/me`, `PUT /v1/me/player/play` |
 
 Perfil y Spotify/Reproductor se implementarán **un módulo cada vez**. Las carencias del backend están en `SOLICITUDES_BACKEND.md`.
 

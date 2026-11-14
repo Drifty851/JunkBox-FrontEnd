@@ -11,6 +11,7 @@ import {
   reviewsKey,
 } from '../controllers/catalogLoaders'
 import { useLoad } from '../controllers/useLoad'
+import { usePlayer } from '../../player/controllers/playerContext'
 import { writeReviewPath } from '../../reviews/models/writeReview'
 import { albumPath, artistPath, spotifyUrl } from '../models/catalogPaths'
 import {
@@ -33,6 +34,7 @@ import { ReviewsSection } from './ReviewsSection'
  * Escritorio: SongStats de 424 a la izquierda y RecentReviews a la derecha (separación 48).
  */
 export function SongPage() {
+  const { play } = usePlayer()
   const { id = '' } = useParams()
   const [state, retry] = useLoad(id, loadSong)
   const data = state.status === 'ready' ? state.data : null
@@ -106,7 +108,13 @@ export function SongPage() {
         imageUrl={imageUrl}
         ratings={track.ratings}
       />
-      <MusicActions reviewTo={writeReviewPath('song', track.spotify_id)} spotifyHref={spotifyUrl('song', track.spotify_id)} shareTitle={track.track_name} />
+      <MusicActions
+        reviewTo={writeReviewPath('song', track.spotify_id)}
+        spotifyHref={spotifyUrl('song', track.spotify_id)}
+        shareTitle={track.track_name}
+        onPlay={() => play(track.spotify_id)}
+        playLabel={`Reproducir ${track.track_name}`}
+      />
 
       <div className="flex w-full flex-col gap-6 md:flex-row md:items-start md:gap-12">
         <div className="flex w-full flex-col gap-6 md:w-[424px] md:shrink-0">
