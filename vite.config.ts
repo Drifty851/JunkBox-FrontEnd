@@ -11,6 +11,9 @@ export default defineConfig(({ mode }) => {
   return {
     plugins: [react(), tailwindcss()],
     server: {
+      // 127.0.0.1 (y no solo [::1]): Spotify exige una URL de retorno con IP de loopback
+      // (http://127.0.0.1:5173/spotify/callback); "localhost" sigue funcionando.
+      host: '127.0.0.1',
       // El proxy hace que el navegador vea un solo origen, así que funciona en cualquier
       // puerto. El backend también tiene CORS (CORS_ALLOWED_ORIGINS, por defecto
       // http://localhost:5173): con VITE_API_BASE_URL absoluta se puede saltar el proxy.

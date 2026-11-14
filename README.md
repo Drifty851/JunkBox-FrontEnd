@@ -51,7 +51,8 @@ El backend es un servicio en Go que se ejecuta aparte (en este equipo, dentro de
 |---|---|---|
 | `VITE_API_BASE_URL` | `/api/v1` | Base de la API que usa el navegador. Relativa: pasa por el proxy (desarrollo) o por el mismo origen (producción). Absoluta (`https://…/api/v1`): llamada directa usando el CORS del backend. |
 | `VITE_BACKEND_URL` | `http://localhost:8080` | Solo en desarrollo: destino del proxy de Vite (`http://localhost` si el backend corre en Kubernetes). |
-| `VITE_SPOTIFY_CLIENT_ID` | — | Client ID **público** de la app de Spotify (PKCE, sin secreto) para vincular Spotify Premium y el reproductor. Aún no se usa: módulo pendiente. |
+| `VITE_SPOTIFY_CLIENT_ID` | — | Client ID **público** de la app de Spotify (PKCE, sin secreto) para vincular Spotify Premium desde Configuración. En el panel de Spotify, la Redirect URI debe ser `http://127.0.0.1:5173/spotify/callback` y, para vincular, Junkbox debe abrirse en `http://127.0.0.1:5173` (`implementacion.md` §11.1). |
+| `VITE_SPOTIFY_REDIRECT_URI` | `http://127.0.0.1:5173/spotify/callback` | Solo si se registra otra URL de retorno en Spotify. |
 
 `.env` y `.env.*` están en `.gitignore`; `.env.example` sirve de plantilla.
 
@@ -124,7 +125,7 @@ src/
 | Fichas del catálogo | `/cancion/:id`, `/album/:id`, `/artista/:id` | Implementado (§7) | `GET /music/tracks\|albums\|artists/{id}`, `GET /music/search` (cascada), `GET /reviews`, `GET /ratings/my` |
 | Calificaciones y Reseñas | `/resena/nueva?tipo=&id=` | Implementado (§8) | `POST/GET/DELETE /ratings`, `POST/GET/PUT/DELETE /reviews` |
 | Configuración | `/configuracion` · menú del avatar | Implementado (§10). Guardar el perfil y la frecuencia, pendientes del backend (USER-01, PREF-01) | `GET /auth/me`, `POST /auth/password/forgot`, `POST /auth/logout` |
-| Spotify y Reproductor | — | Pendiente | API de Spotify (PKCE) |
+| Spotify y Reproductor | `/spotify/callback` · Configuración | Vinculación implementada (§11.1); reproductor pendiente | `accounts.spotify.com` (PKCE), `GET /v1/me` |
 
 Perfil y Spotify/Reproductor se implementarán **un módulo cada vez**. Las carencias del backend están en `SOLICITUDES_BACKEND.md`.
 
@@ -132,4 +133,4 @@ Perfil y Spotify/Reproductor se implementarán **un módulo cada vez**. Las care
 
 ## Tema Claro / Oscuro
 
-El tema sigue la preferencia del sistema (`prefers-color-scheme`). Para forzarlo, añade `data-theme="light"` o `data-theme="dark"` en `<html>`. Los colores están definidos como tokens en `src/index.css`, cada uno con su variable de Figma de origen.
+El tema sigue la preferencia del sistema (`prefers-color-scheme`). El botón de sol/luna (Navbar, Iniciar sesión y Registrarse) lo cambia y lo recuerda en el navegador (`localStorage`, clave `junkbox.theme`), que se aplica como `data-theme="light"` o `data-theme="dark"` en `<html>` (`implementacion.md` §2.3). Los colores están definidos como tokens en `src/index.css`, cada uno con su variable de Figma de origen.

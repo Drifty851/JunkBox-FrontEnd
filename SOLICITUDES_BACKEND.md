@@ -241,8 +241,8 @@ Sin solicitudes abiertas.
   - `GET /api/v1/spotify/token` → `200 { access_token, expires_in }` (renovado en el servidor) · `404` si no está vinculado.
   - `DELETE /api/v1/spotify/link` → desvincular.
   - `GET /auth/me` podría incluir `spotify: { linked, display_name, product } | null`.
-- **Alternativa en el frontend (decisión del propietario):** Authorization Code con **PKCE** desde el navegador (sin secreto). Los tokens de Spotify se guardan en `localStorage`, por usuario de Junkbox. El enlace no sobrevive a otro navegador o dispositivo.
-- **Impacto en el frontend:** cuando exista, solo cambia `features/spotify/` y el resto se queda igual.
+- **Alternativa en el frontend (implementada 2026-11-13, `FrontEnd/implementacion.md` §11.1):** Authorization Code con **PKCE** desde el navegador (sin secreto). El access token vive solo en memoria; el refresh token se guarda en `localStorage`, por usuario de Junkbox, **cifrado** con AES-GCM y una clave no extraíble guardada en IndexedDB. Se borra al cerrar sesión o desvincular. La vinculación no sobrevive a otro navegador o dispositivo y no está protegida por completo contra un script malicioso en la página.
+- **Impacto en el frontend:** cuando exista, solo cambia `features/player/services/spotifyAuthService.ts` (y desaparece el guardado local); el resto se queda igual.
 
 ---
 
@@ -353,3 +353,4 @@ Sin solicitudes abiertas.
 | 2026-11-11 | El archivo queda solo con peticiones al backend. **Retiradas por resueltas en Figma:** AUTH-05 (etiqueta "Correo o nombre de usuario" en `LoginForm`) y AUTH-07 (ayuda de la contraseña en `RegisterForm`). Las pantallas que faltaban (recuperación y verificación, Términos, Privacidad, Landing, menú de la cuenta y sugerencias del buscador) ya están en la página Interfaces. |
 | 2026-11-12 | Revisión del backend (commits `9e0794d`, `560b33f` y `4855a38`), con lectura del README, `implementacion.md`, `docs/solicitudes.md` y pruebas en vivo. **Retiradas por resueltas:** AUTH-03 (`terms_accepted` obligatorio, guardado en `user_consents` con fecha y versión; sin él, `400`), AUTH-06 (el registro rechaza `a@dominio` y `a@b.c` con `400 "email inválido"`) y HOME-02 (`album_image_url` y `artist_image_url` en `Track`, en la búsqueda y en el detalle; comprobado con "Hoke"). **El frontend aún no envía `terms_accepted`, así que el registro devuelve `400` hasta que se añada.** El resto sigue pendiente. |
 | 2026-11-13 | LANDING-01: la alternativa del frontend pasa a 80 álbumes elegidos por el propietario. Sigue pendiente. |
+| 2026-11-13 | SPOT-01: alternativa del frontend implementada (vinculación PKCE con el refresh token cifrado en el navegador). Sigue pendiente en el backend. |

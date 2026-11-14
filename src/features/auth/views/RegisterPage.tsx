@@ -28,6 +28,7 @@ export function RegisterPage() {
       title="Crea tu cuenta"
       description={['Tu próxima obsesión empieza aquí.', 'Descubre, valora y comparte música.']}
       density="register"
+      showThemeToggle
       footer={<AuthSwitchLink prompt="¿Ya tienes una cuenta?" label="Iniciar sesión" to="/login" />}
     >
       <form noValidate onSubmit={handleSubmit} className="flex w-full flex-col gap-4" aria-label="Crear cuenta">

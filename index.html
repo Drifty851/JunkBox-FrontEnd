@@ -14,6 +14,17 @@
       href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
     />
     <title>Junkbox</title>
+    <!-- Tema elegido con el botón de sol/luna (shared/utils/theme.ts, misma clave). Se aplica antes
+         de pintar para que no parpadee; sin elección, la app sigue el tema del sistema. -->
+    <script>
+      try {
+        var theme = localStorage.getItem('junkbox.theme')
+        if (theme === 'light' || theme === 'dark') {
+          document.documentElement.dataset.theme = theme
+          document.documentElement.style.colorScheme = theme
+        }
+      } catch (error) {}
+    </script>
   </head>
   <body>
     <div id="root"></div>

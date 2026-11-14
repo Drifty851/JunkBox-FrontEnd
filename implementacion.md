@@ -24,8 +24,9 @@ Se actualiza **al terminar cada módulo**. La documentación del backend (`junkb
 - [8. Módulo 6: Calificaciones y Reseñas](#8-módulo-6-calificaciones-y-reseñas)
 - [9. Módulo 7: Landing (usuarios sin sesión)](#9-módulo-7-landing-usuarios-sin-sesión)
 - [10. Módulo 8: Configuración](#10-módulo-8-configuración)
-- [11. Verificación](#11-verificación)
-- [12. Historial](#12-historial)
+- [11. Módulo 9: Spotify y Reproductor](#11-módulo-9-spotify-y-reproductor)
+- [12. Verificación](#12-verificación)
+- [13. Historial](#13-historial)
 
 ---
 
@@ -132,6 +133,13 @@ Otras variables de Figma de las pantallas nuevas se resolvieron con tokens exist
 
 **Tema activo:** se sigue `prefers-color-scheme` y se puede forzar con `<html data-theme="light|dark">`. El variante `dark:` de Tailwind se redefine con `@custom-variant` para respetar ambas cosas.
 
+**Botón de tema (2026-11-13, no está en Figma, aprobado por el propietario):** `ThemeToggle` alterna entre claro y oscuro. Muestra la luna en claro y el sol en oscuro (iconos `sun.svg` y `moon.svg` de Lucide, licencia ISC, 20 px).
+- **Lógica** (`shared/utils/theme.ts`): `setTheme` pone `data-theme` y `color-scheme` en `<html>` y guarda la elección en `localStorage` (`junkbox.theme`). `getTheme` y `subscribeTheme` alimentan `useSyncExternalStore`.
+- **Sin elección:** se sigue el tema del sistema, y el icono se actualiza si el sistema cambia.
+- **Arranque:** un script mínimo en `index.html` aplica la elección guardada antes de pintar, para que no parpadee.
+- **Dónde está:** en la Navbar, a la derecha del avatar (todas las pantallas con sesión), y arriba a la derecha en Iniciar sesión y Registrarse (`AuthLayout` · `showThemeToggle`). La landing no lo lleva (decisión del propietario), aunque respeta la elección guardada.
+- **Móvil:** el botón mide 28 px, como el avatar, y va pegado a él; así "Buscar música" cabe entero a 390 px.
+
 ### 2.4 Recursos Gráficos de Figma
 
 Descargados del MCP de Figma **sin editar**, en `src/assets/`:
@@ -190,7 +198,7 @@ Los iconos de un solo color (`eye`, `lock`, los de navegación, QuickPlay, filas
 | `FormAlert` | — (provisional) | Error general del formulario. Ver §3.6. También en el error de Inicio. |
 | `Avatar` | Slot `Avatar1` de Navbar | Imagen → respaldo (`fallbackSrc`, el robot por defecto, §5) → círculo neutro si nada carga. |
 | `MusicCard` | `MusicCard` (14296:3351) | Móvil 112 / escritorio 164; QuickPlay decorativo; carátula o recuadro neutro. Con `to`, toda la tarjeta enlaza a la ficha. |
-| `MusicRow` | `MusicRow` (14296:8113) | Fila de 64: artwork 48 (cuadrado o círculo), título, subtítulo, calificación opcional y acción. Con `to`, enlace que cubre la fila (la acción sigue siendo independiente). |
+| `MusicRow` | `MusicRow` (14296:8113) | Fila de 64: artwork 48 (cuadrado o círculo), título, subtítulo, calificación opcional y acción. Con `to`, enlace que cubre la fila (la acción sigue siendo independiente, con `z-[1]`: encima del enlace y por debajo de la Navbar fija, `z-10`). |
 | `SecondaryButton` | `Button` (14296:3647, Button-15/16) | Alto 44, borde `line`, fondo `surface-quickplay`; `aria-disabled` para destinos pendientes. |
 | `StarRating` | `StarRating` (14296:5021) | Tamaños `sm` 76×12, `md` 96×16 y `lg` 106×18. Pinta el **promedio real**: el recurso de Figma como máscara, vacío en `line` y relleno en `fg` recortado al porcentaje. |
 | `StarRatingInput` | `StarRating` Rating-08 (176×32) | Editable de 0,5 en 0,5 (rol `slider`). §8.4. |
@@ -200,6 +208,7 @@ Los iconos de un solo color (`eye`, `lock`, los de navegación, QuickPlay, filas
 | `BottomBar` (`shared/layout`) | `BottomBar` (14296:15745) | Solo móvil; ítem activo con el color `link`. |
 | `NavTarget` (`shared/layout`) | — | Enlace (`NavLink`) o botón con `aria-disabled` si el destino no existe. |
 | `AccountMenu` (`shared/layout`) | — (propuesta aprobada) | Tarjeta al pasar el ratón y menú con "Configuración" y "Cerrar sesión". Ver §5. |
+| `ThemeToggle` | — (aprobado 2026-11-13) | Sol/luna: alterna claro y oscuro y lo recuerda. 28 px en móvil, 36 en escritorio. Ver §2.3. |
 | `Navbar` · `search` | `Navbar › SearchField` | La Navbar recibe el campo de búsqueda como `ReactNode`: lo aporta el Buscador (`NavbarSearch`, §6.4). |
 
 ---
@@ -975,7 +984,76 @@ features/settings/
 
 ---
 
-## 11. Verificación
+## 11. Módulo 9: Spotify y Reproductor
+
+Se implementa en dos pasos: **(1) vincular Spotify** desde Configuración (2026-11-13) y **(2) el SDK y el MiniPlayer** (pendiente). Decisiones del propietario (2026-11-13):
+- **Módulo:** `features/player`, con un proveedor propio.
+- **Dónde se guarda la vinculación:** en este navegador, de la forma más segura posible, y se mantiene entre visitas.
+- **URL de retorno:** `http://127.0.0.1:5173/spotify/callback`.
+- **MiniPlayer en móvil:** como en Figma; la flecha abre una vista ampliada con atrás, adelante y volumen.
+
+### 11.1 Vinculación con Spotify (PKCE)
+
+**Flujo:** Authorization Code con PKCE, desde el navegador y sin secreto. Es el que Spotify recomienda para apps sin servidor propio; el backend no tiene integración por usuario (SPOT-01).
+1. "Vincular Cuenta de Spotify" (Configuración) genera un `code_verifier` y un `state` aleatorios (Web Crypto). Los guarda solo para esa vuelta en `sessionStorage` y redirige a `accounts.spotify.com/authorize`, con `code_challenge` S256 y los permisos mínimos: `streaming`, `user-read-email`, `user-read-private`, `user-read-playback-state` y `user-modify-playback-state`.
+2. Spotify vuelve a `/spotify/callback`. `SpotifyCallbackPage` comprueba el `state` y el usuario, cambia el código por los tokens (`POST /api/token` con el verifier) y regresa a Configuración. El intercambio se hace una sola vez aunque `StrictMode` repita el efecto.
+3. El access token se renueva con el refresh token (`grant_type=refresh_token`), una sola renovación a la vez. Si Spotify revoca la vinculación (400/401), se borra.
+
+**Guardado** (`infrastructure/spotifyTokenVault.ts`):
+
+| Dato | Dónde | Protección |
+|---|---|---|
+| Access token (1 h) | Solo memoria | Se pierde al recargar y se renueva. |
+| Refresh token | `localStorage` (`junkbox.spotify.<id de usuario>`) | Cifrado con AES-GCM 256. |
+| Clave AES | IndexedDB (`junkbox` › `keys`) | Creada **no extraíble**: la página puede usarla, pero no leerla ni copiarla, así que el token guardado no sirve fuera de este navegador. |
+| `code_verifier` y `state` | `sessionStorage`, solo durante la vinculación | Se borran al volver. |
+
+Al **cerrar sesión** en Junkbox (menú del avatar o Configuración) o al **desvincular**, se borra. Cada usuario de Junkbox tiene su propia vinculación. Sin backend no hay protección completa contra un script malicioso dentro de la propia página; por eso sigue pendiente SPOT-01.
+
+**Dirección de desarrollo:**
+- Spotify no acepta `localhost` en las URLs de retorno, así que la vinculación usa `http://127.0.0.1:5173`.
+- Vite ahora escucha en `127.0.0.1` (`vite.config.ts`); `localhost` sigue funcionando.
+- La vinculación tiene que iniciarse en esa misma dirección: abierta desde `localhost`, Configuración deshabilita el botón y explica a dónde ir.
+- La sesión de Junkbox se guarda por dirección, así que en `127.0.0.1` hay que iniciar sesión una vez.
+- Se configura con `VITE_SPOTIFY_CLIENT_ID` y, si se usa otra dirección, con `VITE_SPOTIFY_REDIRECT_URI`. En el panel de Spotify hay que registrar la URL de retorno y, con la app en Development Mode, añadir la cuenta en "User Management".
+
+**Configuración · "Tu cuenta de música":**
+- **Sin vincular:** "Spotify no vinculado" y el botón de Figma.
+- **Vinculado:** "Vinculado como <nombre>", con el icono `circle-check`, y "Desvincular Spotify" con el mismo botón (Figma solo dibuja el estado sin vincular; propuesta).
+- **Cuenta no Premium:** avisa que se necesita Premium para reproducir.
+- **Sin Client ID o fuera de `127.0.0.1`:** el botón se deshabilita con una nota que explica por qué.
+
+**Estructura:**
+
+```
+features/player/
+├── models/spotify.ts                    # Client ID, URL de retorno, permisos, tipos
+├── infrastructure/spotifyApi.ts         # accounts.spotify.com (token) y /v1/me
+├── infrastructure/spotifyTokenVault.ts  # refresh token cifrado (AES-GCM, clave no extraíble)
+├── services/spotifyAuthService.ts       # PKCE: vincular, completar, renovar, desvincular
+├── controllers/useSpotifyLink.ts        # estado para Configuración
+└── views/SpotifyCallbackPage.tsx        # /spotify/callback
+```
+
+**Verificación (2026-11-13):**
+
+| Prueba | Resultado |
+|---|---|
+| `pnpm typecheck` · `pnpm lint` | Correcto |
+| Vite en `127.0.0.1:5173` y en `localhost:5173` | Responden las dos |
+| Configuración desde `localhost` | Botón deshabilitado con la nota "Para vincular, abre Junkbox en http://127.0.0.1:5173…" |
+| Configuración desde `127.0.0.1` → "Vincular" | Lleva al inicio de sesión de Spotify con `client_id`, `redirect_uri` registrada, permisos, `code_challenge_method=S256` y `state` (Spotify aceptó la URL de retorno) |
+| `/spotify/callback?error=access_denied` | "Cancelaste la vinculación con Spotify." |
+| `/spotify/callback` con un `state` inventado | "La vinculación no es válida o caducó…" |
+| Vinculación completa con una cuenta real | **Pendiente de probar por el propietario** (requiere iniciar sesión en Spotify) |
+
+### 11.2 Reproductor (SDK y MiniPlayer)
+
+Pendiente: siguiente paso.
+
+---
+
+## 12. Verificación
 
 Antes de cerrar cualquier módulo:
 
@@ -991,7 +1069,7 @@ Además: probar las rutas del módulo con el backend en marcha (`pnpm dev`), rev
 
 ---
 
-## 12. Historial
+## 13. Historial
 
 | Fecha | Cambio |
 |---|---|
@@ -1017,3 +1095,6 @@ Además: probar las rutas del módulo con el backend en marcha (`pnpm dev`), rev
 | 2026-11-13 | Landing (escritorio): 8 filas que cruzan la pantalla de lado a lado a −8° en un solo bloque, con portadas que escalan para cubrir todo el fondo sin huecos; se ven siempre las 4 filas de arriba y las 4 de abajo (§9.4). |
 | 2026-11-13 | Módulo 8 · Configuración (§10): `/configuracion` desde el menú del avatar, con "Tu cuenta de música" (Spotify deshabilitado hasta su módulo), frecuencia de recomendaciones (PREF-01) e "Información pública" sin "Bio musical", con correo y "Cambiar contraseña" (enlace por correo). Guardar el perfil queda pendiente (USER-01). |
 | 2026-11-13 | Configuración: "Cambiar contraseña" se bloquea 5 s tras cada clic (el backend limita a 3 enlaces por hora) e "Información pública" va primero entre 768 y 1279 px (§10.4). |
+| 2026-11-13 | Botón de tema `ThemeToggle` (sol/luna, iconos de Lucide): en la Navbar a la derecha del avatar y en Iniciar sesión y Registrarse; recuerda la elección (`localStorage`) y la aplica antes de pintar (§2.3). La landing no lo lleva. Verificado: cambia a oscuro, se mantiene al recargar, "Buscar música" cabe a 390 px y sin errores en consola. |
+| 2026-11-13 | Corrección: el botón de reproducir de `MusicRow` se sobreponía a la Navbar al desplazarse (los dos tenían `z-10` y la fila va después). Pasa a `z-[1]`, y la lista de sugerencias de Escribir Reseña de `z-20` a `z-[5]`. Verificado en `/buscar` (móvil): con el código anterior el botón quedaba encima del header en 45 de 45 posiciones; ahora el header queda encima en 45 de 45, y el botón visible sigue respondiendo al clic. |
+| 2026-11-13 | Módulo 9 · Spotify, paso 1 (§11.1): vinculación con PKCE desde Configuración (`features/player`), refresh token cifrado con AES-GCM y clave no extraíble en IndexedDB, access token solo en memoria, `/spotify/callback`; se borra al cerrar sesión o desvincular. Vite escucha en `127.0.0.1` para la URL de retorno de Spotify. |

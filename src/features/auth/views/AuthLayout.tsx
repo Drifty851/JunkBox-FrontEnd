@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react'
 import { JunkboxLogo } from '../../../shared/ui/JunkboxLogo'
+import { ThemeToggle } from '../../../shared/ui/ThemeToggle'
 import { cn } from '../../../shared/utils/cn'
 import { PRIVACY_PATH, TERMS_PATH } from '../../legal/models/legalPaths'
 
@@ -13,6 +14,8 @@ interface AuthLayoutProps {
   children: ReactNode
   /** Enlace para cambiar de pantalla (AuthFooter). Opcional en las pantallas de resultado. */
   footer?: ReactNode
+  /** Botón de tema arriba a la derecha (solo Iniciar sesión y Registrarse; decisión del propietario, 2026-11-13). */
+  showThemeToggle?: boolean
 }
 
 /**
@@ -23,17 +26,18 @@ interface AuthLayoutProps {
  * Los enlaces legales siguen al AuthFooter en móvil y bajan al pie de la página en escritorio.
  * La barra de estado y el HomeIndicator de los frames móviles simulan el teléfono y no se implementan.
  */
-export function AuthLayout({ title, description, density, children, footer }: AuthLayoutProps) {
+export function AuthLayout({ title, description, density, children, footer, showThemeToggle = false }: AuthLayoutProps) {
   const isLogin = density === 'login'
   const lines = typeof description === 'string' ? [description] : description
 
   return (
     <main
       className={cn(
-        'flex min-h-dvh flex-col items-center bg-bg px-6 pb-4 md:px-20 md:pt-16 md:pb-10',
+        'relative flex min-h-dvh flex-col items-center bg-bg px-6 pb-4 md:px-20 md:pt-16 md:pb-10',
         isLogin ? 'pt-10' : 'pt-6',
       )}
     >
+      {showThemeToggle && <ThemeToggle className="absolute top-2 right-2 md:top-6 md:right-8" />}
       <div
         className={cn(
           'flex w-full max-w-[342px] flex-col items-center md:max-w-[480px] md:gap-8',

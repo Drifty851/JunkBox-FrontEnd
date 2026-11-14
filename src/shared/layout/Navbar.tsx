@@ -2,6 +2,7 @@ import type { ReactNode } from 'react'
 import plusIcon from '../../assets/icons/plus.svg'
 import { JunkboxLogo } from '../ui/JunkboxLogo'
 import { MaskIcon } from '../ui/MaskIcon'
+import { ThemeToggle } from '../ui/ThemeToggle'
 import { cn } from '../utils/cn'
 import { AccountMenu, type AccountSummary } from './AccountMenu'
 import type { NavigationItem } from './navigation.types'
@@ -27,6 +28,7 @@ interface NavbarProps {
  *  - Escritorio (14296:13870 / 14296:13139): alto 80, logo 160, SearchField de 344,
  *    enlaces, botón "Crear Reseña" y avatar 36.
  * Figma solo define 1440 px: entre 768 y 1280 px se reducen márgenes y el buscador se encoge.
+ * A la derecha del avatar va el botón de tema (ThemeToggle; no está en Figma, aprobado 2026-11-13).
  */
 export function Navbar({ links, createReviewTo, search, account, settingsTo, onLogout }: NavbarProps) {
   return (
@@ -70,6 +72,7 @@ export function Navbar({ links, createReviewTo, search, account, settingsTo, onL
       </NavTarget>
 
       <AccountMenu account={account} settingsTo={settingsTo} onLogout={onLogout} />
+      <ThemeToggle className="-ml-3 md:-ml-2" />
     </header>
   )
 }

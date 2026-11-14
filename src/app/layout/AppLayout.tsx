@@ -1,5 +1,6 @@
 import { Outlet } from 'react-router'
 import { useAuth } from '../../features/auth/controllers/authContext'
+import { spotifyAuthService } from '../../features/player/services/spotifyAuthService'
 import { NavbarSearch } from '../../features/search/views/NavbarSearch'
 import { BottomBar } from '../../shared/layout/BottomBar'
 import { Navbar } from '../../shared/layout/Navbar'
@@ -31,7 +32,11 @@ export function AppLayout() {
             : null
         }
         settingsTo={SETTINGS_PATH}
-        onLogout={logout}
+        onLogout={async () => {
+          // Cerrar sesión borra también la vinculación con Spotify de este navegador.
+          if (user) spotifyAuthService.unlink(user.id)
+          await logout()
+        }}
       />
       <main className="flex flex-1 flex-col">
         <Outlet />

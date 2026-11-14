@@ -1,10 +1,12 @@
 import type { InputHTMLAttributes, ReactNode } from 'react'
+import circleCheckIcon from '../../../assets/icons/circle-check.svg'
 import circleMinusIcon from '../../../assets/icons/circle-minus-16.svg'
 import radioCheckedIcon from '../../../assets/icons/radio-checked-16.svg'
 import spotifyLogo from '../../../assets/brand/spotify-logo.png'
 import { fieldDescriptionId } from '../../../shared/ui/fieldIds'
 import { MaskIcon } from '../../../shared/ui/MaskIcon'
 import { cn } from '../../../shared/utils/cn'
+import type { useSpotifyLink } from '../../player/controllers/useSpotifyLink'
 import { DEFAULT_FREQUENCY, FREQUENCY_OPTIONS } from '../models/settings'
 
 /** Título de sección: Title/16/SemiBold en móvil y Title/20/SemiBold en escritorio. */
@@ -54,50 +56,93 @@ export function SettingsNav({ onLogout }: { onLogout: () => void }) {
   )
 }
 
-/** SpotifyButton · ConnectSpotify (Figma 14296:5579 / 14296:5598). Deshabilitado hasta el módulo Spotify. */
-function SpotifyButton() {
+/** Datos de la vinculación con Spotify (features/player · useSpotifyLink). */
+export interface SpotifySectionProps {
+  link: ReturnType<typeof useSpotifyLink>
+}
+
+/**
+ * SpotifyButton · ConnectSpotify (Figma 14296:5579 / 14296:5598). Figma solo dibuja "Vincular";
+ * "Desvincular" usa el mismo botón (propuesta, 2026-11-13).
+ */
+function SpotifyButton({ label, onClick, disabled }: { label: string; onClick: () => void; disabled: boolean }) {
   return (
     <button
       type="button"
-      aria-disabled="true"
-      aria-describedby="spotify-pending"
-      className="flex h-11 w-full cursor-default items-center justify-center gap-2 rounded-lg bg-surface-input-disabled text-sm leading-[1.4] font-medium text-fg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-fg"
+      onClick={disabled ? undefined : onClick}
+      aria-disabled={disabled || undefined}
+      aria-describedby="spotify-note"
+      className="flex h-11 w-full cursor-pointer items-center justify-center gap-2 rounded-lg bg-surface-input-disabled text-sm leading-[1.4] font-medium text-fg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-fg aria-disabled:cursor-default aria-disabled:text-fg-placeholder md:border md:border-line md:bg-surface"
     >
       <img src={spotifyLogo} alt="" width={20} height={20} className="size-5 shrink-0 object-cover" />
-      Vincular Cuenta de Spotify
+      {label}
     </button>
   )
 }
 
 /**
  * "Tu cuenta de música" (Figma · SpotifyConnection 14244:53507 escritorio / 14244:53394 móvil).
- * La vinculación (PKCE) llega con el módulo Spotify + Reproductor.
+ * Vinculación con Spotify por PKCE (features/player). Figma solo tiene el estado "no vinculado";
+ * "vinculado" muestra la cuenta y si es Premium (propuesta, 2026-11-13).
  */
-export function SpotifySection() {
+export function SpotifySection({ link }: SpotifySectionProps) {
+  const { status, configured, onLinkOrigin, linkOrigin, starting } = link
+  const linked = status.status === 'linked'
+  const statusText =
+    status.status === 'linked'
+      ? `Vinculado como ${status.profile.display_name ?? status.profile.id}`
+      : status.status === 'checking'
+        ? 'Comprobando…'
+        : status.status === 'error'
+          ? 'Spotify no responde'
+          : 'Spotify no vinculado'
+  const note = !configured
+    ? 'Falta el Client ID de Spotify (VITE_SPOTIFY_CLIENT_ID en .env.local).'
+    : !linked && !onLinkOrigin
+      ? `Para vincular, abre Junkbox en ${linkOrigin} (la dirección registrada en Spotify).`
+      : status.status === 'linked' && status.profile.product !== 'premium'
+        ? 'Para reproducir canciones en Junkbox necesitas Spotify Premium.'
+        : status.status === 'error'
+          ? status.message
+          : null
+  const canLink = configured && onLinkOrigin && !starting
+
   return (
     <section aria-labelledby="spotify-title" className="flex w-full flex-col gap-2 md:gap-4 md:rounded-lg md:bg-surface-input-disabled md:p-6">
       {/* Móvil: título y estado en una fila. Escritorio: título, estado con icono y descripción. */}
-      <div className="flex items-start justify-between md:flex-col md:gap-4">
+      <div className="flex items-start justify-between gap-3 md:flex-col md:gap-4">
         <h2 id="spotify-title" className="text-sm leading-[1.4] font-semibold text-fg md:text-xl">
           <span className="md:hidden">Cuenta de música</span>
           <span className="hidden md:inline">Tu cuenta de música</span>
         </h2>
-        <p className="flex items-center gap-2 text-xs leading-[1.4] text-fg-placeholder md:text-sm md:text-fg-soft">
+        <p aria-live="polite" className="flex items-center gap-2 text-right text-xs leading-[1.4] text-fg-placeholder md:text-left md:text-sm md:text-fg-soft">
           <span className="hidden md:inline-flex">
-            <MaskIcon src={circleMinusIcon} size={16} className="bg-fg-soft" />
+            <MaskIcon src={linked ? circleCheckIcon : circleMinusIcon} size={16} className="bg-fg-soft" />
           </span>
-          Spotify no vinculado
+          {statusText}
         </p>
         <p className="hidden text-sm leading-[1.4] text-fg-soft md:block">
           Conecta Spotify para descubrir música a tu medida y reproducir tus canciones favoritas.
         </p>
       </div>
-      <SpotifyButton />
+      {linked ? (
+        <SpotifyButton label="Desvincular Spotify" onClick={link.unlink} disabled={false} />
+      ) : (
+        <SpotifyButton
+          label={starting ? 'Abriendo Spotify…' : 'Vincular Cuenta de Spotify'}
+          onClick={() => void link.link()}
+          disabled={!canLink || status.status === 'checking'}
+        />
+      )}
+      {note && (
+        <p id="spotify-note" className="text-xs leading-[1.4] text-fg-muted">
+          {note}
+        </p>
+      )}
       <p className="text-caption-2xs text-fg-placeholder md:hidden">OAuth seguro · Nunca guardamos tu contraseña</p>
       <p className="hidden text-[11px] leading-[1.4] text-fg-placeholder md:block">
         Conexión segura mediante OAuth. Nunca guardamos tu contraseña.
       </p>
-      <span id="spotify-pending" className="sr-only">Disponible próximamente.</span>
     </section>
   )
 }

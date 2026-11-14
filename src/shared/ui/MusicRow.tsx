@@ -45,7 +45,9 @@ export function MusicRow({ title, subtitle, imageUrl, shape = 'square', rating, 
         <p className="truncate text-xs text-fg-soft">{subtitle}</p>
       </div>
       {rating && <p className="shrink-0 text-[13px] leading-[1.4] font-medium whitespace-nowrap text-fg">{rating}</p>}
-      {action && <div className="relative z-10 flex shrink-0">{action}</div>}
+      {/* z-[1]: encima del enlace que cubre la fila (after:inset-0), pero por debajo de la Navbar
+          fija (z-10). Con z-10 el botón de reproducir se sobreponía al header al desplazarse. */}
+      {action && <div className="relative z-[1] flex shrink-0">{action}</div>}
     </div>
   )
 }

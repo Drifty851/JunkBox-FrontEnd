@@ -16,6 +16,8 @@ import { WRITE_REVIEW_PATH } from '../features/reviews/models/writeReview'
 import { WriteReviewPage } from '../features/reviews/views/WriteReviewPage'
 import { SEARCH_PATH } from '../features/search/models/search.types'
 import { SearchPage } from '../features/search/views/SearchPage'
+import { SPOTIFY_CALLBACK_PATH } from '../features/player/models/spotify'
+import { SpotifyCallbackPage } from '../features/player/views/SpotifyCallbackPage'
 import { SETTINGS_PATH } from '../features/settings/models/settings'
 import { SettingsPage } from '../features/settings/views/SettingsPage'
 import { TermsPage } from '../features/legal/views/TermsPage'
@@ -33,7 +35,7 @@ import { HomeRoute, ProtectedRoute, PublicOnlyRoute } from './routes/RouteGuards
  *  - Sin sesión, las rutas protegidas y las desconocidas llevan a la landing.
  *  - /cancion/:id, /album/:id, /artista/:id: fichas del catálogo.
  *  - /resena/nueva?tipo=&id=: Escribir Reseña (calificaciones y reseñas).
- *  - /configuracion: Configuración (menú del avatar).
+ *  - /configuracion: Configuración (menú del avatar). /spotify/callback: retorno de la vinculación con Spotify.
  */
 export const router = createBrowserRouter([
   {
@@ -61,6 +63,7 @@ export const router = createBrowserRouter([
           { path: ARTIST_PATH, element: <ArtistPage /> },
           { path: WRITE_REVIEW_PATH, element: <WriteReviewPage /> },
           { path: SETTINGS_PATH, element: <SettingsPage /> },
+          { path: SPOTIFY_CALLBACK_PATH, element: <SpotifyCallbackPage /> },
         ],
       },
     ],

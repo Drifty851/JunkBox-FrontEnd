@@ -1,0 +1,55 @@
+import type { SpotifyProfile, SpotifyTokenResponse } from '../models/spotify'
+
+const ACCOUNTS = 'https://accounts.spotify.com'
+const API = 'https://api.spotify.com/v1'
+
+/** Error de una llamada a Spotify, con el estado HTTP. */
+export class SpotifyError extends Error {
+  readonly status: number
+  constructor(status: number, message: string) {
+    super(message)
+    this.name = 'SpotifyError'
+    this.status = status
+  }
+}
+
+async function tokenRequest(body: Record<string, string>): Promise<SpotifyTokenResponse> {
+  const response = await fetch(`${ACCOUNTS}/api/token`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams(body),
+  })
+  if (!response.ok) {
+    const detail = (await response.json().catch(() => null)) as { error_description?: string } | null
+    throw new SpotifyError(response.status, detail?.error_description ?? 'Spotify rechazó la autorización.')
+  }
+  return (await response.json()) as SpotifyTokenResponse
+}
+
+/** Adaptador de las APIs de Spotify (cuentas y Web API). */
+export const spotifyApi = {
+  authorizeUrl: `${ACCOUNTS}/authorize`,
+
+  /** Cambia el código del retorno por los tokens (PKCE: code_verifier en lugar de secreto). */
+  exchangeCode(clientId: string, code: string, redirectUri: string, codeVerifier: string) {
+    return tokenRequest({
+      grant_type: 'authorization_code',
+      client_id: clientId,
+      code,
+      redirect_uri: redirectUri,
+      code_verifier: codeVerifier,
+    })
+  },
+
+  /** Renueva el access token con el refresh token. */
+  refresh(clientId: string, refreshToken: string) {
+    return tokenRequest({ grant_type: 'refresh_token', client_id: clientId, refresh_token: refreshToken })
+  },
+
+  /** GET /v1/me: perfil del usuario de Spotify (incluye `product`). */
+  async me(accessToken: string): Promise<SpotifyProfile> {
+    const response = await fetch(`${API}/me`, { headers: { Authorization: `Bearer ${accessToken}` } })
+    if (!response.ok) throw new SpotifyError(response.status, 'No se pudo leer tu cuenta de Spotify.')
+    return (await response.json()) as SpotifyProfile
+  },
+}

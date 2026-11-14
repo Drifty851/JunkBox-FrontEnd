@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type ChangeEvent } from 'react'
 import { useAuth } from '../../auth/controllers/authContext'
 import { toUserMessage } from '../../auth/services/errorMessages'
 import { authService } from '../../auth/services/authService'
+import { spotifyAuthService } from '../../player/services/spotifyAuthService'
 import type { UserProfile } from '../../auth/models/auth.types'
 import { validateProfile, type ProfileFormValues } from '../models/settings'
 
@@ -93,6 +94,10 @@ export function useSettingsController() {
     /** Segundos de bloqueo restantes de "Cambiar contraseña". */
     passwordResetCooldown: cooldown,
     requestPasswordReset,
-    logout,
+    /** Cerrar sesión también borra la vinculación con Spotify de este navegador. */
+    logout: async () => {
+      if (user) spotifyAuthService.unlink(user.id)
+      await logout()
+    },
   }
 }

@@ -25,6 +25,7 @@ export function LoginPage() {
       title="Iniciar sesión"
       description={['Qué bueno tenerte de vuelta.', 'Tu música y tu comunidad te esperan.']}
       density="login"
+      showThemeToggle
       footer={<AuthSwitchLink prompt="¿Aún no tienes cuenta?" label="Regístrate" to="/register" />}
     >
       <form noValidate onSubmit={handleSubmit} className="flex w-full flex-col gap-6" aria-label="Iniciar sesión">

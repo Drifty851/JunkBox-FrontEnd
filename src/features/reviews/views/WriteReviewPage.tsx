@@ -236,7 +236,7 @@ function ComposerSearch({
         role="listbox"
         aria-label="Sugerencias"
         className={cn(
-          'absolute top-12 right-0 left-0 z-20 overflow-hidden rounded-lg border border-line bg-surface py-1 shadow-lg',
+          'absolute top-12 right-0 left-0 z-[5] overflow-hidden rounded-lg border border-line bg-surface py-1 shadow-lg',
           !expanded && 'hidden',
         )}
       >

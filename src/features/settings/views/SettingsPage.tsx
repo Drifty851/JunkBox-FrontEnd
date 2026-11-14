@@ -5,6 +5,7 @@ import { Avatar } from '../../../shared/ui/Avatar'
 import { MaskIcon } from '../../../shared/ui/MaskIcon'
 import { PrimaryButton } from '../../../shared/ui/PrimaryButton'
 import { defaultAvatarUrl } from '../../../shared/utils/defaultAvatar'
+import { useSpotifyLink } from '../../player/controllers/useSpotifyLink'
 import { useSettingsController } from '../controllers/useSettingsController'
 import { FrequencySection, PendingNote, ProfileField, SectionTitle, SettingsNav, SpotifySection } from './SettingsSections'
 
@@ -33,6 +34,7 @@ export function SettingsPage() {
     requestPasswordReset,
     logout,
   } = useSettingsController()
+  const spotifyLink = useSpotifyLink()
   const passwordLocked = passwordReset.status === 'sending' || passwordResetCooldown > 0
 
   useEffect(() => {
@@ -62,7 +64,7 @@ export function SettingsPage() {
 
         <div className="flex min-w-0 flex-1 flex-col gap-3 md:gap-6 xl:flex-row xl:items-start xl:gap-12">
           <div className="flex min-w-0 flex-1 flex-col gap-3 md:gap-6">
-            <SpotifySection />
+            <SpotifySection link={spotifyLink} />
             <FrequencySection />
           </div>
 
