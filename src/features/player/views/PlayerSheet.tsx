@@ -55,7 +55,7 @@ export function PlayerSheet() {
         </div>
 
         <div className="flex w-full flex-col gap-2">
-          <ProgressBar className="h-1 w-full rounded-full" />
+          <ProgressBar thickness={4} className="w-full" />
           <div className="flex justify-between text-xs leading-[1.4] text-fg-placeholder tabular-nums">
             <span>{formatPlaybackTime(state.positionMs)}</span>
             <span>{formatPlaybackTime(state.durationMs)}</span>

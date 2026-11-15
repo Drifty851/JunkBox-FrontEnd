@@ -1056,14 +1056,17 @@ features/player/
 
 **Cómo suena:**
 - Se usa el **Web Playback SDK** de Spotify (`https://sdk.scdn.co/spotify-player.js`, cargado una sola vez): Junkbox aparece como un dispositivo de Spotify llamado "Junkbox".
-- La canción se pide con `PUT /v1/me/player/play?device_id=` y `{ uris: ["spotify:track:<id>"] }`. Si el dispositivo recién creado aún no está registrado (`404`), se reintenta una vez.
+- Cuando el dispositivo está listo se transfiere la sesión de Spotify a él (`PUT /v1/me/player` con `{ device_ids: [id], play: false }`), para que Spotify lo registre.
+- La canción se pide con `PUT /v1/me/player/play?device_id=` y `{ uris: ["spotify:track:<id>"] }`. Si Spotify responde "Device not found" (`404`), se reintenta hasta 3 veces (0,8 s, 1,6 s y 3,2 s).
+- Si Spotify da el dispositivo por desconectado (`not_ready`), se descarta el reproductor y el siguiente "reproducir" crea uno nuevo, para no tener dos a la vez.
 - **Solo funciona con Spotify Premium** (lo exige el SDK) y en navegadores con DRM (Chrome, Edge, Firefox; no en navegadores sin Widevine).
 - Los tipos del SDK están escritos a mano (`infrastructure/spotifyPlaybackSdk.ts`), sin dependencias nuevas.
 
 **Reglas del propietario (2026-11-13):**
 - Una sola canción: la que elige el usuario.
-- **Atrás** (skip-back) reinicia la canción.
-- **Adelante** (skip-forward) la termina: queda al final, en pausa, y "reproducir" la vuelve a empezar.
+- **Atrás** (skip-back): la barra se vacía al instante y la canción vuelve a sonar desde 0, aunque estuviera en pausa o terminada.
+- **Adelante** (skip-forward): la termina; la barra se llena y queda en pausa al final. "Reproducir" la vuelve a empezar.
+- **Barra de tiempo arrastrable** (2026-11-13): un control deslizante (`<input type="range">`) con el grosor de Figma (2 px en móvil, 3 en escritorio, 4 en la vista ampliada) y una zona de 12 px para pulsar. El avance va en el **color de acción** (negro en claro, #D3533C en oscuro; decisión del propietario) sobre `line`. Al arrastrar muestra la posición y la aplica al soltar (`seek`); con el teclado, flechas de ±5 s. Si la canción había terminado, queda en pausa en la posición elegida.
 - **Volumen** de 0 a 100 que empieza siempre en 50.
 - **La X** detiene y oculta el reproductor.
 - Al terminar sola, la canción queda al final, en pausa.
@@ -1074,7 +1077,7 @@ features/player/
 - un botón nuevo en la ficha de canción: círculo de 44 con el "play" de QuickPlay, antes de "Calificar / Reseñar". No está en Figma; aprobado. En móvil, con este botón, "Reproducir en Spotify" se acorta a "Spotify" para que quepa la fila.
 
 **Arquitectura** (decisión del propietario: módulo `features/player` con proveedor propio):
-- `PlayerProvider` envuelve `AppLayout`: la música sigue al cambiar de pantalla y se desconecta al cerrar sesión.
+- `PlayerProvider` vive en `src/app/App.tsx`, dentro de `AuthProvider` y por encima de las rutas: la música sigue al cambiar de pantalla y se desconecta (y el reproductor se oculta) al cerrar sesión o cambiar de usuario. Sin sesión queda inactivo. El `MiniPlayer` se dibuja en `AppLayout`. Al principio envolvía `AppLayout`, pero Inicio (`/`) y el resto de pantallas usan **dos instancias distintas** de `AppLayout` (`HomeRoute` y las rutas protegidas), así que la música se cortaba al pasar de una a otra (corregido el 2026-11-13, decisión del propietario).
 - Las vistas usan `usePlayer()` (`controllers/playerContext.ts`, el mismo patrón que `authContext`).
 - El proveedor crea el reproductor del SDK la primera vez que se reproduce. `getOAuthToken` pide el token a `spotifyAuthService.getAccessToken`, que lo renueva solo. Comprueba una vez si la cuenta es Premium (`GET /v1/me` · `product`).
 - La posición se lee del SDK dos veces por segundo mientras suena.
@@ -1115,6 +1118,8 @@ features/player/
 | Ficha de canción en 390 y 1440 | La fila de acciones cabe sin salirse |
 | Consola | Sin errores |
 | Reproducción real (SDK, Premium) | **Pendiente de probar por el propietario**: el navegador de prueba no tiene la cuenta ni DRM |
+| (Correcciones) `pnpm typecheck` · `pnpm lint` | Correcto |
+| (Correcciones) Persistencia al navegar, "Device not found", barra arrastrable, adelante y atrás | **Pendiente**: el backend no respondía (`/healthz` sin respuesta, proxy 502), así que no se pudo iniciar sesión en el navegador de prueba; lo prueba el propietario |
 
 ---
 
@@ -1164,3 +1169,4 @@ Además: probar las rutas del módulo con el backend en marcha (`pnpm dev`), rev
 | 2026-11-13 | Corrección: el botón de reproducir de `MusicRow` se sobreponía a la Navbar al desplazarse (los dos tenían `z-10` y la fila va después). Pasa a `z-[1]`, y la lista de sugerencias de Escribir Reseña de `z-20` a `z-[5]`. Verificado en `/buscar` (móvil): con el código anterior el botón quedaba encima del header en 45 de 45 posiciones; ahora el header queda encima en 45 de 45, y el botón visible sigue respondiendo al clic. |
 | 2026-11-13 | Módulo 9 · Spotify, paso 1 (§11.1): vinculación con PKCE desde Configuración (`features/player`), refresh token cifrado con AES-GCM y clave no extraíble en IndexedDB, access token solo en memoria, `/spotify/callback`; se borra al cerrar sesión o desvincular. Vite escucha en `127.0.0.1` para la URL de retorno de Spotify. |
 | 2026-11-13 | Módulo 9 · Spotify, paso 2 (§11.2): reproductor con el Web Playback SDK (`PlayerProvider`, `usePlayer`) y MiniPlayer de Figma al pie de las pantallas con sesión, con aviso sin Premium y vista ampliada. Reproducir desde filas, tarjetas de Inicio y la ficha de canción. Atrás reinicia, adelante termina, volumen 0–100 desde 50. |
+| 2026-11-13 | Reproductor: `PlayerProvider` pasa a `App.tsx` (la música se cortaba al pasar entre Inicio y otras pantallas, que usan instancias distintas de `AppLayout`). Contra "Device not found": transferencia al dispositivo y hasta 3 reintentos. La barra de tiempo es arrastrable y va en el color de acción; "Adelante" la llena y "Atrás" la vacía y vuelve a sonar desde 0 (§11.2). |

@@ -1,3 +1,4 @@
+import { useRef, useState } from 'react'
 import pauseIcon from '../../../assets/icons/pause-24.svg'
 import play14Icon from '../../../assets/icons/play-14.svg'
 import skipBackIcon from '../../../assets/icons/skip-back-20.svg'
@@ -51,21 +52,56 @@ export function FinishButton({ className }: { className?: string }) {
   )
 }
 
-/** Barra de progreso (Figma · Track progress: control/indicator-2 con el avance en control/indicator-3). */
-export function ProgressBar({ className }: { className?: string }) {
-  const { state } = usePlayer()
-  const percent = state.durationMs > 0 ? Math.min(100, (state.positionMs / state.durationMs) * 100) : 0
+/**
+ * Barra de tiempo (Figma · Track progress / Playback progress), arrastrable (petición del
+ * propietario, 2026-11-13). Conserva el grosor de Figma (`thickness`: 2 móvil, 3 escritorio, 4 vista
+ * ampliada) con el avance en el color de acción (negro en claro, #D3533C en oscuro) sobre `line`,
+ * pero el área que se puede pulsar mide 12 px. Mientras se arrastra muestra la posición elegida y la
+ * aplica al soltar; con el teclado, flechas de ±5 s.
+ */
+export function ProgressBar({ thickness, className }: { thickness: number; className?: string }) {
+  const { state, seek } = usePlayer()
+  const [dragMs, setDragMs] = useState<number | null>(null)
+  const draggingRef = useRef(false)
+  const duration = state.durationMs
+  const value = dragMs ?? Math.min(state.positionMs, duration)
+  const percent = duration > 0 ? (value / duration) * 100 : 0
+
+  function commit() {
+    if (dragMs !== null) seek(dragMs)
+    draggingRef.current = false
+    setDragMs(null)
+  }
+
   return (
-    <div
-      role="progressbar"
-      aria-label="Progreso de la canción"
-      aria-valuemin={0}
-      aria-valuemax={Math.round(state.durationMs / 1000)}
-      aria-valuenow={Math.round(state.positionMs / 1000)}
-      aria-valuetext={`${formatPlaybackTime(state.positionMs)} de ${formatPlaybackTime(state.durationMs)}`}
-      className={cn('overflow-hidden bg-line', className)}
-    >
-      <div className="h-full bg-fg" style={{ width: `${percent}%` }} />
+    <div className={cn('relative', className)} style={{ height: thickness }}>
+      <input
+        type="range"
+        min={0}
+        max={Math.max(duration, 1)}
+        step={5000}
+        value={value}
+        disabled={state.track === null || duration === 0}
+        aria-label="Posición de la canción"
+        aria-valuetext={`${formatPlaybackTime(value)} de ${formatPlaybackTime(duration)}`}
+        onPointerDown={() => {
+          draggingRef.current = true
+        }}
+        onChange={(event) => {
+          const next = Number(event.target.value)
+          // Con el ratón o el dedo se aplica al soltar; con el teclado, en el momento.
+          if (draggingRef.current) setDragMs(next)
+          else seek(next)
+        }}
+        onPointerUp={commit}
+        onPointerCancel={commit}
+        onBlur={() => dragMs !== null && commit()}
+        className="absolute inset-x-0 top-1/2 h-3 w-full -translate-y-1/2 cursor-pointer appearance-none bg-transparent bg-center bg-no-repeat focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-fg disabled:cursor-default [&::-moz-range-thumb]:size-3 [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:border-0 [&::-moz-range-thumb]:bg-action [&::-moz-range-thumb]:opacity-0 hover:[&::-moz-range-thumb]:opacity-100 focus-visible:[&::-moz-range-thumb]:opacity-100 [&::-webkit-slider-thumb]:size-3 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-action [&::-webkit-slider-thumb]:opacity-0 hover:[&::-webkit-slider-thumb]:opacity-100 focus-visible:[&::-webkit-slider-thumb]:opacity-100"
+        style={{
+          backgroundImage: `linear-gradient(to right, var(--color-action) ${percent}%, var(--color-line) ${percent}%)`,
+          backgroundSize: `100% ${thickness}px`,
+        }}
+      />
     </div>
   )
 }

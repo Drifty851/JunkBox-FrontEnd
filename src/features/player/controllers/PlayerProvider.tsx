@@ -14,10 +14,12 @@ const NOTICES: Record<PlayerNotice['kind'], string> = {
 
 const notice = (kind: PlayerNotice['kind'], message = NOTICES[kind]): PlayerNotice => ({ kind, message })
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
+/** Esperas entre reintentos ante "Device not found". */
+const RETRY_DELAYS_MS = [800, 1600, 3200]
 
 /**
- * Reproductor global de las pantallas con sesión (envuelve AppLayout, así que se detiene al cerrar
- * sesión). Usa el Web Playback SDK de Spotify: Junkbox aparece como un dispositivo de Spotify y la
+ * Reproductor global (vive en src/app/App.tsx, por encima de las rutas, para que la música siga al
+ * cambiar de pantalla; se desconecta al cerrar sesión). Usa el Web Playback SDK de Spotify: Junkbox aparece como un dispositivo de Spotify y la
  * canción se pide con PUT /v1/me/player/play. Requiere la vinculación de Configuración (§11.1).
  */
 export function PlayerProvider({ children }: { children: ReactNode }) {
@@ -39,22 +41,26 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     // Con una sola canción, al terminar Spotify pausa y vuelve la posición a 0.
     const ended = sdk.paused && sdk.position === 0 && sdk.duration > 0 && lastPositionRef.current > sdk.duration - 2500
     lastPositionRef.current = sdk.position
-    setState((current) => ({
-      ...current,
-      loading: false,
-      paused: sdk.paused,
-      ended: ended || (current.ended && sdk.paused),
-      positionMs: ended ? sdk.duration : sdk.position,
-      durationMs: sdk.duration,
-      track: track
-        ? {
-            spotifyId: track.id ?? current.track?.spotifyId ?? '',
-            title: track.name,
-            artist: track.artists.map((artist) => artist.name).join(', '),
-            imageUrl: track.album.images[0]?.url ?? null,
-          }
-        : current.track,
-    }))
+    setState((current) => {
+      // Terminada (sola o con "Adelante") y en pausa: la barra se queda llena.
+      const stillEnded = ended || (current.ended && sdk.paused)
+      return {
+        ...current,
+        loading: false,
+        paused: sdk.paused,
+        ended: stillEnded,
+        positionMs: stillEnded ? sdk.duration : sdk.position,
+        durationMs: sdk.duration,
+        track: track
+          ? {
+              spotifyId: track.id ?? current.track?.spotifyId ?? '',
+              title: track.name,
+              artist: track.artists.map((artist) => artist.name).join(', '),
+              imageUrl: track.album.images[0]?.url ?? null,
+            }
+          : current.track,
+      }
+    })
   }, [])
 
   /** Crea (una vez) el reproductor del SDK y espera a que Spotify le asigne un dispositivo. */
@@ -85,10 +91,16 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
         player.addListener('authentication_error', () => update({ loading: false, notice: notice('unlinked') }))
         player.addListener('playback_error', () => update({ loading: false, notice: notice('error') }))
         player.addListener('not_ready', () => {
+          // Spotify dio el dispositivo por desconectado: se descarta para no tener dos reproductores.
+          player.disconnect()
+          if (playerRef.current === player) playerRef.current = null
           deviceRef.current = null
         })
         if (!(await player.connect())) throw new Error('No se pudo conectar el reproductor de Spotify.')
-        return ready
+        const deviceId = await ready
+        // Registrar el dispositivo en la cuenta antes de pedir canciones (evita "Device not found").
+        await spotifyApi.transfer(await spotifyAuthService.getAccessToken(forUser), deviceId).catch(() => undefined)
+        return deviceId
       })()
       deviceRef.current.catch(() => {
         playerRef.current?.disconnect()
@@ -121,13 +133,16 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
           }
           const deviceId = await ensureDevice(userId)
           const token = await spotifyAuthService.getAccessToken(userId)
-          try {
-            await spotifyApi.play(token, deviceId, spotifyId)
-          } catch (error) {
-            // El dispositivo recién creado a veces tarda en registrarse en Spotify: un reintento.
-            if (!(error instanceof SpotifyError && error.status === 404)) throw error
-            await sleep(1200)
-            await spotifyApi.play(token, deviceId, spotifyId)
+          // El dispositivo recién creado puede tardar en registrarse en Spotify ("Device not found",
+          // 404): hasta 3 reintentos con espera creciente.
+          for (let attempt = 0; ; attempt++) {
+            try {
+              await spotifyApi.play(token, deviceId, spotifyId)
+              break
+            } catch (error) {
+              if (!(error instanceof SpotifyError && error.status === 404) || attempt >= RETRY_DELAYS_MS.length) throw error
+              await sleep(RETRY_DELAYS_MS[attempt])
+            }
           }
           lastPositionRef.current = 0
         } catch (error) {
@@ -159,14 +174,29 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     void player.togglePlay()
   }, [state.ended, update])
 
+  /** "Atrás": la barra se vacía al instante y la canción vuelve a sonar desde 0. */
   const restart = useCallback(() => {
     const player = playerRef.current
     if (!player) return
     lastPositionRef.current = 0
-    update({ ended: false, positionMs: 0 })
-    void player.seek(0)
+    update({ ended: false, paused: false, positionMs: 0 })
+    void player.seek(0).then(() => player.resume())
   }, [update])
 
+  /** Barra de tiempo: mueve la canción a `positionMs` (si había terminado, queda en pausa ahí). */
+  const seek = useCallback(
+    (positionMs: number) => {
+      const player = playerRef.current
+      if (!player) return
+      const value = Math.max(0, Math.round(positionMs))
+      lastPositionRef.current = value
+      update({ ended: false, positionMs: value })
+      void player.seek(value)
+    },
+    [update],
+  )
+
+  /** "Adelante": pausa y deja la barra llena (ended); onSdkState ya no la vacía. */
   const finish = useCallback(() => {
     const player = playerRef.current
     if (!player) return
@@ -198,7 +228,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
       void playerRef.current?.getCurrentState().then((sdk) => {
         if (!sdk) return
         lastPositionRef.current = sdk.position
-        setState((current) => ({ ...current, positionMs: sdk.position, durationMs: sdk.duration }))
+        setState((current) => (current.ended ? current : { ...current, positionMs: sdk.position, durationMs: sdk.duration }))
       })
     }, 500)
     return () => window.clearInterval(timer)
@@ -211,13 +241,17 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
       playerRef.current = null
       deviceRef.current = null
       premiumRef.current = null
+      lastPositionRef.current = 0
+      volumeRef.current = INITIAL_PLAYER_STATE.volume
+      // Reinicio del estado al cerrar sesión o cambiar de usuario (fuera de un setState síncrono del efecto).
+      queueMicrotask(() => setState(INITIAL_PLAYER_STATE))
     },
     [userId],
   )
 
   const value = useMemo<PlayerContextValue>(
-    () => ({ state, play, togglePlay, restart, finish, setVolume, close, setExpanded }),
-    [state, play, togglePlay, restart, finish, setVolume, close, setExpanded],
+    () => ({ state, play, togglePlay, restart, seek, finish, setVolume, close, setExpanded }),
+    [state, play, togglePlay, restart, seek, finish, setVolume, close, setExpanded],
   )
 
   return <PlayerContext.Provider value={value}>{children}</PlayerContext.Provider>

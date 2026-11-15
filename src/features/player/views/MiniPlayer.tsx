@@ -77,7 +77,7 @@ export function MiniPlayer() {
             {expandButton}
             <CloseButton />
           </div>
-          <ProgressBar className="h-0.5 w-full" />
+          <ProgressBar thickness={2} className="w-full" />
         </div>
 
         {/* Escritorio (MiniPlayer-03): alto 76, padding 64, separación 12. */}
@@ -91,7 +91,7 @@ export function MiniPlayer() {
           <PlayPauseButton className="size-7" />
           <FinishButton className="size-6" />
           <span className="text-[11px] leading-[1.4] text-fg-placeholder tabular-nums">{formatPlaybackTime(state.positionMs)}</span>
-          <ProgressBar className="h-[3px] min-w-0 flex-1" />
+          <ProgressBar thickness={3} className="min-w-0 flex-1" />
           <span className="text-[11px] leading-[1.4] text-fg-placeholder tabular-nums">{formatPlaybackTime(state.durationMs)}</span>
           <VolumeControl sliderClassName="w-20 lg:w-24" />
           {expandButton}

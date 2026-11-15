@@ -62,6 +62,21 @@ export const spotifyApi = {
     }
   },
 
+  /**
+   * PUT /v1/me/player { device_ids, play: false }: pasa la sesión de Spotify al dispositivo de
+   * Junkbox. Ayuda a que Spotify registre el dispositivo recién creado antes de pedir la canción.
+   */
+  async transfer(accessToken: string, deviceId: string): Promise<void> {
+    const response = await fetch(`${API}/me/player`, {
+      method: 'PUT',
+      headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ device_ids: [deviceId], play: false }),
+    })
+    if (!response.ok && response.status !== 404) {
+      throw new SpotifyError(response.status, 'Spotify no reconoció el reproductor de Junkbox.')
+    }
+  },
+
   /** GET /v1/me: perfil del usuario de Spotify (incluye `product`). */
   async me(accessToken: string): Promise<SpotifyProfile> {
     const response = await fetch(`${API}/me`, { headers: { Authorization: `Bearer ${accessToken}` } })

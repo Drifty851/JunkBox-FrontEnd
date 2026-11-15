@@ -6,8 +6,10 @@ export interface PlayerContextValue {
   /** Reproduce una canción por su ID de Spotify. Si falta Spotify Premium, muestra el aviso. */
   play: (spotifyId: string) => void
   togglePlay: () => void
-  /** "Atrás": vuelve al inicio de la canción. */
+  /** "Atrás": vuelve al inicio de la canción y la reproduce. */
   restart: () => void
+  /** Barra de tiempo: mueve la canción a esa posición (ms). */
+  seek: (positionMs: number) => void
   /** "Adelante": termina la canción (queda al final, en pausa). */
   finish: () => void
   setVolume: (volume: number) => void
