@@ -1,4 +1,4 @@
-import { useSearchParams } from 'react-router'
+import { useParams, useSearchParams } from 'react-router'
 import { useAuth } from '../../auth/controllers/authContext'
 import { PROFILE_TAB_PARAM, tabFromParam, type ProfileStats, type ProfileTab, type RatingSummaryStats } from '../models/profile'
 
@@ -7,12 +7,15 @@ const EMPTY_STATS: ProfileStats = { reviews: null, ratings: null, followers: nul
 const EMPTY_SUMMARY: RatingSummaryStats = { average: null, fiveStars: null }
 
 /**
- * Controlador de mi perfil. Hoy solo hay datos del usuario actual (GET /auth/me, ya cargado por
+ * Controlador del perfil: el mío (`/perfil`) o el de otra persona (`/usuario/:username`, plantilla
+ * hasta PROF-05; si `:username` soy yo, la vista redirige a `/perfil`). Hoy solo hay datos del usuario actual (GET /auth/me, ya cargado por
  * AuthProvider). Las listas y los contadores dependen de PROF-01 a PROF-04 (SOLICITUDES_BACKEND.md).
  * La pestaña activa vive en la URL (`?tab=calificaciones`).
  */
 export function useProfileController() {
   const { user } = useAuth()
+  const { username } = useParams()
+  const isOwn = !username || username === user?.username
   const [params, setParams] = useSearchParams()
   const tab = tabFromParam(params.get('tab'))
 
@@ -22,5 +25,5 @@ export function useProfileController() {
     setParams(value ? { tab: value } : {})
   }
 
-  return { user, tab, selectTab, stats: EMPTY_STATS, summary: EMPTY_SUMMARY }
+  return { user, username: username ?? null, isOwn, tab, selectTab, stats: EMPTY_STATS, summary: EMPTY_SUMMARY }
 }

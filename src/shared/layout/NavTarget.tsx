@@ -37,7 +37,8 @@ export function NavTarget({ to, className, children, ariaLabel }: NavTargetProps
   }
 
   return (
-    <NavLink to={to} end aria-label={ariaLabel} className={({ isActive }) => cn(FOCUS_CLASSES, className(isActive))}>
+    // Solo Inicio ("/") exige coincidencia exacta: "Perfil" sigue activo en /perfil/seguidores.
+    <NavLink to={to} end={to === '/'} aria-label={ariaLabel} className={({ isActive }) => cn(FOCUS_CLASSES, className(isActive))}>
       {({ isActive }) => children(isActive)}
     </NavLink>
   )

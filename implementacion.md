@@ -1109,6 +1109,13 @@ features/player/
 
 **Abrir la ficha desde el reproductor** (2026-11-15, petición del propietario): en el MiniPlayer (móvil y escritorio) la carátula, el título y el artista forman un enlace a la ficha de la canción (`/cancion/:id`), con `aria-label="Abrir la ficha de <título>"`. En la vista ampliada, la carátula y el título hacen lo mismo y además cierran la vista. Mientras se prepara el reproductor o hay un aviso no hay enlace. La música sigue sonando al navegar.
 
+La canción del reproductor puede no estar en el catálogo de Junkbox: por ejemplo, si se cambió desde la app de Spotify, o porque Spotify informa otra versión de la misma canción con otro ID. Como la ficha solo lee la base (`GET /music/tracks/{id}`), mostraba "No encontrado" (corregido el 2026-11-15).
+- Al pulsar, `useOpenSongPage` → `resolveCatalogSongId` (`features/player/services/catalogLink.ts`) comprueba primero ese ID.
+- Si da 404, busca por título y primer artista (`GET /music/search?type=track`, que trae la canción de Spotify y la guarda) y abre el mismo ID o el resultado con el mismo título y artista.
+- Si nada coincide, abre el ID original.
+- Ctrl/Cmd o el clic central conservan el comportamiento normal del enlace.
+- Verificado con "Mr. Brightside": el ID que da Spotify (`3n3Ppam7…`) da 404 y la búsqueda encuentra la versión del catálogo (`2RvbnvBX…`), cuya ficha abre.
+
 **Recursos de Figma** (`src/assets/icons`): `skip-back-20.svg`, `pause-24.svg`, `skip-forward-20.svg`, `volume-2-20.svg` y `chevron-up-20.svg`; se reutilizan `x-16.svg` y `play-14.svg`.
 
 **Accesibilidad:**
@@ -1165,14 +1172,20 @@ features/player/
 - "Perfil" de la Navbar y de la BottomBar deja de estar deshabilitado (`navigation.ts` · `PROFILE_ITEM.to`) y se marca activo con `aria-current`.
 - La pestaña vive en la URL: `/perfil` (Mis Reseñas) y `/perfil?tab=calificaciones` (Historial). Se puede compartir, y "atrás" vuelve a la pestaña anterior.
 - El engrane de la barra superior lleva a `/configuracion`.
+- **Seguidores y seguidos** (2026-11-15): `/perfil/seguidores` y `/perfil/seguidos` (`connectionsPath`). Es una página con dos pestañas en la que la ruta decide la activa; cambiar de pestaña reemplaza la entrada del historial.
+- "Perfil" de la Navbar y la BottomBar sigue activo en `/perfil/seguidores` y `/perfil/seguidos`: `NavTarget` solo exige coincidencia exacta para Inicio (`/`) (2026-11-15).
+- **Perfil de otra persona** (2026-11-15): `/usuario/:username` (`USER_PROFILE_PATH`) y sus listas `/usuario/:username/seguidores|seguidos`. Si `:username` es el mío, redirige a `/perfil` (o a mis listas).
 
 ```
 features/profile/
 ├── models/profile.ts                 # ruta, pestañas, tipos de contadores, "En Junkbox desde…"
 ├── controllers/useProfileController.ts
 └── views/
-    ├── ProfilePage.tsx               # barra, cabecera, contadores, pestañas
-    └── ProfileTabs.tsx               # Tabs, "Mis Reseñas", "Historial", paneles laterales
+    ├── ProfilePage.tsx               # mi perfil y el de otra persona: barra, cabecera, contadores, pestañas
+    ├── ProfileTabs.tsx               # Tabs (botones o enlaces), "Mis Reseñas", "Historial", paneles laterales
+    ├── ConnectionsPage.tsx           # Seguidores / Seguidos
+    ├── UserCard.tsx                  # SuggestedUser de Figma (lista de FOL-02)
+    └── FollowButton.tsx              # Button Variant=Follow, deshabilitado hasta FOL-01
 ```
 
 ### 12.3 Contrato con el Backend
@@ -1184,6 +1197,9 @@ features/profile/
 | Mis calificaciones | — | **PROF-02** |
 | Contadores, media personal y cinco estrellas | — | **PROF-03** |
 | "Suena mucho por aquí" | — | **PROF-04** (por definir con Producto) |
+| Seguir y dejar de seguir | — | **FOL-01** |
+| Seguidores y seguidos | — | **FOL-02** |
+| Perfil de otra persona | — | **PROF-05** |
 
 ### 12.4 Decisiones de Implementación
 
@@ -1205,6 +1221,17 @@ features/profile/
    - Desde 1280 px van a la derecha. Entre 768 y 1279 px van debajo, porque no caben, igual que en Configuración. En móvil no se muestran.
    - "Una vida en canciones" lleva el icono `watch-history-18.svg` (descargado de Figma) en un recuadro de 24, los dos totales con "—" y `StarRating` en 0.
 6. **Recursos de Figma** (`src/assets/icons`): `settings-20.svg` y `watch-history-18.svg`, pintados con `MaskIcon`.
+7. **Seguidores y seguidos** (decisión del propietario, 2026-11-15; no está en Figma):
+   - las etiquetas "Seguidores" y "Seguidos" de los contadores son enlaces que cubren todo el contador;
+   - del mismo modo, "Reseñas" y "Calificaciones" llevan a su pestaña (`?tab=calificaciones`), con `aria-current` en la que está abierta (decisión del propietario, 2026-11-15);
+   - la página reutiliza la cabecera de Configuración (flecha atrás que lleva al perfil de origen + título "Mis conexiones" o "@usuario") y las mismas Tabs del perfil, ahora genéricas (`ProfileTabList` recibe sus pestañas; con `to` son enlaces);
+   - cada persona se mostrará con `UserCard`, la tarjeta SuggestedUser de Inicio (Figma 14244:50679): avatar 36, nombre Body/14 SemiBold, @usuario Caption/12 y el botón "Seguir" (Button Variant=Follow 14296:3462). Toda la tarjeta abre su perfil y el botón queda por encima, como en `MusicRow`;
+   - hasta FOL-02 cada pestaña muestra el estado "Pendiente del backend".
+8. **Perfil de otra persona** (plantilla hasta PROF-05):
+   - robot por defecto como avatar y "@usuario" como nombre;
+   - "Seguir" a la derecha (mismo Button Variant=Follow), deshabilitado hasta FOL-01;
+   - sin engrane ni "En Junkbox desde"; pestañas "Reseñas" y "Calificaciones";
+   - nota "Pendiente del backend: aún no se puede consultar el perfil de otros usuarios.". No se comprueba si la persona existe.
 
 ### 12.5 Accesibilidad
 
@@ -1212,12 +1239,14 @@ features/profile/
 - Contadores y totales como lista de definiciones (`dl`); el "—" se lee como "sin datos".
 - Pestañas con `role="tablist"`/`tab`/`tabpanel`, `aria-selected`, `aria-controls`, foco itinerante y flechas izquierda/derecha.
 - El engrane es un enlace con `aria-label="Configuración"`.
+- En Seguidores / Seguidos las pestañas son enlaces con `role="tab"` y `aria-selected`; la flecha es un enlace con `aria-label="Volver al perfil"`.
+- "Seguir" lleva `aria-disabled`, `aria-label="Seguir a …"` y un `title` que explica por qué no funciona.
 - Los paneles laterales son `aside` etiquetados.
 
 ### 12.6 Limitaciones Conocidas
 
 - Sin listas ni contadores hasta PROF-01 a PROF-03; "Suena mucho por aquí" espera la definición de Producto (PROF-04).
-- No hay perfiles públicos de otros usuarios ni "Seguir" (dependen de SEARCH-04 y REV-01).
+- Seguidores, seguidos y el perfil de otros son plantillas (FOL-01, FOL-02, PROF-05). Hoy solo se llega a otro perfil escribiendo la URL: los nombres de las reseñas y las sugerencias de Inicio aún no enlazan a él.
 
 ### 12.7 Verificación (2026-11-15)
 
@@ -1284,3 +1313,6 @@ Además: probar las rutas del módulo con el backend en marcha (`pnpm dev`), rev
 | 2026-11-15 | Reproductor: pulsar la canción (carátula o título) en el MiniPlayer o en la vista ampliada abre su ficha (§11.2). |
 | 2026-11-15 | Reproductor: si la música ya suena en otro dispositivo de la cuenta (otra pestaña, el teléfono, la app), la barra pregunta antes de cambiarla ("Cambiar aquí" / "Cancelar"); la pestaña que la pierde avisa que pasó a otro dispositivo (§11.2). |
 | 2026-11-15 | Reproductor: al pulsar "Cancelar" o cuando la música pasa a otro dispositivo, el MiniPlayer sigue a la vista con la canción en pausa; "reproducir" vuelve a preguntar si se quiere cambiar a esta pestaña (§11.2). |
+| 2026-11-15 | Reproductor: al pulsar la canción, si su ID no está en el catálogo (cambiada desde la app de Spotify u otra versión), se busca por título y artista y se abre la ficha correcta en lugar de "No encontrado" (§11.2). |
+| 2026-11-15 | Perfil: los contadores Seguidores y Seguidos abren su página con dos pestañas (`/perfil/seguidores`, `/perfil/seguidos`); nuevo perfil de otra persona `/usuario/:username` y sus listas, como plantillas (FOL-01, FOL-02, PROF-05) (§12). |
+| 2026-11-15 | Perfil: los contadores "Reseñas" y "Calificaciones" también llevan a su pestaña (§12). |

@@ -6,6 +6,7 @@ import { cn } from '../../../shared/utils/cn'
 import { songPath } from '../../catalog/models/catalogPaths'
 import { SETTINGS_PATH } from '../../settings/models/settings'
 import { usePlayer } from '../controllers/playerContext'
+import { useOpenSongPage } from '../controllers/useOpenSongPage'
 import { formatPlaybackTime } from '../models/player'
 import { FinishButton, ICON_BUTTON, PlayPauseButton, ProgressBar, RestartButton, VolumeControl } from './PlayerControls'
 import { PlayerSheet } from './PlayerSheet'
@@ -28,6 +29,7 @@ function Artwork({ url, className }: { url: string | null; className: string }) 
  */
 function NowPlaying({ title, artist, artworkClass, className }: { title: string; artist: string; artworkClass: string; className: string }) {
   const { state } = usePlayer()
+  const { open, opening } = useOpenSongPage()
   const track = state.track
   const content = (
     <>
@@ -42,8 +44,10 @@ function NowPlaying({ title, artist, artworkClass, className }: { title: string;
   return (
     <Link
       to={songPath(track.spotifyId)}
+      onClick={(event) => open(event, track)}
       aria-label={`Abrir la ficha de ${track.title}`}
-      className={cn('group flex min-w-0 items-center gap-3 rounded focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-fg', className)}
+      aria-busy={opening || undefined}
+      className={cn('group flex min-w-0 items-center gap-3 rounded focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-fg', opening && 'cursor-progress', className)}
     >
       {content}
     </Link>

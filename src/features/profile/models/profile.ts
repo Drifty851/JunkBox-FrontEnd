@@ -10,9 +10,22 @@ export const PROFILE_TAB_PARAM: Record<ProfileTab, string | null> = {
   ratings: 'calificaciones',
 }
 
+/** Perfil de otra persona (plantilla hasta PROF-05). */
+export const USER_PROFILE_PATH = '/usuario/:username'
+export const userProfilePath = (username: string) => `/usuario/${encodeURIComponent(username)}`
+
+/**
+ * Seguidores y seguidos (decisión del propietario, 2026-11-15): una página con dos pestañas; la ruta
+ * decide la activa. Sin `username` son las mías (/perfil/...); con él, las de esa persona.
+ */
+export type ConnectionsTab = 'followers' | 'following'
+export const CONNECTIONS_SEGMENT: Record<ConnectionsTab, string> = { followers: 'seguidores', following: 'seguidos' }
+export const connectionsPath = (tab: ConnectionsTab, username?: string | null) =>
+  `${username ? userProfilePath(username) : PROFILE_PATH}/${CONNECTIONS_SEGMENT[tab]}`
+
 /** ids que enlazan cada pestaña con su panel (patrón ARIA tabs). */
-export const tabId = (tab: ProfileTab) => `profile-tab-${tab}`
-export const panelId = (tab: ProfileTab) => `profile-panel-${tab}`
+export const tabId = (tab: string) => `profile-tab-${tab}`
+export const panelId = (tab: string) => `profile-panel-${tab}`
 
 export function tabFromParam(value: string | null): ProfileTab {
   return value === PROFILE_TAB_PARAM.ratings ? 'ratings' : 'reviews'

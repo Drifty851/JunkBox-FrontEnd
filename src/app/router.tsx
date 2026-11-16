@@ -18,6 +18,8 @@ import { SEARCH_PATH } from '../features/search/models/search.types'
 import { SearchPage } from '../features/search/views/SearchPage'
 import { SPOTIFY_CALLBACK_PATH } from '../features/player/models/spotify'
 import { PROFILE_PATH } from '../features/profile/models/profile'
+import { connectionsPath, USER_PROFILE_PATH } from '../features/profile/models/profile'
+import { ConnectionsPage } from '../features/profile/views/ConnectionsPage'
 import { ProfilePage } from '../features/profile/views/ProfilePage'
 import { SpotifyCallbackPage } from '../features/player/views/SpotifyCallbackPage'
 import { SETTINGS_PATH } from '../features/settings/models/settings'
@@ -37,7 +39,7 @@ import { HomeRoute, ProtectedRoute, PublicOnlyRoute } from './routes/RouteGuards
  *  - Sin sesión, las rutas protegidas y las desconocidas llevan a la landing.
  *  - /cancion/:id, /album/:id, /artista/:id: fichas del catálogo.
  *  - /resena/nueva?tipo=&id=: Escribir Reseña (calificaciones y reseñas).
- *  - /perfil: mi perfil. /configuracion: Configuración (menú del avatar). /spotify/callback: retorno de la vinculación con Spotify.
+ *  - /perfil: mi perfil; /perfil/seguidores y /perfil/seguidos. /usuario/:username (y sus /seguidores, /seguidos): perfil de otra persona (plantilla). /configuracion: Configuración (menú del avatar). /spotify/callback: retorno de la vinculación con Spotify.
  */
 export const router = createBrowserRouter([
   {
@@ -66,6 +68,11 @@ export const router = createBrowserRouter([
           { path: WRITE_REVIEW_PATH, element: <WriteReviewPage /> },
           { path: SETTINGS_PATH, element: <SettingsPage /> },
           { path: PROFILE_PATH, element: <ProfilePage /> },
+          { path: connectionsPath('followers'), element: <ConnectionsPage tab="followers" /> },
+          { path: connectionsPath('following'), element: <ConnectionsPage tab="following" /> },
+          { path: USER_PROFILE_PATH, element: <ProfilePage /> },
+          { path: `${USER_PROFILE_PATH}/seguidores`, element: <ConnectionsPage tab="followers" /> },
+          { path: `${USER_PROFILE_PATH}/seguidos`, element: <ConnectionsPage tab="following" /> },
           { path: SPOTIFY_CALLBACK_PATH, element: <SpotifyCallbackPage /> },
         ],
       },

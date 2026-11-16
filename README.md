@@ -110,7 +110,7 @@ src/
     ├── landing/             # landing de `/` sin sesión (portadas fijas en carrusel)
     ├── settings/            # Configuración (/configuracion): cuenta de música, frecuencia e información pública
     ├── player/              # Spotify: vinculación PKCE y reproductor (Web Playback SDK, MiniPlayer)
-    └── profile/             # Mi perfil (/perfil): cabecera, contadores y pestañas
+    └── profile/             # Mi perfil (/perfil), seguidores/seguidos y perfil de otros (/usuario/:username)
 ```
 
 ---
@@ -128,7 +128,7 @@ src/
 | Calificaciones y Reseñas | `/resena/nueva?tipo=&id=` | Implementado (§8) | `POST/GET/DELETE /ratings`, `POST/GET/PUT/DELETE /reviews` |
 | Configuración | `/configuracion` · menú del avatar | Implementado (§10). Guardar el perfil y la frecuencia, pendientes del backend (USER-01, PREF-01) | `GET /auth/me`, `POST /auth/password/forgot`, `POST /auth/logout` |
 | Spotify y Reproductor | `/spotify/callback` · Configuración · MiniPlayer | Implementado (§11): vinculación PKCE y reproductor con el Web Playback SDK (Spotify Premium) | `accounts.spotify.com` (PKCE), `GET /v1/me`, `PUT /v1/me/player/play` |
-| Perfil | `/perfil` (`?tab=calificaciones`) | Implementado (§12) con plantillas: listas y contadores pendientes del backend (PROF-01 a PROF-04) | `GET /auth/me` |
+| Perfil | `/perfil` (`?tab=calificaciones`), `/perfil/seguidores`, `/perfil/seguidos`, `/usuario/:username` (y sus listas) | Implementado (§12) con plantillas: listas, contadores, seguir y perfiles de otros pendientes del backend (PROF-01 a PROF-05, FOL-01, FOL-02) | `GET /auth/me` |
 
 Los módulos se implementan **uno cada vez**. Las carencias del backend están en `SOLICITUDES_BACKEND.md`.
 

@@ -5,6 +5,7 @@ import { MaskIcon } from '../../../shared/ui/MaskIcon'
 import { cn } from '../../../shared/utils/cn'
 import { songPath } from '../../catalog/models/catalogPaths'
 import { usePlayer } from '../controllers/playerContext'
+import { useOpenSongPage } from '../controllers/useOpenSongPage'
 import { formatPlaybackTime } from '../models/player'
 import { FinishButton, ICON_BUTTON, PlayPauseButton, ProgressBar, RestartButton, VolumeControl } from './PlayerControls'
 
@@ -33,6 +34,7 @@ function TrackText({ title, artist }: { title: string; artist: string }) {
 
 export function PlayerSheet() {
   const { state, setExpanded } = usePlayer()
+  const { open, opening } = useOpenSongPage()
   const closeRef = useRef<HTMLButtonElement>(null)
 
   useEffect(() => {
@@ -68,7 +70,8 @@ export function PlayerSheet() {
         {track?.spotifyId ? (
           <Link
             to={songPath(track.spotifyId)}
-            onClick={() => setExpanded(false)}
+            onClick={(event) => open(event, track, () => setExpanded(false))}
+            aria-busy={opening || undefined}
             aria-label={`Abrir la ficha de ${track.title}`}
             className="group flex w-full flex-col items-center gap-6 rounded focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-fg"
           >

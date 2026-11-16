@@ -32,7 +32,7 @@ Registro, por módulo del frontend, de los cambios, aclaraciones o capacidades q
 - [6. Módulo: Spotify y Reproductor](#6-módulo-spotify-y-reproductor)
 - [7. Módulo: Fichas (Canción, Álbum, Artista) y Calificaciones](#7-módulo-fichas-canción-álbum-artista-y-calificaciones)
 - [8. Módulo: Landing (sin sesión)](#8-módulo-landing-sin-sesión)
-- [9. Módulo: Perfil](#9-módulo-perfil)
+- [9. Módulo: Perfil](#9-módulo-perfil) (PROF-01 a PROF-05, FOL-01, FOL-02)
 - [10. Plantilla para nuevas solicitudes](#10-plantilla-para-nuevas-solicitudes)
 - [11. Historial de cambios](#11-historial-de-cambios)
 
@@ -324,13 +324,13 @@ Sin solicitudes abiertas.
 
 **Endpoints que usa:** `GET /auth/me` (avatar, nombre, @usuario y `created_at`).
 
-Decisión del propietario (2026-11-15): por ahora solo **mi perfil** (`/perfil`), sin bio ni "Seguir"; los perfiles públicos de otros usuarios quedan para después (dependen de SEARCH-04 y REV-01).
+Decisión del propietario (2026-11-15): **mi perfil** (`/perfil`) sin bio. Después, el mismo día: páginas de **seguidores y seguidos** (`/perfil/seguidores`, `/perfil/seguidos`) y el **perfil de otra persona** (`/usuario/:username` y sus listas), como plantillas hasta FOL-01, FOL-02 y PROF-05.
 
 ### PROF-01 · Listar mis reseñas
 - **Estado:** Pendiente · **Responsable:** Backend · **Bloqueante:** no.
 - **Qué pasa:** la pestaña "Mis Reseñas" muestra las reseñas del usuario con su `ReviewCard`. `GET /reviews` solo filtra por objetivo (`target_type`/`target_id`), no por autor.
 - **Qué se pide:**
-  - Endpoint: `GET /api/v1/users/me/reviews?limit=&page=` (Bearer), de la más reciente a la más antigua.
+  - Endpoint: `GET /api/v1/users/me/reviews?limit=&page=` (Bearer), de la más reciente a la más antigua. Debe aceptar también `{username}` en lugar de `me` (perfil de otra persona, 2026-11-15).
   - Response: `200 { results: [Review & { target: { type, id, title, subtitle, image_url } }], total, page, limit }`. `subtitle` es, por ejemplo, "Hoke · BBO · 2022".
   - Errores: `400` si `limit` o `page` no son válidos · `401`.
 - **Alternativa en el frontend (implementada):** la pestaña muestra un estado vacío con "Pendiente del backend".
@@ -340,7 +340,7 @@ Decisión del propietario (2026-11-15): por ahora solo **mi perfil** (`/perfil`)
 - **Estado:** Pendiente · **Responsable:** Backend · **Bloqueante:** no.
 - **Qué pasa:** "Historial de Calificaciones" lista lo que el usuario calificó (canciones, álbumes y artistas) con sus estrellas y la fecha. `/ratings/my` solo da la calificación de un elemento concreto.
 - **Qué se pide:**
-  - Endpoint: `GET /api/v1/users/me/ratings?limit=&page=` (Bearer), de la más reciente a la más antigua.
+  - Endpoint: `GET /api/v1/users/me/ratings?limit=&page=` (Bearer), de la más reciente a la más antigua. Debe aceptar también `{username}` en lugar de `me`.
   - Response: `200 { results: [{ id, score, created_at, updated_at, target: { type, id, title, subtitle, image_url } }], total, page, limit }`.
   - Errores: `400` · `401`.
 - **Alternativa en el frontend (implementada):** estado vacío con "Pendiente del backend". El propietario descartó un historial parcial con `/ratings/my`.
@@ -363,6 +363,36 @@ Decisión del propietario (2026-11-15): por ahora solo **mi perfil** (`/perfil`)
 - **Qué se pide:** que Producto decida el criterio; después, por ejemplo, `GET /api/v1/users/me/highlights?limit=3` → `200 { results: [{ target: { type, id, title, subtitle, image_url }, reason, score | null }] }`.
 - **Alternativa en el frontend (implementada):** panel con "Tus canciones más escuchadas aparecerán aquí. Pendiente del backend." y la fecha de alta ("En Junkbox desde…", de `created_at`).
 - **Impacto en el frontend:** el panel se llena con `MusicRow` y `PlayButton`.
+
+### FOL-01 · Seguir y dejar de seguir
+- **Estado:** Pendiente · **Responsable:** Backend · **Bloqueante:** no.
+- **Qué pasa:** el botón "Seguir" aparece en el perfil de otra persona, en las tarjetas de seguidores y seguidos, en las reseñas (REV-01) y en las sugerencias de Inicio (HOME-05). No existe la relación "seguir" en el backend.
+- **Qué se pide:**
+  - Endpoints: `POST /api/v1/users/{username}/follow` y `DELETE /api/v1/users/{username}/follow` (Bearer).
+  - Response: `204`.
+  - Errores: `400` si es uno mismo · `401` · `404` si el usuario no existe · `409` si ya lo sigue (`POST`).
+- **Alternativa en el frontend (implementada):** "Seguir" con `aria-disabled` y el texto "Seguir estará disponible cuando el backend lo permita.".
+- **Impacto en el frontend:** `FollowButton` pasa a "Siguiendo" y se puede pulsar; los contadores de PROF-03 cambian al momento.
+
+### FOL-02 · Listar seguidores y seguidos
+- **Estado:** Pendiente · **Responsable:** Backend · **Bloqueante:** no (depende de FOL-01).
+- **Qué pasa:** al pulsar "Seguidores" o "Seguidos" en un perfil se abre una página con dos pestañas. Cada tarjeta (SuggestedUser de Figma) abre el perfil de esa persona.
+- **Qué se pide:**
+  - Endpoints: `GET /api/v1/users/{username}/followers?limit=&page=` y `GET /api/v1/users/{username}/following?limit=&page=` (Bearer). `me` vale como `{username}`.
+  - Response: `200 { results: [{ id, username, display_name, avatar_url, following }], total, page, limit }`. `following` indica si yo sigo a esa persona (para el botón).
+  - Errores: `400` si `limit` o `page` no son válidos · `401` · `404` si el usuario no existe.
+- **Alternativa en el frontend (implementada):** las dos pestañas muestran un estado vacío con "Pendiente del backend".
+- **Impacto en el frontend:** se llena la lista de `UserCard` (`features/profile/views/UserCard.tsx`, ya hecha).
+
+### PROF-05 · Perfil público de otra persona
+- **Estado:** Pendiente · **Responsable:** Backend · **Bloqueante:** no.
+- **Qué pasa:** `/usuario/:username` muestra el perfil de otra persona, pero solo existe `GET /auth/me` (el mío).
+- **Qué se pide:**
+  - Endpoint: `GET /api/v1/users/{username}` (Bearer).
+  - Response: `200 { id, username, display_name, avatar_url, created_at, stats: { reviews_count, ratings_count, average_score | null, five_star_count, followers_count, following_count }, following }`.
+  - Errores: `401` · `404` si no existe.
+- **Alternativa en el frontend (implementada):** plantilla con el robot por defecto, "@usuario" como nombre, contadores "—", "Seguir" deshabilitado y la nota "Pendiente del backend: aún no se puede consultar el perfil de otros usuarios.". No se comprueba si la persona existe.
+- **Impacto en el frontend:** `useProfileController` carga estos datos cuando hay `:username`; un `404` mostrará "No encontrado".
 
 ---
 
@@ -406,3 +436,4 @@ Decisión del propietario (2026-11-15): por ahora solo **mi perfil** (`/perfil`)
 | 2026-11-13 | LANDING-01: la alternativa del frontend pasa a 80 álbumes elegidos por el propietario. Sigue pendiente. |
 | 2026-11-13 | SPOT-01: alternativa del frontend implementada (vinculación PKCE con el refresh token cifrado en el navegador). Sigue pendiente en el backend. |
 | 2026-11-15 | Módulo Perfil: nuevas PROF-01 (mis reseñas), PROF-02 (mis calificaciones), PROF-03 (estadísticas) y PROF-04 ("Suena mucho por aquí"). El frontend muestra plantillas vacías. |
+| 2026-11-15 | Perfil: seguidores, seguidos y perfil de otra persona como plantillas. Nuevas FOL-01 (seguir), FOL-02 (listas de seguidores y seguidos) y PROF-05 (perfil público); PROF-01 y PROF-02 piden aceptar `{username}`. |
