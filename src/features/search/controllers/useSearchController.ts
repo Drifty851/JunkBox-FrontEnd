@@ -3,7 +3,7 @@ import { useSearchParams } from 'react-router'
 import { ApiError } from '../../../shared/api/httpClient'
 import { useAuth } from '../../auth/controllers/authContext'
 import { toUserMessage } from '../../auth/services/errorMessages'
-import type { AlbumRating, SearchResults } from '../models/search.types'
+import { kindFromParam, SEARCH_KIND_PARAM, USERS_KIND_VALUE, type AlbumRating, type SearchKind, type SearchResults } from '../models/search.types'
 import { searchService } from '../services/searchService'
 
 /**
@@ -25,6 +25,9 @@ type Outcome = { key: string; results: SearchResults } | { key: string; message:
 
 export interface SearchController {
   input: string
+  /** Pestaña activa (`?tipo=usuarios`). Usuarios aún no busca nada (SEARCH-04). */
+  kind: SearchKind
+  selectKind: (kind: SearchKind) => void
   state: SearchState
   /** Calificación del álbum destacado (tarjeta de escritorio); `null` mientras no se conoce. */
   featuredRating: AlbumRating | null
@@ -44,6 +47,7 @@ export function useSearchController(): SearchController {
   const { logout } = useAuth()
   const [params, setParams] = useSearchParams()
   const query = (params.get('q') ?? '').trim()
+  const kind = kindFromParam(params.get(SEARCH_KIND_PARAM))
   const [input, setInput] = useState(query)
   const [outcome, setOutcome] = useState<Outcome | null>(null)
   const [featured, setFeatured] = useState<{ albumId: string; rating: AlbumRating } | null>(null)
@@ -55,7 +59,28 @@ export function useSearchController(): SearchController {
     (value: string) => {
       const next = value.trim().slice(0, MAX_QUERY_LENGTH)
       committed.current = next
-      setParams(next === '' ? {} : { q: next }, { replace: true })
+      setParams(
+        (current) => {
+          const updated = new URLSearchParams(current)
+          if (next === '') updated.delete('q')
+          else updated.set('q', next)
+          return updated
+        },
+        { replace: true },
+      )
+    },
+    [setParams],
+  )
+
+  /** Cambiar de pestaña conserva la consulta y crea una entrada de historial ("atrás" vuelve). */
+  const selectKind = useCallback(
+    (next: SearchKind) => {
+      setParams((current) => {
+        const updated = new URLSearchParams(current)
+        if (next === 'users') updated.set(SEARCH_KIND_PARAM, USERS_KIND_VALUE)
+        else updated.delete(SEARCH_KIND_PARAM)
+        return updated
+      })
     },
     [setParams],
   )
@@ -78,7 +103,8 @@ export function useSearchController(): SearchController {
   // con su clave y el estado se deriva en el render (sin setState síncrono en el efecto).
   const key = `${attempt}:${query}`
   useEffect(() => {
-    if (query === '') return
+    // Usuarios no tiene endpoint (SEARCH-04): no se busca música en esa pestaña.
+    if (query === '' || kind === 'users') return
     const controller = new AbortController()
     searchService
       .search(query, controller.signal)
@@ -101,7 +127,7 @@ export function useSearchController(): SearchController {
         setOutcome({ key, message: toUserMessage(error) })
       })
     return () => controller.abort()
-  }, [key, query, logout])
+  }, [key, query, kind, logout])
 
   let state: SearchState
   if (query === '') state = { status: 'idle' }
@@ -129,5 +155,5 @@ export function useSearchController(): SearchController {
 
   const retry = useCallback(() => setAttempt((value) => value + 1), [])
 
-  return { input, state, featuredRating, handleChange, handleSubmit, clear, retry }
+  return { input, kind, selectKind, state, featuredRating, handleChange, handleSubmit, clear, retry }
 }

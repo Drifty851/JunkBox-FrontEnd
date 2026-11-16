@@ -1,6 +1,28 @@
 /** Ruta del Buscador. La consulta va en `?q=` para poder compartirla y volver atrás. */
 export const SEARCH_PATH = '/buscar'
 
+/**
+ * Pestañas del Buscador (SegmentedControl de Figma). La activa va en `?tipo=usuarios`, junto a `?q=`,
+ * para poder compartirla y volver atrás; sin `tipo` es Música.
+ */
+export type SearchKind = 'music' | 'users'
+export const SEARCH_KIND_PARAM = 'tipo'
+export const USERS_KIND_VALUE = 'usuarios'
+export const kindFromParam = (value: string | null): SearchKind => (value === USERS_KIND_VALUE ? 'users' : 'music')
+
+/**
+ * Persona en "Buscador · Usuarios" (contrato propuesto en SEARCH-04). Sin bio (decisión del
+ * propietario, 2026-11-15, como en Perfil y Configuración).
+ */
+export interface UserResult {
+  username: string
+  displayName: string | null
+  avatarUrl: string | null
+  followersCount: number
+  /** Si ya la sigo ("Siguiendo"). */
+  following: boolean
+}
+
 /** Canción en la lista de resultados (Figma · MusicRow). */
 export interface SongResult {
   /** ID de Spotify: clave de la fila y, en el paso del reproductor, la canción a reproducir. */

@@ -597,7 +597,7 @@ La búsqueda compara con `strict_word_similarity` sobre "título + artista" en l
 2. **Estado derivado** (`useSearchController`): cada resultado se guarda con su clave `intento:consulta` y el estado (inicial, cargando, listo, error) se calcula en el render, sin `setState` síncrono en efectos (regla `set-state-in-effect` de oxlint).
 3. **Carátula de las canciones:** `album_image_url` de cada resultado (desde el 2026-11-12). Si el backend no la completa a tiempo llega `null` y la fila muestra el recuadro neutro; en la siguiente búsqueda ya suele estar. Antes se buscaba el álbum de la canción entre los álbumes encontrados.
 4. **"Ver todas las canciones"** despliega hasta 20 (se ven 5); **"Ver todos"** despliega el resto de álbumes en la tarjeta.
-5. **Pestaña "Usuarios"** visible pero deshabilitada (SEARCH-04). **Estrellas por fila** solo si hay calificación (SEARCH-03).
+5. **Pestaña "Usuarios"**: activa desde el 2026-11-15, como plantilla hasta SEARCH-04 (§6.8). **Estrellas por fila** solo si hay calificación (SEARCH-03).
 6. **Botón ▶** de cada canción visible y deshabilitado hasta que exista el reproductor.
 7. **Filas, título y "Ver álbum"** enlazan a las fichas (§7).
 8. **Estados que Figma no define:** "Busca canciones, álbumes o artistas.", "Buscando “…”…", "No encontramos resultados para “…”." y error con "Reintentar".
@@ -612,7 +612,7 @@ La búsqueda compara con `strict_word_similarity` sobre "título + artista" en l
 
 ### 6.5 Accesibilidad
 
-- `<form role="search">` con campo etiquetado; `SegmentedControl` como `tablist` (Usuarios con `aria-disabled`).
+- `<form role="search">` con campo etiquetado; `SegmentedControl` como `tablist` (§6.8).
 - Resultados en una región `aria-live` con `aria-busy` durante la carga; cada sección con `aria-label`.
 - Filas como enlaces que cubren la fila; el botón ▶ queda por encima y tiene su propio nombre.
 
@@ -634,6 +634,42 @@ La búsqueda compara con `strict_word_similarity` sobre "título + artista" en l
 | Navbar: "Hoke" → Hoke (artista), Medallones, BBO, TRES CREUS | Correcto |
 | Navbar: flechas + Enter abre la ficha; el campo queda vacío | Correcto |
 | Capturas móvil/escritorio, Claro/Oscuro · consola | Sin errores |
+
+### 6.8 Buscador · Usuarios (2026-11-15)
+
+**Figma:** móvil `14244:50943` y escritorio `14244:51045`. Componentes: SegmentedControl, UserCard (`14296:9131`) y CommunityContext.
+
+**Ruta:** la pestaña va en la URL: `/buscar?q=Hoke&tipo=usuarios`. Sin `tipo` es Música.
+- Cambiar de pestaña conserva la consulta y crea una entrada de historial, así que "atrás" vuelve a la pestaña anterior.
+- Escribir conserva `tipo`.
+- En Usuarios no se llama a `GET /music/search`.
+
+**Decisiones del propietario:**
+1. **Tarjeta sin bio**, como en Perfil y Configuración. Muestra:
+   - avatar (40 en móvil, 56 en escritorio), nombre Title/16 SemiBold y @usuario Caption/12;
+   - "N seguidores" (Caption/12);
+   - "Seguir" (Button Variant=Follow, color de acción) o "Siguiendo" (Variant=Following, blanco con borde), de 32 de alto en móvil y 44 en escritorio.
+   Se omite "· Escucha Hoke" (Figma), porque no hay dato que lo respalde. Toda la tarjeta abre `/usuario/:username`, y el botón queda por encima.
+2. **Panel "La música se descubre mejor en compañía."** con su texto, sin el bloque "Os une BBO" ni "Explorar reseñas de BBO", que necesitan saber qué música tienen en común. Aparece a la derecha (384 px) desde 1280 px y debajo entre 768 y 1279 px; en móvil no se muestra, como en Figma.
+
+**Estado actual:** sin SEARCH-04, la lista muestra "Aquí aparecerán las personas que coincidan con “…”. Pendiente del backend." (o "Busca personas por su nombre o @usuario." sin consulta).
+- `UserResultCard` (`features/search/views/UserSearchResults.tsx`) ya está hecha.
+- El campo cambia su texto de ayuda a "Nombre o @usuario…". Este texto no está en Figma.
+
+**Accesibilidad:**
+- El SegmentedControl es un `tablist` con `aria-selected`, foco itinerante y flechas izquierda/derecha.
+- La etiqueta del campo cambia según la pestaña.
+- "Seguir" lleva `aria-disabled` (FOL-01).
+
+**Verificación (2026-11-15):**
+
+| Prueba | Resultado |
+|---|---|
+| `pnpm typecheck` · `pnpm lint` | Correcto |
+| `/buscar?q=Hoke&tipo=usuarios` a 1440, 1024 y 390, claro y oscuro | Pestaña activa en color de acción; panel a la derecha, debajo o sin panel, según el ancho |
+| Tarjetas de ejemplo, inyectadas solo para la prueba y revertidas | "Seguir" en color de acción y "Siguiendo" con borde; medidas de móvil y escritorio de Figma |
+| Flecha derecha desde "Música" | Pasa a `?q=Hoke&tipo=usuarios` con el foco en "Usuarios"; "atrás" vuelve a Música |
+| Consola | Sin errores |
 
 ---
 
@@ -1386,3 +1422,4 @@ Además: probar las rutas del módulo con el backend en marcha (`pnpm dev`), rev
 | 2026-11-15 | Perfil: los contadores "Reseñas" y "Calificaciones" también llevan a su pestaña (§12). |
 | 2026-11-15 | Fichas: el avatar y el nombre del autor de cada reseña abren su perfil (`/usuario/:username`); en `ArtistReviewCard`, "Nombre · @usuario" (§7, §12). Verificado con una reseña temporal, borrada al terminar. |
 | 2026-11-15 | Reseñas: nueva Reseña Completa (`/resena/:id`) con comentarios anidados (sangría hasta 3 niveles) y Me gusta como plantillas; las tarjetas solo tienen Me gusta y Comentarios (sin Guardar ni "más opciones"); "Comentarios" abre la reseña (§8.8). |
+| 2026-11-15 | Buscador: la pestaña Usuarios funciona (`?tipo=usuarios`) con la tarjeta de Figma sin bio y el panel "La música se descubre mejor en compañía" sin "Os une…"; lista pendiente de SEARCH-04 (§6.8). |

@@ -123,7 +123,7 @@ src/
 | Autenticación | `/login`, `/register`, `/recuperar-contrasena`, `/restablecer-contrasena`, `/verificar-correo` | Implementado. El registro envía `terms_accepted` (obligatorio en el backend desde el 2026-11-12) | `POST /auth/login`, `POST /auth/register`, `GET /auth/me`, `POST /auth/refresh`, `POST /auth/logout`, `POST /auth/password/forgot`, `POST /auth/password/reset`, `POST /auth/email/verify` |
 | Inicio | `/` | Base implementada con carátulas (`album_image_url`): crece con los demás módulos (`implementacion.md` §4) | `GET /music/tracks/{id}` |
 | Cuenta y legales | `/terminos`, `/privacidad` · menú del avatar | Implementado (§5). Textos legales en revisión | — (avatar por defecto en `POST /auth/register`) |
-| Buscador | `/buscar?q=` · campo de la Navbar | Implementado (§6) | `GET /music/search`, `GET /music/albums/{id}` |
+| Buscador | `/buscar?q=` (`&tipo=usuarios`) · campo de la Navbar | Implementado (§6). Usuarios, plantilla hasta SEARCH-04 (§6.8) | `GET /music/search`, `GET /music/albums/{id}` |
 | Fichas del catálogo | `/cancion/:id`, `/album/:id`, `/artista/:id` | Implementado (§7) | `GET /music/tracks\|albums\|artists/{id}`, `GET /music/search` (cascada), `GET /reviews`, `GET /ratings/my` |
 | Calificaciones y Reseñas | `/resena/nueva?tipo=&id=`, `/resena/:id` (Reseña Completa) | Implementado (§8). Comentarios anidados y Me gusta, plantillas hasta COM-01 y LIKE-01/02 | `POST/GET/DELETE /ratings`, `POST/GET/PUT/DELETE /reviews`, `GET /reviews/{id}` |
 | Configuración | `/configuracion` · menú del avatar | Implementado (§10). Guardar el perfil y la frecuencia, pendientes del backend (USER-01, PREF-01) | `GET /auth/me`, `POST /auth/password/forgot`, `POST /auth/logout` |

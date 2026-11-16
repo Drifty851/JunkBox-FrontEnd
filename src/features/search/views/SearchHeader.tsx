@@ -1,23 +1,42 @@
-import { useRef, type ChangeEvent, type FormEvent } from 'react'
+import { useRef, type ChangeEvent, type FormEvent, type KeyboardEvent } from 'react'
 import searchIcon from '../../../assets/icons/search-20.svg'
 import xIcon from '../../../assets/icons/x-16.svg'
 import { MaskIcon } from '../../../shared/ui/MaskIcon'
+import { cn } from '../../../shared/utils/cn'
 import { MAX_QUERY_LENGTH } from '../controllers/useSearchController'
+import type { SearchKind } from '../models/search.types'
+
+const KINDS: { id: SearchKind; label: string }[] = [
+  { id: 'music', label: 'Música' },
+  { id: 'users', label: 'Usuarios' },
+]
 
 interface SearchHeaderProps {
   input: string
   onChange: (event: ChangeEvent<HTMLInputElement>) => void
   onSubmit: (event: FormEvent<HTMLFormElement>) => void
   onClear: () => void
+  kind: SearchKind
+  onSelectKind: (kind: SearchKind) => void
 }
 
 /**
  * SearchHeader (Figma · 14244:50730 móvil / 14244:50843 escritorio): título, SearchField
  * (14296:4081) y SegmentedControl (14296:15842). Escritorio: ancho 800.
- * "Usuarios" se muestra deshabilitado: no hay búsqueda de usuarios en el backend (SEARCH-04).
+ * Música y Usuarios son pestañas (2026-11-15); Usuarios es una plantilla hasta SEARCH-04.
+ * Patrón ARIA tabs: flechas izquierda/derecha cambian de pestaña.
  */
-export function SearchHeader({ input, onChange, onSubmit, onClear }: SearchHeaderProps) {
+export function SearchHeader({ input, onChange, onSubmit, onClear, kind, onSelectKind }: SearchHeaderProps) {
   const inputRef = useRef<HTMLInputElement>(null)
+  const tabRefs = useRef<Record<SearchKind, HTMLButtonElement | null>>({ music: null, users: null })
+
+  function onTabKeyDown(event: KeyboardEvent<HTMLDivElement>) {
+    if (event.key !== 'ArrowRight' && event.key !== 'ArrowLeft') return
+    event.preventDefault()
+    const next: SearchKind = kind === 'music' ? 'users' : 'music'
+    onSelectKind(next)
+    tabRefs.current[next]?.focus()
+  }
 
   function handleClear() {
     onClear()
@@ -44,8 +63,8 @@ export function SearchHeader({ input, onChange, onSubmit, onClear }: SearchHeade
             maxLength={MAX_QUERY_LENGTH}
             value={input}
             onChange={onChange}
-            placeholder="Canciones, álbumes, artistas…"
-            aria-label="Buscar canciones, álbumes o artistas"
+            placeholder={kind === 'users' ? 'Nombre o @usuario…' : 'Canciones, álbumes, artistas…'}
+            aria-label={kind === 'users' ? 'Buscar personas por nombre o usuario' : 'Buscar canciones, álbumes o artistas'}
             className="min-w-0 flex-1 bg-transparent text-sm leading-[1.4] text-fg outline-none placeholder:text-fg-placeholder"
           />
           {input !== '' && (
@@ -62,25 +81,29 @@ export function SearchHeader({ input, onChange, onSubmit, onClear }: SearchHeade
       </form>
 
       {/* SegmentedControl: alto 40, padding 4, separación 4; Segment activo action / on-action. */}
-      <div role="tablist" aria-label="Tipo de búsqueda" className="flex h-10 w-full gap-1 rounded-lg bg-surface-input-disabled p-1">
-        <button
-          type="button"
-          role="tab"
-          aria-selected="true"
-          className="flex flex-1 items-center justify-center rounded bg-action text-sm leading-[1.4] font-medium text-on-action"
-        >
-          Música
-        </button>
-        <button
-          type="button"
-          role="tab"
-          aria-selected="false"
-          aria-disabled="true"
-          title="Disponible cuando el backend permita buscar usuarios"
-          className="flex flex-1 cursor-default items-center justify-center rounded text-sm leading-[1.4] font-medium text-fg-soft"
-        >
-          Usuarios
-        </button>
+      <div role="tablist" aria-label="Tipo de búsqueda" onKeyDown={onTabKeyDown} className="flex h-10 w-full gap-1 rounded-lg bg-surface-input-disabled p-1">
+        {KINDS.map((item) => {
+          const selected = item.id === kind
+          return (
+            <button
+              key={item.id}
+              ref={(element) => {
+                tabRefs.current[item.id] = element
+              }}
+              type="button"
+              role="tab"
+              aria-selected={selected}
+              tabIndex={selected ? 0 : -1}
+              onClick={() => onSelectKind(item.id)}
+              className={cn(
+                'flex flex-1 cursor-pointer items-center justify-center rounded text-sm leading-[1.4] font-medium focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-fg',
+                selected ? 'bg-action text-on-action' : 'text-fg-soft',
+              )}
+            >
+              {item.label}
+            </button>
+          )
+        })}
       </div>
     </div>
   )

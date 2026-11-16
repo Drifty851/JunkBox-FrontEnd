@@ -186,9 +186,13 @@ Sin solicitudes abiertas.
 
 ### SEARCH-04 · Búsqueda de usuarios
 - **Estado:** Pendiente · **Responsable:** Backend y Producto · **Bloqueante:** no.
-- **Qué pasa:** la pestaña "Usuarios" del Buscador no tiene endpoint.
-- **Qué se pide:** `GET /api/v1/users/search?q=&limit=` → `200 { results: [ { id, username, display_name, avatar_url } ] }`.
-- **Alternativa en el frontend (implementada):** la pestaña se muestra deshabilitada.
+- **Qué pasa:** la pestaña "Usuarios" del Buscador (Figma 14244:51045) no tiene endpoint. Desde el 2026-11-15 la pestaña funciona y su tarjeta ya está hecha.
+- **Qué se pide:**
+  - `GET /api/v1/users/search?q=&limit=&page=` (Bearer). Busca por nombre visible y `username`, sin distinguir mayúsculas ni acentos.
+  - Response: `200 { results: [ { id, username, display_name, avatar_url, followers_count, following } ], total, page, limit }`. `following` dice si yo sigo a esa persona (FOL-01). Sin bio (decisión del propietario).
+  - Errores: `400` si `q` está vacío o pasa de 200 caracteres · `401`.
+  - Opcional, a definir con Producto: qué música tienen en común con la búsqueda, para "· Escucha Hoke" en la tarjeta y "Os une BBO" en el panel lateral.
+- **Alternativa en el frontend (implementada):** la lista muestra "Pendiente del backend"; el panel muestra solo el título y el texto.
 
 ---
 
@@ -470,3 +474,4 @@ Decisión del propietario (2026-11-15): **mi perfil** (`/perfil`) sin bio. Despu
 | 2026-11-15 | Módulo Perfil: nuevas PROF-01 (mis reseñas), PROF-02 (mis calificaciones), PROF-03 (estadísticas) y PROF-04 ("Suena mucho por aquí"). El frontend muestra plantillas vacías. |
 | 2026-11-15 | Perfil: seguidores, seguidos y perfil de otra persona como plantillas. Nuevas FOL-01 (seguir), FOL-02 (listas de seguidores y seguidos) y PROF-05 (perfil público); PROF-01 y PROF-02 piden aceptar `{username}`. |
 | 2026-11-15 | Reseñas: REV-01 se reemplaza por COM-01 (comentarios con respuestas sin límite), LIKE-01 (Me gusta en reseñas), LIKE-02 (en comentarios) y LIKE-03 (en calificaciones); Guardar, descartado. El frontend ya tiene la Reseña Completa (`/resena/:id`) con `GET /reviews/{id}`. |
+| 2026-11-15 | SEARCH-04 se amplía con `followers_count`, `following`, paginación y, como opción, la música en común. El frontend ya tiene la pestaña Usuarios (`?tipo=usuarios`). |
