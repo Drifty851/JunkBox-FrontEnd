@@ -2,6 +2,7 @@ import houseIcon from '../../assets/icons/house.svg'
 import personIcon from '../../assets/icons/person.svg'
 import searchIcon from '../../assets/icons/search-22.svg'
 import squarePlusIcon from '../../assets/icons/square-plus.svg'
+import { PROFILE_PATH } from '../../features/profile/models/profile'
 import { WRITE_REVIEW_PATH } from '../../features/reviews/models/writeReview'
 import { SEARCH_PATH } from '../../features/search/models/search.types'
 import { SETTINGS_PATH as SETTINGS_ROUTE } from '../../features/settings/models/settings'
@@ -15,7 +16,7 @@ import type { NavigationItem } from '../../shared/layout/navigation.types'
 export const HOME_ITEM: NavigationItem = { label: 'Inicio', to: '/', icon: houseIcon }
 export const SEARCH_ITEM: NavigationItem = { label: 'Buscador', to: SEARCH_PATH, icon: searchIcon }
 export const CREATE_REVIEW_ITEM: NavigationItem = { label: 'Crear Reseña', to: WRITE_REVIEW_PATH, icon: squarePlusIcon }
-export const PROFILE_ITEM: NavigationItem = { label: 'Perfil', to: null, icon: personIcon }
+export const PROFILE_ITEM: NavigationItem = { label: 'Perfil', to: PROFILE_PATH, icon: personIcon }
 
 /** Configuración (menú del avatar y Navbar). Módulo Configuración (2026-11-13). */
 export const SETTINGS_PATH: string | null = SETTINGS_ROUTE

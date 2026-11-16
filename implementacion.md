@@ -25,8 +25,9 @@ Se actualiza **al terminar cada módulo**. La documentación del backend (`junkb
 - [9. Módulo 7: Landing (usuarios sin sesión)](#9-módulo-7-landing-usuarios-sin-sesión)
 - [10. Módulo 8: Configuración](#10-módulo-8-configuración)
 - [11. Módulo 9: Spotify y Reproductor](#11-módulo-9-spotify-y-reproductor)
-- [12. Verificación](#12-verificación)
-- [13. Historial](#13-historial)
+- [12. Módulo 10: Perfil](#12-módulo-10-perfil)
+- [13. Verificación](#13-verificación)
+- [14. Historial](#14-historial)
 
 ---
 
@@ -1123,7 +1124,105 @@ features/player/
 
 ---
 
-## 12. Verificación
+## 12. Módulo 10: Perfil
+
+### 12.1 Pantallas de Figma
+
+| Pantalla | Móvil | Escritorio |
+|---|---|---|
+| Perfil Público · Claro | `14244:52670` | `14244:52870` |
+| Perfil Público · Oscuro | `14263:24037` | `14263:24255` |
+| Historial de Calificaciones · Claro | `14244:53034` | `14244:53191` |
+| Historial de Calificaciones · Oscuro | `14263:24437` | `14263:24605` |
+
+**Componentes:**
+- `ProfileHeader` (14296:12528 / 14296:12656) y `ProfileStat`;
+- `Tabs` (14296:15934): "Mis Reseñas" e "Historial de Calificaciones";
+- en "Mis Reseñas", `ReviewCard` y el panel "Suena mucho por aquí" (`ProfileListening`);
+- en el historial, `RatingRecord` y "Una vida en canciones" (`RatingSummary`).
+
+**Decisiones del propietario (2026-11-15):**
+- Por ahora solo **mi perfil**; los perfiles de otros usuarios esperan al backend.
+- **Sin bio** (como en Configuración) y **sin "Seguir"** en el propio perfil.
+- Los **4 contadores** con "—".
+- "Historial de Calificaciones" como **plantilla vacía**: se descartó un historial parcial.
+- Lo que no tiene backend se muestra como plantilla con "Pendiente del backend" (PROF-01 a PROF-04).
+
+### 12.2 Rutas y Estructura
+
+- `/perfil` (`features/profile/models/profile.ts` · `PROFILE_PATH`), dentro de `ProtectedRoute` → `AppLayout`.
+- "Perfil" de la Navbar y de la BottomBar deja de estar deshabilitado (`navigation.ts` · `PROFILE_ITEM.to`) y se marca activo con `aria-current`.
+- La pestaña vive en la URL: `/perfil` (Mis Reseñas) y `/perfil?tab=calificaciones` (Historial). Se puede compartir, y "atrás" vuelve a la pestaña anterior.
+- El engrane de la barra superior lleva a `/configuracion`.
+
+```
+features/profile/
+├── models/profile.ts                 # ruta, pestañas, tipos de contadores, "En Junkbox desde…"
+├── controllers/useProfileController.ts
+└── views/
+    ├── ProfilePage.tsx               # barra, cabecera, contadores, pestañas
+    └── ProfileTabs.tsx               # Tabs, "Mis Reseñas", "Historial", paneles laterales
+```
+
+### 12.3 Contrato con el Backend
+
+| Dato | Endpoint | Estado |
+|---|---|---|
+| Avatar, nombre, @usuario y fecha de alta | `GET /auth/me` (ya cargado por `AuthProvider`) | Disponible |
+| Mis reseñas | — | **PROF-01** |
+| Mis calificaciones | — | **PROF-02** |
+| Contadores, media personal y cinco estrellas | — | **PROF-03** |
+| "Suena mucho por aquí" | — | **PROF-04** (por definir con Producto) |
+
+### 12.4 Decisiones de Implementación
+
+1. **Cabecera:**
+   - avatar de 64 (móvil) o 96 (escritorio), con el robot por defecto de respaldo (§5.2);
+   - nombre visible en Heading/24 o 32 Bold, o el @usuario si no tiene nombre;
+   - @usuario en Body/14 y text/secondary-2.
+2. **Contadores:**
+   - valor en Title/20 Bold y etiqueta en Caption/11;
+   - repartidos a lo ancho en móvil y con separación de 48 en escritorio;
+   - "—" mientras `null`.
+3. **Pestañas:**
+   - alto 44, separación 24 y borde inferior `line`;
+   - la activa en SemiBold con color `link` y subrayado de 2 px en el color de acción (negro en claro, naranja en oscuro); la inactiva en text/secondary-2;
+   - patrón ARIA tabs con flechas.
+4. **Encabezado de la lista:** Title/18 SemiBold, sin número porque no se conoce el total, y "Más recientes⌄" deshabilitado ("Recientes" en móvil, como en Figma).
+5. **Paneles laterales:**
+   - Figma solo los dibuja en escritorio: `surface-input-disabled`, padding 24, separación 20 y 336 de ancho.
+   - Desde 1280 px van a la derecha. Entre 768 y 1279 px van debajo, porque no caben, igual que en Configuración. En móvil no se muestran.
+   - "Una vida en canciones" lleva el icono `watch-history-18.svg` (descargado de Figma) en un recuadro de 24, los dos totales con "—" y `StarRating` en 0.
+6. **Recursos de Figma** (`src/assets/icons`): `settings-20.svg` y `watch-history-18.svg`, pintados con `MaskIcon`.
+
+### 12.5 Accesibilidad
+
+- Un `<h1>` con el nombre y un `<h2>` por sección.
+- Contadores y totales como lista de definiciones (`dl`); el "—" se lee como "sin datos".
+- Pestañas con `role="tablist"`/`tab`/`tabpanel`, `aria-selected`, `aria-controls`, foco itinerante y flechas izquierda/derecha.
+- El engrane es un enlace con `aria-label="Configuración"`.
+- Los paneles laterales son `aside` etiquetados.
+
+### 12.6 Limitaciones Conocidas
+
+- Sin listas ni contadores hasta PROF-01 a PROF-03; "Suena mucho por aquí" espera la definición de Producto (PROF-04).
+- No hay perfiles públicos de otros usuarios ni "Seguir" (dependen de SEARCH-04 y REV-01).
+
+### 12.7 Verificación (2026-11-15)
+
+| Prueba | Resultado |
+|---|---|
+| `pnpm typecheck` · `pnpm lint` | Correcto |
+| Capturas con sesión: 1440 claro (Mis Reseñas), 1440 oscuro (Historial), 390 claro y oscuro, 1024 claro | Coinciden con Figma salvo bio, "Seguir" y los datos que faltan |
+| "Perfil" en Navbar y BottomBar | Activo (`aria-current="page"`) |
+| Flecha derecha en las pestañas | Cambia a "Historial de Calificaciones", mueve el foco y pone `?tab=calificaciones` |
+| "Atrás" del navegador | Vuelve a "Mis Reseñas" (`/perfil`) |
+| Engrane | Lleva a `/configuracion` |
+| Consola | Sin errores |
+
+---
+
+## 13. Verificación
 
 Antes de cerrar cualquier módulo:
 
@@ -1139,7 +1238,7 @@ Además: probar las rutas del módulo con el backend en marcha (`pnpm dev`), rev
 
 ---
 
-## 13. Historial
+## 14. Historial
 
 | Fecha | Cambio |
 |---|---|
@@ -1170,3 +1269,4 @@ Además: probar las rutas del módulo con el backend en marcha (`pnpm dev`), rev
 | 2026-11-13 | Módulo 9 · Spotify, paso 1 (§11.1): vinculación con PKCE desde Configuración (`features/player`), refresh token cifrado con AES-GCM y clave no extraíble en IndexedDB, access token solo en memoria, `/spotify/callback`; se borra al cerrar sesión o desvincular. Vite escucha en `127.0.0.1` para la URL de retorno de Spotify. |
 | 2026-11-13 | Módulo 9 · Spotify, paso 2 (§11.2): reproductor con el Web Playback SDK (`PlayerProvider`, `usePlayer`) y MiniPlayer de Figma al pie de las pantallas con sesión, con aviso sin Premium y vista ampliada. Reproducir desde filas, tarjetas de Inicio y la ficha de canción. Atrás reinicia, adelante termina, volumen 0–100 desde 50. |
 | 2026-11-13 | Reproductor: `PlayerProvider` pasa a `App.tsx` (la música se cortaba al pasar entre Inicio y otras pantallas, que usan instancias distintas de `AppLayout`). Contra "Device not found": transferencia al dispositivo y hasta 3 reintentos. La barra de tiempo es arrastrable y va en el color de acción; "Adelante" la llena y "Atrás" la vacía y vuelve a sonar desde 0 (§11.2). |
+| 2026-11-15 | Módulo 10 · Perfil (§12): `/perfil` con avatar, nombre y @usuario reales, contadores con "—", pestañas "Mis Reseñas" e "Historial de Calificaciones" (`?tab=calificaciones`) y paneles laterales como plantillas (PROF-01 a PROF-04). "Perfil" queda activo en la Navbar y la BottomBar. |

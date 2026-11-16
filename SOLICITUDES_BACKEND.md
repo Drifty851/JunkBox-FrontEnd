@@ -1,6 +1,6 @@
 # Solicitudes al Backend de Junkbox
 
-Registro, por módulo del frontend, de los cambios, aclaraciones o capacidades que el frontend necesita del backend. **Solo se listan las solicitudes abiertas**; las resueltas se retiran y quedan anotadas en el [historial](#10-historial-de-cambios).
+Registro, por módulo del frontend, de los cambios, aclaraciones o capacidades que el frontend necesita del backend. **Solo se listan las solicitudes abiertas**; las resueltas se retiran y quedan anotadas en el [historial](#11-historial-de-cambios).
 
 > **Fuera de GitHub.** Este archivo está en `JunkBox/Proyecto/`, que no es un repositorio. No lo muevas a `Backend/junkbox-backend` (repositorio `github.com/xcxsar/junkbox-backend`) ni a `FrontEnd/`.
 
@@ -32,8 +32,9 @@ Registro, por módulo del frontend, de los cambios, aclaraciones o capacidades q
 - [6. Módulo: Spotify y Reproductor](#6-módulo-spotify-y-reproductor)
 - [7. Módulo: Fichas (Canción, Álbum, Artista) y Calificaciones](#7-módulo-fichas-canción-álbum-artista-y-calificaciones)
 - [8. Módulo: Landing (sin sesión)](#8-módulo-landing-sin-sesión)
-- [9. Plantilla para nuevas solicitudes](#9-plantilla-para-nuevas-solicitudes)
-- [10. Historial de cambios](#10-historial-de-cambios)
+- [9. Módulo: Perfil](#9-módulo-perfil)
+- [10. Plantilla para nuevas solicitudes](#10-plantilla-para-nuevas-solicitudes)
+- [11. Historial de cambios](#11-historial-de-cambios)
 
 **Estados posibles:** `Pendiente` · `Enviada` · `Aprobada` · `Resuelta` · `Descartada`
 **Responsables posibles:** `Backend` · `Producto` (este archivo solo recoge peticiones al backend; los ajustes de diseño se hacen directamente en Figma)
@@ -315,7 +316,57 @@ Sin solicitudes abiertas.
 
 ---
 
-## 9. Plantilla para nuevas solicitudes
+## 9. Módulo: Perfil
+
+**Figma:**
+- Perfil Público: Móvil `14244:52670` / `14263:24037`, Escritorio `14244:52870` / `14263:24255`.
+- Historial de Calificaciones: Móvil `14244:53034` / `14263:24437`, Escritorio `14244:53191` / `14263:24605`.
+
+**Endpoints que usa:** `GET /auth/me` (avatar, nombre, @usuario y `created_at`).
+
+Decisión del propietario (2026-11-15): por ahora solo **mi perfil** (`/perfil`), sin bio ni "Seguir"; los perfiles públicos de otros usuarios quedan para después (dependen de SEARCH-04 y REV-01).
+
+### PROF-01 · Listar mis reseñas
+- **Estado:** Pendiente · **Responsable:** Backend · **Bloqueante:** no.
+- **Qué pasa:** la pestaña "Mis Reseñas" muestra las reseñas del usuario con su `ReviewCard`. `GET /reviews` solo filtra por objetivo (`target_type`/`target_id`), no por autor.
+- **Qué se pide:**
+  - Endpoint: `GET /api/v1/users/me/reviews?limit=&page=` (Bearer), de la más reciente a la más antigua.
+  - Response: `200 { results: [Review & { target: { type, id, title, subtitle, image_url } }], total, page, limit }`. `subtitle` es, por ejemplo, "Hoke · BBO · 2022".
+  - Errores: `400` si `limit` o `page` no son válidos · `401`.
+- **Alternativa en el frontend (implementada):** la pestaña muestra un estado vacío con "Pendiente del backend".
+- **Impacto en el frontend:** el título "N reseñas publicadas" y la lista se llenan cuando exista; se reutiliza `ReviewCard`.
+
+### PROF-02 · Listar mis calificaciones (historial)
+- **Estado:** Pendiente · **Responsable:** Backend · **Bloqueante:** no.
+- **Qué pasa:** "Historial de Calificaciones" lista lo que el usuario calificó (canciones, álbumes y artistas) con sus estrellas y la fecha. `/ratings/my` solo da la calificación de un elemento concreto.
+- **Qué se pide:**
+  - Endpoint: `GET /api/v1/users/me/ratings?limit=&page=` (Bearer), de la más reciente a la más antigua.
+  - Response: `200 { results: [{ id, score, created_at, updated_at, target: { type, id, title, subtitle, image_url } }], total, page, limit }`.
+  - Errores: `400` · `401`.
+- **Alternativa en el frontend (implementada):** estado vacío con "Pendiente del backend". El propietario descartó un historial parcial con `/ratings/my`.
+- **Impacto en el frontend:** la lista usa `MusicRow` con `StarRating`, como en Figma (RatingRecord).
+
+### PROF-03 · Estadísticas del perfil
+- **Estado:** Pendiente · **Responsable:** Backend · **Bloqueante:** no.
+- **Qué pasa:** ProfileStats muestra Reseñas, Calificaciones, Seguidores y Seguidos, y "Una vida en canciones" muestra la media personal y el total de cinco estrellas.
+- **Qué se pide:**
+  - Endpoint: `GET /api/v1/users/me/stats` (Bearer).
+  - Response: `200 { reviews_count, ratings_count, average_score | null, five_star_count, followers_count, following_count }`.
+  - Los seguidores dependen de que exista "seguir" (REV-01); mientras tanto pueden venir en `0` o `null`.
+  - Alternativa: incluir estos campos en `GET /auth/me`.
+- **Alternativa en el frontend (implementada):** los seis valores se muestran como "—" (leído como "sin datos").
+- **Impacto en el frontend:** solo cambia `useProfileController` (`stats` y `summary`).
+
+### PROF-04 · "Suena mucho por aquí"
+- **Estado:** Pendiente · **Responsable:** Backend y Producto · **Bloqueante:** no.
+- **Qué pasa:** el panel lateral de "Mis Reseñas" muestra tres canciones con su calificación ("Su álbum favorito", "En bucle"). Falta definir de dónde salen: lo más escuchado (requeriría registrar reproducciones) o lo mejor calificado por el usuario.
+- **Qué se pide:** que Producto decida el criterio; después, por ejemplo, `GET /api/v1/users/me/highlights?limit=3` → `200 { results: [{ target: { type, id, title, subtitle, image_url }, reason, score | null }] }`.
+- **Alternativa en el frontend (implementada):** panel con "Tus canciones más escuchadas aparecerán aquí. Pendiente del backend." y la fecha de alta ("En Junkbox desde…", de `created_at`).
+- **Impacto en el frontend:** el panel se llena con `MusicRow` y `PlayButton`.
+
+---
+
+## 10. Plantilla para nuevas solicitudes
 
 ```markdown
 ### <MÓDULO>-NN · <Título corto>
@@ -332,7 +383,7 @@ Sin solicitudes abiertas.
 
 ---
 
-## 10. Historial de cambios
+## 11. Historial de cambios
 
 | Fecha | Cambio |
 |---|---|
@@ -354,3 +405,4 @@ Sin solicitudes abiertas.
 | 2026-11-12 | Revisión del backend (commits `9e0794d`, `560b33f` y `4855a38`), con lectura del README, `implementacion.md`, `docs/solicitudes.md` y pruebas en vivo. **Retiradas por resueltas:** AUTH-03 (`terms_accepted` obligatorio, guardado en `user_consents` con fecha y versión; sin él, `400`), AUTH-06 (el registro rechaza `a@dominio` y `a@b.c` con `400 "email inválido"`) y HOME-02 (`album_image_url` y `artist_image_url` en `Track`, en la búsqueda y en el detalle; comprobado con "Hoke"). **El frontend aún no envía `terms_accepted`, así que el registro devuelve `400` hasta que se añada.** El resto sigue pendiente. |
 | 2026-11-13 | LANDING-01: la alternativa del frontend pasa a 80 álbumes elegidos por el propietario. Sigue pendiente. |
 | 2026-11-13 | SPOT-01: alternativa del frontend implementada (vinculación PKCE con el refresh token cifrado en el navegador). Sigue pendiente en el backend. |
+| 2026-11-15 | Módulo Perfil: nuevas PROF-01 (mis reseñas), PROF-02 (mis calificaciones), PROF-03 (estadísticas) y PROF-04 ("Suena mucho por aquí"). El frontend muestra plantillas vacías. |
