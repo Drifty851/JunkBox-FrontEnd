@@ -45,6 +45,11 @@ export const reviewsApi = {
     return request<ReviewPage>(`/reviews?${query.toString()}`, { accessToken, signal })
   },
 
+  /** GET /reviews/{id} → 200 Review · 404 si no existe · 400 si el id no es un UUID. */
+  getReview(id: string, accessToken: string, signal?: AbortSignal): Promise<Review> {
+    return request<Review>(`/reviews/${encodeURIComponent(id)}`, { accessToken, signal })
+  },
+
   /** POST /reviews → 201 Review · 409 si el usuario ya reseñó ese objetivo. */
   createReview(body: CreateReviewRequest, accessToken: string): Promise<Review> {
     return request<Review>('/reviews', { method: 'POST', body, accessToken })

@@ -203,7 +203,7 @@ Los iconos de un solo color (`eye`, `lock`, los de navegación, QuickPlay, filas
 | `SecondaryButton` | `Button` (14296:3647, Button-15/16) | Alto 44, borde `line`, fondo `surface-quickplay`; `aria-disabled` para destinos pendientes. |
 | `StarRating` | `StarRating` (14296:5021) | Tamaños `sm` 76×12, `md` 96×16 y `lg` 106×18. Pinta el **promedio real**: el recurso de Figma como máscara, vacío en `line` y relleno en `fg` recortado al porcentaje. |
 | `StarRatingInput` | `StarRating` Rating-08 (176×32) | Editable de 0,5 en 0,5 (rol `slider`). §8.4. |
-| `ReviewCard` | `ReviewCard` (14296:11962) | Escritorio con borde y padding 20; móvil sin borde. Seguir, más opciones, Me gusta, comentarios y guardar con `aria-disabled` (REV-01). |
+| `ReviewCard` | `ReviewCard` (14296:11962) | Escritorio con borde y padding 20; móvil sin borde. Solo Me gusta y Comentarios (Guardar y "más opciones" se quitaron el 2026-11-15); Seguir y Me gusta con `aria-disabled` (FOL-01, LIKE-01); "Comentarios" abre la Reseña Completa (§8.8). |
 | `PlayButton` | `MusicRow › play-circle` | 28 px; sin `onPlay` queda `aria-disabled` (el reproductor está pendiente). |
 | `Navbar` (`shared/layout`) | `Navbar` (14296:14145) | Móvil 52 / escritorio 80; enlace activo con `aria-current`. |
 | `BottomBar` (`shared/layout`) | `BottomBar` (14296:15745) | Solo móvil; ítem activo con el color `link`. |
@@ -665,7 +665,7 @@ Estructura común (`views/DetailParts.tsx`):
 - **MusicHero:** franja con la carátula difuminada (171/304 px), artwork 136/240 (redondo en el artista), tipo, título 24/56, subtítulo con enlaces, metadatos y la calificación de la comunidad.
 - **MusicActions:** "Calificar / Reseñar" (→ §8), "Reproducir en Spotify" (abre `open.spotify.com/{track|album|artist}/{id}` en otra pestaña; "No disponible en Spotify" si el artista no tiene ID de Spotify) y compartir (solo escritorio: `navigator.share` o copia el enlace).
 - **CommunityRating** ("La comunidad opina"): promedio 36, estrellas 76×12, "sobre 5 estrellas" y, si ya voté, "Tu calificación: 4,5 · Cambiar".
-- **ReviewsSection:** las 3 reseñas más recientes (`ReviewCard`; en el artista, `ArtistReviewCard`).
+- **ReviewsSection:** las 3 reseñas más recientes (`ReviewCard`; en el artista, `ArtistReviewCard`). El avatar y el nombre del autor abren su perfil (`/usuario/:username`, §12); si es mi reseña, ese enlace redirige a `/perfil` (2026-11-15). En `ReviewCard` es el campo opcional `authorHref`; el componente compartido no conoce las rutas.
 
 | Ficha | Contenido propio | Escritorio |
 |---|---|---|
@@ -810,6 +810,74 @@ Referencia: backend `README.md` (endpoints 15–22) e `implementacion.md` §6.
 | "Cambiar": precarga 4,5 y el texto; ← ← ← y texto nuevo → ficha con 3,0 y la reseña editada (PUT) | Correcto |
 | "Eliminar mi reseña" y "Quitar mi calificación" → API: `404` y 0 reseñas | Sin datos de prueba |
 | "Crear Reseña" (móvil oscuro) → estrellas deshabilitadas; buscar "Muse" y elegir → `?tipo=artist&id=…` | Correcto |
+| Consola | Sin errores |
+
+---
+
+### 8.8 Reseña Completa y comentarios (2026-11-15)
+
+**Figma:** Reseña Completa, móvil `14244:52342` / `14263:23679` y escritorio `14244:52506` / `14263:23859`. Componentes: ReviewCard-17, CommentCard (`14296:8890`), CommentInput (`14296:5773`) y ExpandedComments.
+
+**Pedido del propietario:** comentarios en las reseñas, que también se puedan responder sin límite, y solo Me gusta y Comentarios como acciones.
+
+**Decisiones (2026-11-15):**
+1. **Respuestas anidadas** (no están en Figma):
+   - sangría bajo el avatar (36 px) hasta **3 niveles** (`MAX_COMMENT_INDENT`);
+   - las respuestas más profundas siguen en el nivel 3 con "Respondiendo a @usuario", para que en móvil el texto no se aplaste;
+   - cada comentario con respuestas tiene "Ocultar respuestas" / "Ver N respuestas" (`aria-expanded`).
+2. **Acciones de la reseña:** solo Me gusta y Comentarios. Se quitaron Guardar (marcador) y "más opciones" de `ReviewCard`. "Seguir" se queda (FOL-01).
+3. **Me gusta solo en reseñas** (y en comentarios, como en Figma). El Me gusta de las calificaciones queda como solicitud al backend, sin interfaz (LIKE-03).
+4. "Comentarios" de cada `ReviewCard` (y de `ArtistReviewCard`) abre la Reseña Completa.
+
+**Ruta:** `/resena/:id` (`REVIEW_PATH`, UUID de la reseña), dentro de `ProtectedRoute` → `AppLayout`. `/resena/nueva` (Escribir Reseña) tiene prioridad por ser estática.
+
+```
+features/reviews/
+├── models/reviewDetail.ts              # ruta, comentario (COM-01), buildCommentTree, "Publicada hoy a las…"
+├── services/reviewDetailService.ts     # reseña + lo reseñado (portada, título, subtítulo, ficha)
+├── controllers/useReviewDetailController.ts
+└── views/
+    ├── ReviewDetailPage.tsx            # cabecera, ReviewCard completa, línea de publicación
+    └── CommentThread.tsx               # CommentThread, CommentCard anidado, CommentInput
+```
+
+**Contrato con el backend:**
+
+| Dato | Endpoint | Estado |
+|---|---|---|
+| La reseña | `GET /reviews/{id}` → 200 Review · 404 · 400 si no es UUID | Disponible |
+| Lo reseñado | `GET /music/tracks|albums|artists/{id}` con el id local de `target` | Disponible |
+| Comentarios y respuestas | — | **COM-01** |
+| Me gusta en reseñas | — | **LIKE-01** (`likes_count` siempre 0) |
+| Me gusta en comentarios | — | **LIKE-02** |
+| Me gusta en calificaciones | — | **LIKE-03** (sin interfaz) |
+
+**Implementación:**
+- La página carga la reseña y después lo reseñado. Si la ficha falla, la reseña se muestra igual, sin portada.
+- La línea bajo la tarjeta ("Blinding Lights · The Weeknd · Publicada hoy a las 6:33 p.m.") enlaza a la ficha.
+- Desde 1280 px los comentarios van en un panel con borde de 400 px a la derecha; por debajo van bajo la reseña, sin borde (móvil de Figma).
+- `ReviewCard` recibe `full` (portada de 104 en escritorio, ReviewCard-17) y `reviewHref`.
+- `buildCommentTree` arma el hilo con la lista plana que propone COM-01. Los comentarios principales van del más reciente al más antiguo y las respuestas en orden de conversación; una respuesta sin padre se muestra como principal.
+- Hasta COM-01 el hilo muestra "Aquí aparecerán los comentarios y sus respuestas. Pendiente del backend." La caja para comentar (avatar 24, `send-18.svg` descargado de Figma) y "Responder" están deshabilitados. Los Me gusta llevan `aria-disabled`.
+- Estados: esqueleto mientras carga; "No encontramos esta reseña" (404/400) o error con reintento, con `DetailError`.
+- **No se muestra el SnippetPlayer** (fragmento de 30 s con forma de onda): la reseña no guarda qué fragmento es. Se agregará si Producto lo pide.
+
+**Accesibilidad:**
+- `<h1>` "La reseña de …" y `<h2>` "Comentarios".
+- Cada comentario es un `article` con "Comentario de …"; las respuestas son una lista "Respuestas a …".
+- El nombre del autor enlaza a su perfil; el avatar repite el enlace fuera del orden de tabulación.
+- La caja para comentar tiene etiqueta oculta, y el botón de enviar se anuncia como "Enviar comentario".
+
+**Verificación (2026-11-15):** con una reseña temporal de `cesar` (borrada al terminar) y, solo para la prueba, seis comentarios de ejemplo de 5 niveles inyectados en el controlador (revertidos).
+
+| Prueba | Resultado |
+|---|---|
+| `pnpm typecheck` · `pnpm lint` · `pnpm build` | Correcto |
+| 1440 claro | Reseña a la izquierda y panel de comentarios de 400 px; sangría en 3 niveles; niveles 4 y 5 con "Respondiendo a @…" |
+| 1024 claro, 390 claro y oscuro | Comentarios debajo de la reseña, sin desbordes |
+| "Ocultar respuestas" | Contrae el hilo; pasa a "Ver 2 respuestas" con `aria-expanded="false"` |
+| "Comentarios" en la ficha de canción | Lleva a `/resena/<id>` |
+| `/resena/<uuid inexistente>` | "No encontramos esta reseña" |
 | Consola | Sin errores |
 
 ---
@@ -1246,7 +1314,7 @@ features/profile/
 ### 12.6 Limitaciones Conocidas
 
 - Sin listas ni contadores hasta PROF-01 a PROF-03; "Suena mucho por aquí" espera la definición de Producto (PROF-04).
-- Seguidores, seguidos y el perfil de otros son plantillas (FOL-01, FOL-02, PROF-05). Hoy solo se llega a otro perfil escribiendo la URL: los nombres de las reseñas y las sugerencias de Inicio aún no enlazan a él.
+- Seguidores, seguidos y el perfil de otros son plantillas (FOL-01, FOL-02, PROF-05). Se llega a otro perfil desde el autor de las reseñas de las fichas (§7); las sugerencias de Inicio aún no enlazan a él (HOME-05).
 
 ### 12.7 Verificación (2026-11-15)
 
@@ -1316,3 +1384,5 @@ Además: probar las rutas del módulo con el backend en marcha (`pnpm dev`), rev
 | 2026-11-15 | Reproductor: al pulsar la canción, si su ID no está en el catálogo (cambiada desde la app de Spotify u otra versión), se busca por título y artista y se abre la ficha correcta en lugar de "No encontrado" (§11.2). |
 | 2026-11-15 | Perfil: los contadores Seguidores y Seguidos abren su página con dos pestañas (`/perfil/seguidores`, `/perfil/seguidos`); nuevo perfil de otra persona `/usuario/:username` y sus listas, como plantillas (FOL-01, FOL-02, PROF-05) (§12). |
 | 2026-11-15 | Perfil: los contadores "Reseñas" y "Calificaciones" también llevan a su pestaña (§12). |
+| 2026-11-15 | Fichas: el avatar y el nombre del autor de cada reseña abren su perfil (`/usuario/:username`); en `ArtistReviewCard`, "Nombre · @usuario" (§7, §12). Verificado con una reseña temporal, borrada al terminar. |
+| 2026-11-15 | Reseñas: nueva Reseña Completa (`/resena/:id`) con comentarios anidados (sangría hasta 3 niveles) y Me gusta como plantillas; las tarjetas solo tienen Me gusta y Comentarios (sin Guardar ni "más opciones"); "Comentarios" abre la reseña (§8.8). |

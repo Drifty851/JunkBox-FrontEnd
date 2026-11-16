@@ -278,10 +278,42 @@ Sin solicitudes abiertas.
 - **Alternativa en el frontend (implementada, decisión del propietario):** las barras no se muestran; solo el promedio, las estrellas y el total.
 
 ### REV-01 · Me gusta, comentarios, guardar y seguir en las reseñas
-- **Estado:** Pendiente · **Responsable:** Backend y Producto · **Bloqueante:** no.
+- **Estado:** Reemplazada (2026-11-15) por COM-01, LIKE-01, LIKE-02, LIKE-03 y FOL-01. Guardar quedó descartado por el propietario: las reseñas solo tienen Me gusta y Comentarios.
+- **Responsable:** Backend y Producto · **Bloqueante:** no.
 - **Qué pasa:** `ReviewCard` (Figma) tiene "128 Me gusta", "24 comentarios", guardar y "Seguir / Siguiendo". `likes_count` está reservado (siempre 0) y no hay comentarios, guardados ni seguidores (backend `implementacion.md` §6.1).
 - **Qué se pide:** se definirá con el módulo social. Como mínimo, `POST/DELETE /reviews/{id}/like` y `liked_by_me` en la reseña.
 - **Alternativa en el frontend (implementada):** los contadores y botones se muestran deshabilitados (plantilla); "Me gusta" usa `likes_count` (siempre 0).
+
+### COM-01 · Comentarios y respuestas en las reseñas
+- **Estado:** Pendiente · **Responsable:** Backend · **Bloqueante:** no.
+- **Qué pasa:** la Reseña Completa (`/resena/:id`, Figma 14244:52506) muestra los comentarios. El propietario pidió que cada comentario se pueda responder, y esas respuestas también, sin límite de profundidad (2026-11-15). No existen comentarios en el backend.
+- **Qué se pide:**
+  - `GET /api/v1/reviews/{id}/comments?limit=&page=` (Bearer). Lista **plana** de los comentarios de la reseña (principales y respuestas de cualquier nivel), de la más antigua a la más reciente. `limit` de 1 a 500. Response: `200 { results: [Comment], total, page, limit }`. El frontend arma el hilo con `parent_id`.
+  - `POST /api/v1/reviews/{id}/comments` (Bearer) con `{ content, parent_id? }`. `parent_id` es otro comentario de la **misma** reseña, de cualquier nivel. Response: `201 Comment`.
+  - `Comment = { id, review_id, parent_id | null, author: { id, username, display_name, avatar_url }, content, likes_count, liked_by_me, created_at }`.
+  - Añadir `comments_count` a `Review` (en `GET /reviews` y `GET /reviews/{id}`), para "24 comentarios" en las tarjetas y "Comentarios (24)" en el hilo.
+  - Errores: `400` si `content` está vacío o pasa de 1000 caracteres, o si `parent_id` es de otra reseña · `401` · `404` si la reseña o el padre no existen.
+  - Opcional: `DELETE /api/v1/comments/{id}` (solo el autor) → `204`.
+- **Alternativa en el frontend (implementada):** hilo vacío con "Pendiente del backend" y la caja para comentar deshabilitada. El hilo anidado (`buildCommentTree`, `CommentThread`) ya está hecho y probado con datos de ejemplo.
+- **Impacto en el frontend:** solo cambia `useReviewDetailController` (cargar y enviar), y se habilitan la caja y "Responder".
+
+### LIKE-01 · Me gusta en las reseñas
+- **Estado:** Pendiente · **Responsable:** Backend · **Bloqueante:** no.
+- **Qué pasa:** cada reseña muestra "N Me gusta". `likes_count` está reservado (siempre 0).
+- **Qué se pide:** `PUT /api/v1/reviews/{id}/like` y `DELETE /api/v1/reviews/{id}/like` (Bearer, idempotentes) → `200 { likes_count, liked }`. Añadir `liked_by_me` a `Review`. Errores: `401` · `404`.
+- **Alternativa en el frontend (implementada):** "Me gusta" con `aria-disabled` y el contador `likes_count`.
+
+### LIKE-02 · Me gusta en los comentarios
+- **Estado:** Pendiente · **Responsable:** Backend · **Bloqueante:** no (depende de COM-01).
+- **Qué pasa:** cada comentario muestra "♡ 12" (Figma · CommentCard).
+- **Qué se pide:** `PUT /api/v1/comments/{id}/like` y `DELETE /api/v1/comments/{id}/like` (Bearer) → `200 { likes_count, liked }`. `Comment` incluye `likes_count` y `liked_by_me`. Errores: `401` · `404`.
+- **Alternativa en el frontend (implementada):** "♡ N" con `aria-disabled`.
+
+### LIKE-03 · Me gusta en las calificaciones
+- **Estado:** Pendiente · **Responsable:** Backend · **Bloqueante:** no.
+- **Qué pasa:** el propietario pidió Me gusta también en las calificaciones (2026-11-15). Por ahora no hay interfaz para ello; se mostrará en el historial de calificaciones cuando exista PROF-02.
+- **Qué se pide:** `PUT /api/v1/ratings/{id}/like` y `DELETE /api/v1/ratings/{id}/like` (Bearer) → `200 { likes_count, liked }`, más `likes_count` y `liked_by_me` en `Rating` y en los resultados de PROF-02. Errores: `401` · `404`.
+- **Alternativa en el frontend:** ninguna por ahora (sin interfaz).
 
 ### REV-02 · Consultar mi reseña de un objetivo
 - **Estado:** Pendiente · **Responsable:** Backend · **Bloqueante:** no.
@@ -437,3 +469,4 @@ Decisión del propietario (2026-11-15): **mi perfil** (`/perfil`) sin bio. Despu
 | 2026-11-13 | SPOT-01: alternativa del frontend implementada (vinculación PKCE con el refresh token cifrado en el navegador). Sigue pendiente en el backend. |
 | 2026-11-15 | Módulo Perfil: nuevas PROF-01 (mis reseñas), PROF-02 (mis calificaciones), PROF-03 (estadísticas) y PROF-04 ("Suena mucho por aquí"). El frontend muestra plantillas vacías. |
 | 2026-11-15 | Perfil: seguidores, seguidos y perfil de otra persona como plantillas. Nuevas FOL-01 (seguir), FOL-02 (listas de seguidores y seguidos) y PROF-05 (perfil público); PROF-01 y PROF-02 piden aceptar `{username}`. |
+| 2026-11-15 | Reseñas: REV-01 se reemplaza por COM-01 (comentarios con respuestas sin límite), LIKE-01 (Me gusta en reseñas), LIKE-02 (en comentarios) y LIKE-03 (en calificaciones); Guardar, descartado. El frontend ya tiene la Reseña Completa (`/resena/:id`) con `GET /reviews/{id}`. |

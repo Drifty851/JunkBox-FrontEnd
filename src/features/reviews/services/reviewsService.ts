@@ -10,6 +10,11 @@ const MAX_PAGE = 50
 
 /** Casos de uso de reseñas y calificaciones (backend commit 6d77d4d, implementacion.md §6). */
 export const reviewsService = {
+  /** Una reseña por su id (GET /reviews/{id}). */
+  get(id: string, signal?: AbortSignal): Promise<Review> {
+    return call((token) => reviewsApi.getReview(id, token, signal))
+  },
+
   /** Reseñas más recientes de un objetivo (GET /reviews). */
   listForTarget(type: ReviewTargetType, id: string, limit: number, signal?: AbortSignal): Promise<ReviewPage> {
     return call((token) => reviewsApi.listReviews({ type, id, limit }, token, signal))

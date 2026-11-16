@@ -1,6 +1,9 @@
+import { Link } from 'react-router'
 import { ReviewCard } from '../../../shared/ui/ReviewCard'
 import { defaultAvatarUrl } from '../../../shared/utils/defaultAvatar'
 import { formatRelativeTime } from '../../../shared/utils/formatTime'
+import { userProfilePath } from '../../profile/models/profile'
+import { reviewPath } from '../../reviews/models/reviewDetail'
 import type { Review, ReviewPage } from '../../reviews/models/review.types'
 import type { LoadState } from '../controllers/useLoad'
 import { SectionHeader } from './DetailParts'
@@ -48,6 +51,8 @@ export function ReviewsSection({ title, state, music, variant = 'card' }: Review
                 authorUsername: review.author.username,
                 authorAvatarUrl: review.author.avatar_url,
                 authorFallbackAvatarUrl: defaultAvatarUrl(review.author.username),
+                authorHref: userProfilePath(review.author.username),
+                reviewHref: reviewPath(review.id),
                 when: formatRelativeTime(review.created_at),
                 musicTitle: music.title,
                 musicSubtitle: music.subtitle,
@@ -74,7 +79,13 @@ function ArtistReviewCard({ review }: { review: Review }) {
   return (
     <article className="flex w-full flex-col gap-3 rounded-lg border border-line p-5 leading-[1.4]">
       <p className="truncate text-sm font-semibold text-fg">
-        {name} · @{review.author.username} · {formatRelativeTime(review.created_at)}
+        <Link
+          to={userProfilePath(review.author.username)}
+          className="rounded hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-fg"
+        >
+          {name} · @{review.author.username}
+        </Link>{' '}
+        · {formatRelativeTime(review.created_at)}
       </p>
       {score !== null && (
         <p className="text-sm font-semibold text-fg">
@@ -83,7 +94,13 @@ function ArtistReviewCard({ review }: { review: Review }) {
       )}
       <p className="text-sm break-words whitespace-pre-line text-fg-soft">{review.content}</p>
       <p className="text-xs text-fg-placeholder">
-        {review.likes_count === 1 ? '1 Me gusta' : `${review.likes_count} Me gusta`}
+        {review.likes_count === 1 ? '1 Me gusta' : `${review.likes_count} Me gusta`} ·{' '}
+        <Link
+          to={reviewPath(review.id)}
+          className="rounded hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-fg"
+        >
+          Comentarios
+        </Link>
       </p>
     </article>
   )

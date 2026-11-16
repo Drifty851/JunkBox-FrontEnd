@@ -105,7 +105,7 @@ src/
     ├── music/               # catálogo compartido: tipos, adaptador /music/* y cascada del catálogo
     ├── search/              # Buscador (/buscar) y buscador de la Navbar con sugerencias
     ├── catalog/             # fichas de Canción, Álbum y Artista (rutas, useLoad, vistas)
-    ├── reviews/             # Calificaciones y Reseñas (/resena/nueva, /ratings, /reviews)
+    ├── reviews/             # Calificaciones y Reseñas (/resena/nueva, /resena/:id con comentarios)
     ├── legal/               # Términos de Servicio y Aviso de Privacidad
     ├── landing/             # landing de `/` sin sesión (portadas fijas en carrusel)
     ├── settings/            # Configuración (/configuracion): cuenta de música, frecuencia e información pública
@@ -125,7 +125,7 @@ src/
 | Cuenta y legales | `/terminos`, `/privacidad` · menú del avatar | Implementado (§5). Textos legales en revisión | — (avatar por defecto en `POST /auth/register`) |
 | Buscador | `/buscar?q=` · campo de la Navbar | Implementado (§6) | `GET /music/search`, `GET /music/albums/{id}` |
 | Fichas del catálogo | `/cancion/:id`, `/album/:id`, `/artista/:id` | Implementado (§7) | `GET /music/tracks\|albums\|artists/{id}`, `GET /music/search` (cascada), `GET /reviews`, `GET /ratings/my` |
-| Calificaciones y Reseñas | `/resena/nueva?tipo=&id=` | Implementado (§8) | `POST/GET/DELETE /ratings`, `POST/GET/PUT/DELETE /reviews` |
+| Calificaciones y Reseñas | `/resena/nueva?tipo=&id=`, `/resena/:id` (Reseña Completa) | Implementado (§8). Comentarios anidados y Me gusta, plantillas hasta COM-01 y LIKE-01/02 | `POST/GET/DELETE /ratings`, `POST/GET/PUT/DELETE /reviews`, `GET /reviews/{id}` |
 | Configuración | `/configuracion` · menú del avatar | Implementado (§10). Guardar el perfil y la frecuencia, pendientes del backend (USER-01, PREF-01) | `GET /auth/me`, `POST /auth/password/forgot`, `POST /auth/logout` |
 | Spotify y Reproductor | `/spotify/callback` · Configuración · MiniPlayer | Implementado (§11): vinculación PKCE y reproductor con el Web Playback SDK (Spotify Premium) | `accounts.spotify.com` (PKCE), `GET /v1/me`, `PUT /v1/me/player/play` |
 | Perfil | `/perfil` (`?tab=calificaciones`), `/perfil/seguidores`, `/perfil/seguidos`, `/usuario/:username` (y sus listas) | Implementado (§12) con plantillas: listas, contadores, seguir y perfiles de otros pendientes del backend (PROF-01 a PROF-05, FOL-01, FOL-02) | `GET /auth/me` |

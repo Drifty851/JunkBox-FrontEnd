@@ -1,7 +1,7 @@
-import bookmarkIcon from '../../assets/icons/bookmark.svg'
 import likeIcon from '../../assets/icons/like.svg'
 import messageSquareIcon from '../../assets/icons/message-square.svg'
-import moreHorizontalIcon from '../../assets/icons/more-horizontal.svg'
+import type { ReactNode } from 'react'
+import { Link } from 'react-router'
 import { cn } from '../utils/cn'
 import { Avatar } from './Avatar'
 import { MaskIcon } from './MaskIcon'
@@ -12,6 +12,10 @@ export interface ReviewCardData {
   authorUsername: string
   authorAvatarUrl: string | null
   authorFallbackAvatarUrl: string | null
+  /** Perfil del autor (`/usuario/:username`); sin él, el autor no es enlace. */
+  authorHref?: string
+  /** Reseña Completa (`/resena/:id`): "Comentarios" lleva a ella. */
+  reviewHref?: string
   /** "hace 2 h". */
   when: string
   musicTitle: string
@@ -28,10 +32,13 @@ const PENDING = 'Disponible cuando el backend lo permita'
 /**
  * ReviewCard (Figma · 14296:11962). Escritorio (ReviewCard-21): tarjeta con borde, padding 20,
  * fondo surface/default-5 y título 22. Móvil (ReviewCard-22): sin borde ni padding, título 18.
- * Seguir, más opciones, Me gusta, comentarios y guardar no tienen backend (REV-01): se muestran
- * con el estilo de Figma, sin acción y con `aria-disabled`.
+ * Acciones (decisión del propietario, 2026-11-15): solo Me gusta y Comentarios; Guardar y "más
+ * opciones" se quitaron. Me gusta y Seguir no tienen backend (LIKE-01, FOL-01): estilo de Figma,
+ * sin acción y con `aria-disabled`. "Comentarios" abre la Reseña Completa (`reviewHref`).
+ * Con `authorHref`, el avatar y el nombre abren el perfil del autor (2026-11-15).
+ * `full` es la tarjeta de la Reseña Completa (ReviewCard-17): portada de 104 en escritorio.
  */
-export function ReviewCard({ review, className }: { review: ReviewCardData; className?: string }) {
+export function ReviewCard({ review, className, full = false }: { review: ReviewCardData; className?: string; full?: boolean }) {
   return (
     <article
       className={cn(
@@ -40,18 +47,20 @@ export function ReviewCard({ review, className }: { review: ReviewCardData; clas
       )}
     >
       <header className="flex w-full items-center gap-2">
-        <Avatar
-          src={review.authorAvatarUrl}
-          fallbackSrc={review.authorFallbackAvatarUrl}
-          alt=""
-          className="size-8"
-        />
-        <div className="flex min-w-0 flex-1 flex-col leading-[1.4]">
-          <p className="truncate text-sm font-semibold text-fg">{review.authorName}</p>
-          <p className="truncate text-xs text-fg-placeholder">
-            @{review.authorUsername} · {review.when}
-          </p>
-        </div>
+        <AuthorLink href={review.authorHref} label={`Ver el perfil de ${review.authorName}`}>
+          <Avatar
+            src={review.authorAvatarUrl}
+            fallbackSrc={review.authorFallbackAvatarUrl}
+            alt=""
+            className="size-8"
+          />
+          <span className="flex min-w-0 flex-1 flex-col leading-[1.4]">
+            <span className="truncate text-sm font-semibold text-fg group-hover:underline">{review.authorName}</span>
+            <span className="truncate text-xs text-fg-placeholder">
+              @{review.authorUsername} · {review.when}
+            </span>
+          </span>
+        </AuthorLink>
         <button
           type="button"
           aria-disabled="true"
@@ -63,7 +72,7 @@ export function ReviewCard({ review, className }: { review: ReviewCardData; clas
       </header>
 
       <div className="flex w-full items-center gap-3">
-        <span className="block size-12 shrink-0 overflow-hidden rounded bg-surface-input-disabled">
+        <span className={cn('block size-12 shrink-0 overflow-hidden rounded bg-surface-input-disabled', full && 'md:size-[104px]')}>
           {review.musicImageUrl !== null && <img src={review.musicImageUrl} alt="" className="size-full object-cover" />}
         </span>
         <div className="flex min-w-0 flex-1 flex-col gap-1 leading-[1.4]">
@@ -71,9 +80,6 @@ export function ReviewCard({ review, className }: { review: ReviewCardData; clas
           <p className="truncate text-sm text-fg-soft">{review.musicSubtitle}</p>
           {review.score !== null && <StarRating value={review.score} />}
         </div>
-        <span aria-disabled="true" title={PENDING} className="flex shrink-0">
-          <MaskIcon src={moreHorizontalIcon} size={20} className="bg-fg" />
-        </span>
       </div>
 
       <p className="w-full text-sm leading-[1.4] break-words whitespace-pre-line text-fg">{review.content}</p>
@@ -83,14 +89,32 @@ export function ReviewCard({ review, className }: { review: ReviewCardData; clas
           <MaskIcon src={likeIcon} size={18} className="bg-fg" />
           {review.likes === 1 ? '1 Me gusta' : `${review.likes} Me gusta`}
         </span>
-        <span aria-disabled="true" title={PENDING} className="flex items-center gap-1.5">
-          <MaskIcon src={messageSquareIcon} size={18} className="bg-fg" />
-          Comentarios
-        </span>
-        <span aria-disabled="true" title={PENDING} className="flex">
-          <MaskIcon src={bookmarkIcon} size={18} className="bg-fg" />
-        </span>
+        {review.reviewHref ? (
+          <Link
+            to={review.reviewHref}
+            className="flex items-center gap-1.5 rounded hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-fg"
+          >
+            <MaskIcon src={messageSquareIcon} size={18} className="bg-fg" />
+            Comentarios
+          </Link>
+        ) : (
+          <span className="flex items-center gap-1.5">
+            <MaskIcon src={messageSquareIcon} size={18} className="bg-fg" />
+            Comentarios
+          </span>
+        )}
       </footer>
     </article>
+  )
+}
+
+/** Avatar y nombre del autor: enlace a su perfil cuando hay `href`. */
+function AuthorLink({ href, label, children }: { href?: string; label: string; children: ReactNode }) {
+  const className = 'group flex min-w-0 flex-1 items-center gap-2'
+  if (!href) return <div className={className}>{children}</div>
+  return (
+    <Link to={href} aria-label={label} className={cn(className, 'rounded focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-fg')}>
+      {children}
+    </Link>
   )
 }

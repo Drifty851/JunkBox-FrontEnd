@@ -43,7 +43,7 @@ export interface Review {
   content: string
   /** Voto ACTUAL del autor sobre el mismo objetivo; null si no tiene. */
   rating_score: number | null
-  /** Reservado: siempre 0 (REV-01). */
+  /** Reservado: siempre 0 (LIKE-01). */
   likes_count: number
   author: ReviewAuthor
   created_at: string

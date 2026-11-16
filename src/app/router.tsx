@@ -13,6 +13,8 @@ import { AlbumPage } from '../features/catalog/views/AlbumPage'
 import { ArtistPage } from '../features/catalog/views/ArtistPage'
 import { SongPage } from '../features/catalog/views/SongPage'
 import { WRITE_REVIEW_PATH } from '../features/reviews/models/writeReview'
+import { REVIEW_PATH } from '../features/reviews/models/reviewDetail'
+import { ReviewDetailPage } from '../features/reviews/views/ReviewDetailPage'
 import { WriteReviewPage } from '../features/reviews/views/WriteReviewPage'
 import { SEARCH_PATH } from '../features/search/models/search.types'
 import { SearchPage } from '../features/search/views/SearchPage'
@@ -66,6 +68,7 @@ export const router = createBrowserRouter([
           { path: ALBUM_PATH, element: <AlbumPage /> },
           { path: ARTIST_PATH, element: <ArtistPage /> },
           { path: WRITE_REVIEW_PATH, element: <WriteReviewPage /> },
+          { path: REVIEW_PATH, element: <ReviewDetailPage /> },
           { path: SETTINGS_PATH, element: <SettingsPage /> },
           { path: PROFILE_PATH, element: <ProfilePage /> },
           { path: connectionsPath('followers'), element: <ConnectionsPage tab="followers" /> },
