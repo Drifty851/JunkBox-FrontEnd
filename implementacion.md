@@ -1098,6 +1098,17 @@ features/player/
 - **Aviso** en la barra del reproductor cuando no hay vinculación ("Vincula tu cuenta de Spotify Premium en Configuración para reproducir.", con enlace a Configuración), cuando la cuenta no es Premium o cuando Spotify falla. Se cierra con la X.
 - **Vista ampliada** (`PlayerSheet`), que abre la flecha: pantalla completa en móvil y panel centrado en escritorio. Contiene la carátula grande, título, artista, progreso con tiempos, atrás, reproducir/pausa y adelante, y el volumen. Escape o la flecha la cierran.
 
+**Un solo dispositivo por cuenta** (2026-11-15, decisión del propietario):
+- Spotify solo deja sonar un dispositivo a la vez por cuenta, y cada pestaña de Junkbox es un dispositivo distinto. Es el comportamiento normal de Spotify; pasa igual con el teléfono o la app.
+- **Antes de reproducir** se consulta `GET /v1/me/player` (scope `user-read-playback-state`, que ya se pedía). Si suena en otro dispositivo, la barra del MiniPlayer pregunta: "Ya tienes música sonando en otra pestaña de Junkbox | «nombre del dispositivo». ¿Quieres cambiarla a esta pestaña?", con **"Cambiar aquí"** y **"Cancelar"** (botones pequeños de Figma; el aviso no está en Figma).
+  - "Cambiar aquí" reproduce sin volver a preguntar.
+  - "Cancelar" deja la música donde estaba; aquí el MiniPlayer **sigue a la vista, en pausa**, con la canción pedida (decisión del propietario, 2026-11-15). Si esta pestaña aún no había sonado, los datos se piden a Spotify (`GET /v1/tracks/{id}`).
+  - Si la consulta falla, se reproduce sin preguntar.
+  - Mientras esta pestaña no sea el dispositivo activo (porque se canceló o porque otro tomó la música), "reproducir" y "atrás" del MiniPlayer vuelven a pedir la canción, y por tanto a preguntar; "adelante" y la barra no hacen nada. Antes, pulsar "reproducir" tras "Cancelar" daba error, porque se le pedía al reproductor local, que ya no era el activo (corregido el 2026-11-15).
+- **La pestaña que pierde la música** (el SDK manda un estado vacío) conserva el MiniPlayer con la canción **en pausa** (decisión del propietario, 2026-11-15; antes mostraba un aviso).
+
+**Abrir la ficha desde el reproductor** (2026-11-15, petición del propietario): en el MiniPlayer (móvil y escritorio) la carátula, el título y el artista forman un enlace a la ficha de la canción (`/cancion/:id`), con `aria-label="Abrir la ficha de <título>"`. En la vista ampliada, la carátula y el título hacen lo mismo y además cierran la vista. Mientras se prepara el reproductor o hay un aviso no hay enlace. La música sigue sonando al navegar.
+
 **Recursos de Figma** (`src/assets/icons`): `skip-back-20.svg`, `pause-24.svg`, `skip-forward-20.svg`, `volume-2-20.svg` y `chevron-up-20.svg`; se reutilizan `x-16.svg` y `play-14.svg`.
 
 **Accesibilidad:**
@@ -1270,3 +1281,6 @@ Además: probar las rutas del módulo con el backend en marcha (`pnpm dev`), rev
 | 2026-11-13 | Módulo 9 · Spotify, paso 2 (§11.2): reproductor con el Web Playback SDK (`PlayerProvider`, `usePlayer`) y MiniPlayer de Figma al pie de las pantallas con sesión, con aviso sin Premium y vista ampliada. Reproducir desde filas, tarjetas de Inicio y la ficha de canción. Atrás reinicia, adelante termina, volumen 0–100 desde 50. |
 | 2026-11-13 | Reproductor: `PlayerProvider` pasa a `App.tsx` (la música se cortaba al pasar entre Inicio y otras pantallas, que usan instancias distintas de `AppLayout`). Contra "Device not found": transferencia al dispositivo y hasta 3 reintentos. La barra de tiempo es arrastrable y va en el color de acción; "Adelante" la llena y "Atrás" la vacía y vuelve a sonar desde 0 (§11.2). |
 | 2026-11-15 | Módulo 10 · Perfil (§12): `/perfil` con avatar, nombre y @usuario reales, contadores con "—", pestañas "Mis Reseñas" e "Historial de Calificaciones" (`?tab=calificaciones`) y paneles laterales como plantillas (PROF-01 a PROF-04). "Perfil" queda activo en la Navbar y la BottomBar. |
+| 2026-11-15 | Reproductor: pulsar la canción (carátula o título) en el MiniPlayer o en la vista ampliada abre su ficha (§11.2). |
+| 2026-11-15 | Reproductor: si la música ya suena en otro dispositivo de la cuenta (otra pestaña, el teléfono, la app), la barra pregunta antes de cambiarla ("Cambiar aquí" / "Cancelar"); la pestaña que la pierde avisa que pasó a otro dispositivo (§11.2). |
+| 2026-11-15 | Reproductor: al pulsar "Cancelar" o cuando la música pasa a otro dispositivo, el MiniPlayer sigue a la vista con la canción en pausa; "reproducir" vuelve a preguntar si se quiere cambiar a esta pestaña (§11.2). |

@@ -23,6 +23,16 @@ export interface PlayerNotice {
   message: string
 }
 
+/**
+ * Spotify solo deja sonar un dispositivo a la vez por cuenta. Si ya suena en otro, antes de
+ * reproducir se pregunta si se quiere cambiar a esta pestaña (decisión del propietario, 2026-11-15).
+ */
+export interface PendingSwitch {
+  spotifyId: string
+  /** Nombre del dispositivo que suena ("Junkbox" si es otra pestaña). */
+  deviceName: string
+}
+
 export interface PlayerState {
   /** El MiniPlayer está a la vista (se oculta con la X). */
   visible: boolean
@@ -39,6 +49,7 @@ export interface PlayerState {
   /** Vista ampliada (flecha del MiniPlayer). */
   expanded: boolean
   notice: PlayerNotice | null
+  pendingSwitch: PendingSwitch | null
 }
 
 export const INITIAL_PLAYER_STATE: PlayerState = {
@@ -52,6 +63,7 @@ export const INITIAL_PLAYER_STATE: PlayerState = {
   volume: INITIAL_VOLUME,
   expanded: false,
   notice: null,
+  pendingSwitch: null,
 }
 
 /** "m:ss" para los tiempos del MiniPlayer (Figma: "0:58", "3:24"). */

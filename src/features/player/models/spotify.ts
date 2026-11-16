@@ -50,6 +50,21 @@ export interface SpotifyProfile {
   product?: 'premium' | 'free' | 'open' | string
 }
 
+/** GET /v1/me/player (campos que se usan): dispositivo activo de la cuenta. */
+export interface SpotifyCurrentPlayback {
+  is_playing: boolean
+  device: { id: string | null; name: string; type: string }
+}
+
+/** GET /v1/tracks/{id} (campos que se usan). */
+export interface SpotifyTrack {
+  id: string
+  name: string
+  duration_ms: number
+  artists: { name: string }[]
+  album: { images: { url: string }[] }
+}
+
 /** Estado de la vinculación que ve la interfaz. */
 export type SpotifyLinkStatus =
   | { status: 'checking' }

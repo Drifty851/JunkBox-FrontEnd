@@ -1,7 +1,9 @@
 import { useEffect, useRef } from 'react'
 import chevronUpIcon from '../../../assets/icons/chevron-up-20.svg'
+import { Link } from 'react-router'
 import { MaskIcon } from '../../../shared/ui/MaskIcon'
 import { cn } from '../../../shared/utils/cn'
+import { songPath } from '../../catalog/models/catalogPaths'
 import { usePlayer } from '../controllers/playerContext'
 import { formatPlaybackTime } from '../models/player'
 import { FinishButton, ICON_BUTTON, PlayPauseButton, ProgressBar, RestartButton, VolumeControl } from './PlayerControls'
@@ -12,6 +14,23 @@ import { FinishButton, ICON_BUTTON, PlayPauseButton, ProgressBar, RestartButton,
  * MiniPlayer de Figma no muestra. Usa los mismos iconos y tokens. Pantalla completa en móvil y panel
  * centrado en escritorio; Escape o la flecha la cierran.
  */
+function Cover({ url }: { url: string | null }) {
+  return (
+    <span className="block aspect-square w-full max-w-72 overflow-hidden rounded bg-surface-input-disabled">
+      {url && <img src={url} alt="" className="size-full object-cover" />}
+    </span>
+  )
+}
+
+function TrackText({ title, artist }: { title: string; artist: string }) {
+  return (
+    <span className="flex w-full flex-col gap-1 text-center leading-[1.4]">
+      <span className="truncate text-xl font-semibold text-fg group-hover:underline">{title}</span>
+      <span className="truncate text-sm text-fg-soft">{artist}</span>
+    </span>
+  )
+}
+
 export function PlayerSheet() {
   const { state, setExpanded } = usePlayer()
   const closeRef = useRef<HTMLButtonElement>(null)
@@ -45,14 +64,23 @@ export function PlayerSheet() {
           <MaskIcon src={chevronUpIcon} size={20} className="bg-fg" />
         </button>
 
-        <span className="block aspect-square w-full max-w-72 overflow-hidden rounded bg-surface-input-disabled">
-          {track?.imageUrl && <img src={track.imageUrl} alt="" className="size-full object-cover" />}
-        </span>
-
-        <div className="flex w-full flex-col gap-1 text-center leading-[1.4]">
-          <p className="truncate text-xl font-semibold text-fg">{track?.title ?? 'Preparando el reproductor…'}</p>
-          <p className="truncate text-sm text-fg-soft">{track?.artist ?? 'Spotify'}</p>
-        </div>
+        {/* Carátula y título abren la ficha de la canción y cierran la vista (2026-11-15). */}
+        {track?.spotifyId ? (
+          <Link
+            to={songPath(track.spotifyId)}
+            onClick={() => setExpanded(false)}
+            aria-label={`Abrir la ficha de ${track.title}`}
+            className="group flex w-full flex-col items-center gap-6 rounded focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-fg"
+          >
+            <Cover url={track.imageUrl} />
+            <TrackText title={track.title} artist={track.artist} />
+          </Link>
+        ) : (
+          <>
+            <Cover url={null} />
+            <TrackText title="Preparando el reproductor…" artist="Spotify" />
+          </>
+        )}
 
         <div className="flex w-full flex-col gap-2">
           <ProgressBar thickness={4} className="w-full" />

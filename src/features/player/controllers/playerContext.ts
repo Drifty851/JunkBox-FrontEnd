@@ -5,6 +5,10 @@ export interface PlayerContextValue {
   state: PlayerState
   /** Reproduce una canción por su ID de Spotify. Si falta Spotify Premium, muestra el aviso. */
   play: (spotifyId: string) => void
+  /** Ya sonaba en otro dispositivo: reproducir aquí de todos modos. */
+  confirmSwitch: () => void
+  /** Ya sonaba en otro dispositivo: no cambiar. */
+  cancelSwitch: () => void
   togglePlay: () => void
   /** "Atrás": vuelve al inicio de la canción y la reproduce. */
   restart: () => void

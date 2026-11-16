@@ -32,11 +32,23 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   const premiumRef = useRef<boolean | null>(null)
   const volumeRef = useRef(INITIAL_PLAYER_STATE.volume)
   const lastPositionRef = useRef(0)
+  /**
+   * Esta pestaña es el dispositivo activo de Spotify. Si otra pestaña o dispositivo tomó la música (o
+   * se pulsó "Cancelar"), los controles locales no sirven: reproducir vuelve a preguntar.
+   */
+  const activeRef = useRef(false)
 
   const update = useCallback((patch: Partial<PlayerState>) => setState((current) => ({ ...current, ...patch })), [])
 
   const onSdkState = useCallback((sdk: SdkPlaybackState | null) => {
-    if (!sdk) return
+    if (!sdk) {
+      // Spotify quitó la reproducción a esta pestaña (otra pestaña, el teléfono o la app la tomó):
+      // el MiniPlayer sigue a la vista con la canción en pausa (decisión del propietario, 2026-11-15).
+      activeRef.current = false
+      setState((current) => (current.track ? { ...current, paused: true, loading: false } : current))
+      return
+    }
+    activeRef.current = true
     const track = sdk.track_window.current_track
     // Con una sola canción, al terminar Spotify pausa y vuelve la posición a 0.
     const ended = sdk.paused && sdk.position === 0 && sdk.duration > 0 && lastPositionRef.current > sdk.duration - 2500
@@ -112,12 +124,12 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     [onSdkState, update],
   )
 
-  const play = useCallback(
-    (spotifyId: string) => {
+  const startPlayback = useCallback(
+    (spotifyId: string, force: boolean) => {
       if (!userId) return
       // Dentro del gesto del usuario: desbloquea el audio en navegadores estrictos.
       void playerRef.current?.activateElement()
-      update({ visible: true, loading: true, notice: null, ended: false, positionMs: 0 })
+      update({ visible: true, loading: true, notice: null, pendingSwitch: null, ended: false, positionMs: 0 })
       if (!spotifyAuthService.hasLink(userId)) {
         update({ loading: false, notice: notice('unlinked') })
         return
@@ -133,6 +145,14 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
           }
           const deviceId = await ensureDevice(userId)
           const token = await spotifyAuthService.getAccessToken(userId)
+          if (!force) {
+            // Spotify solo deja sonar un dispositivo a la vez: si ya suena en otro, se pregunta.
+            const current = await spotifyApi.currentPlayback(token).catch(() => null)
+            if (current?.is_playing && current.device.id !== deviceId) {
+              update({ loading: false, pendingSwitch: { spotifyId, deviceName: current.device.name } })
+              return
+            }
+          }
           // El dispositivo recién creado puede tardar en registrarse en Spotify ("Device not found",
           // 404): hasta 3 reintentos con espera creciente.
           for (let attempt = 0; ; attempt++) {
@@ -145,6 +165,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
             }
           }
           lastPositionRef.current = 0
+          activeRef.current = true
         } catch (error) {
           const kind =
             error instanceof SpotifyError && error.status === 403
@@ -162,8 +183,54 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     [userId, ensureDevice, update],
   )
 
+  const play = useCallback((spotifyId: string) => startPlayback(spotifyId, false), [startPlayback])
+
+  /** "Cambiar aquí": reproduce en esta pestaña aunque suene en otro dispositivo. */
+  const confirmSwitch = useCallback(() => {
+    if (state.pendingSwitch) startPlayback(state.pendingSwitch.spotifyId, true)
+  }, [state.pendingSwitch, startPlayback])
+
+  /** "Cancelar": deja la música donde estaba; si aquí no sonaba nada, se oculta el reproductor. */
+  /**
+   * "Cancelar": la música sigue en el otro dispositivo y aquí el MiniPlayer queda en pausa con la
+   * canción pedida (decisión del propietario, 2026-11-15). Si esta pestaña aún no había sonado, los
+   * datos de la canción se piden a Spotify (GET /v1/tracks/{id}).
+   */
+  const cancelSwitch = useCallback(() => {
+    activeRef.current = false
+    const pending = state.pendingSwitch
+    setState((current) => ({ ...current, pendingSwitch: null, loading: false, paused: true, ended: false, visible: true }))
+    if (!pending || !userId || state.track?.spotifyId === pending.spotifyId) return
+    void (async () => {
+      try {
+        const token = await spotifyAuthService.getAccessToken(userId)
+        const data = await spotifyApi.track(token, pending.spotifyId)
+        lastPositionRef.current = 0
+        setState((current) => ({
+          ...current,
+          positionMs: 0,
+          durationMs: data.duration_ms,
+          track: {
+            spotifyId: data.id,
+            title: data.name,
+            artist: data.artists.map((artist) => artist.name).join(', '),
+            imageUrl: data.album.images[0]?.url ?? null,
+          },
+        }))
+      } catch {
+        // Sin datos de la canción no hay nada que mostrar: se oculta como antes.
+        setState((current) => (current.track ? current : { ...current, visible: false }))
+      }
+    })()
+  }, [state.pendingSwitch, state.track, userId])
+
   const togglePlay = useCallback(() => {
     const player = playerRef.current
+    // La música está en otro dispositivo: se vuelve a pedir esta canción (pregunta antes de cambiar).
+    if (!activeRef.current) {
+      if (state.track) startPlayback(state.track.spotifyId, false)
+      return
+    }
     if (!player) return
     if (state.ended) {
       update({ ended: false, positionMs: 0 })
@@ -172,22 +239,26 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
       return
     }
     void player.togglePlay()
-  }, [state.ended, update])
+  }, [state.ended, state.track, startPlayback, update])
 
   /** "Atrás": la barra se vacía al instante y la canción vuelve a sonar desde 0. */
   const restart = useCallback(() => {
     const player = playerRef.current
+    if (!activeRef.current) {
+      if (state.track) startPlayback(state.track.spotifyId, false)
+      return
+    }
     if (!player) return
     lastPositionRef.current = 0
     update({ ended: false, paused: false, positionMs: 0 })
     void player.seek(0).then(() => player.resume())
-  }, [update])
+  }, [state.track, startPlayback, update])
 
   /** Barra de tiempo: mueve la canción a `positionMs` (si había terminado, queda en pausa ahí). */
   const seek = useCallback(
     (positionMs: number) => {
       const player = playerRef.current
-      if (!player) return
+      if (!player || !activeRef.current) return
       const value = Math.max(0, Math.round(positionMs))
       lastPositionRef.current = value
       update({ ended: false, positionMs: value })
@@ -199,7 +270,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   /** "Adelante": pausa y deja la barra llena (ended); onSdkState ya no la vacía. */
   const finish = useCallback(() => {
     const player = playerRef.current
-    if (!player) return
+    if (!player || !activeRef.current) return
     void player.pause()
     setState((current) => ({ ...current, paused: true, ended: true, positionMs: current.durationMs }))
   }, [])
@@ -216,7 +287,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
 
   const close = useCallback(() => {
     void playerRef.current?.pause()
-    update({ visible: false, expanded: false, notice: null, loading: false })
+    update({ visible: false, expanded: false, notice: null, pendingSwitch: null, loading: false })
   }, [update])
 
   const setExpanded = useCallback((expanded: boolean) => update({ expanded }), [update])
@@ -250,8 +321,8 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   )
 
   const value = useMemo<PlayerContextValue>(
-    () => ({ state, play, togglePlay, restart, seek, finish, setVolume, close, setExpanded }),
-    [state, play, togglePlay, restart, seek, finish, setVolume, close, setExpanded],
+    () => ({ state, play, confirmSwitch, cancelSwitch, togglePlay, restart, seek, finish, setVolume, close, setExpanded }),
+    [state, play, confirmSwitch, cancelSwitch, togglePlay, restart, seek, finish, setVolume, close, setExpanded],
   )
 
   return <PlayerContext.Provider value={value}>{children}</PlayerContext.Provider>

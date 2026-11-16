@@ -1,4 +1,4 @@
-import type { SpotifyProfile, SpotifyTokenResponse } from '../models/spotify'
+import type { SpotifyCurrentPlayback, SpotifyProfile, SpotifyTokenResponse, SpotifyTrack } from '../models/spotify'
 
 const ACCOUNTS = 'https://accounts.spotify.com'
 const API = 'https://api.spotify.com/v1'
@@ -75,6 +75,26 @@ export const spotifyApi = {
     if (!response.ok && response.status !== 404) {
       throw new SpotifyError(response.status, 'Spotify no reconoció el reproductor de Junkbox.')
     }
+  },
+
+  /**
+   * GET /v1/me/player: qué suena ahora en la cuenta y en qué dispositivo (scope
+   * user-read-playback-state). `null` si no hay nada activo (204).
+   */
+  async currentPlayback(accessToken: string): Promise<SpotifyCurrentPlayback | null> {
+    const response = await fetch(`${API}/me/player`, { headers: { Authorization: `Bearer ${accessToken}` } })
+    if (response.status === 204) return null
+    if (!response.ok) throw new SpotifyError(response.status, 'No se pudo consultar la reproducción de Spotify.')
+    return (await response.json()) as SpotifyCurrentPlayback
+  },
+
+  /** GET /v1/tracks/{id}: datos de una canción (para mostrarla en pausa sin haberla reproducido aquí). */
+  async track(accessToken: string, spotifyTrackId: string): Promise<SpotifyTrack> {
+    const response = await fetch(`${API}/tracks/${encodeURIComponent(spotifyTrackId)}`, {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    })
+    if (!response.ok) throw new SpotifyError(response.status, 'No se pudo leer la canción en Spotify.')
+    return (await response.json()) as SpotifyTrack
   },
 
   /** GET /v1/me: perfil del usuario de Spotify (incluye `product`). */
