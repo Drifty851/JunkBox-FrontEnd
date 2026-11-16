@@ -17,8 +17,8 @@ const MAX_LABEL = REVIEW_MAX_LENGTH.toLocaleString('es-ES', { useGrouping: 'alwa
 
 /**
  * Escribir Reseña · Figma: móvil 14244:51146, escritorio 14244:51275 (ReviewComposer).
- * Módulo Calificaciones y Reseñas: POST /ratings (estrellas, obligatorio), POST/PUT /reviews
- * (texto opcional), GET /ratings/my y DELETE /ratings|/reviews/{id}.
+ * Módulo Calificaciones y Reseñas: POST /ratings (estrellas) y POST/PUT /reviews (texto); se puede
+ * calificar, reseñar o las dos, pero no ninguna (2026-11-15); GET /ratings/my y DELETE /ratings|/reviews/{id}.
  * Escritorio: ReviewForm de 744 y ComposerContext de 344 (separación 64). Móvil: solo el formulario.
  * AudioSnippetPicker ("Elige tus 30 segundos") queda desactivado hasta que exista el reproductor.
  */
@@ -90,7 +90,7 @@ export function WriteReviewPage() {
           >
             <textarea
               id={contentId}
-              aria-label="Tu reseña (opcional)"
+              aria-label="Tu reseña"
               aria-invalid={Boolean(fieldErrors.content) || undefined}
               value={values.content}
               onChange={(event) => controller.setContent(event.target.value)}
@@ -118,7 +118,7 @@ export function WriteReviewPage() {
             disabled={!ready}
           />
           <p className="text-[11px] leading-[1.4] text-fg-placeholder">
-            Visible para toda la comunidad · La reseña es opcional; la calificación, no.
+            Visible para toda la comunidad · Puedes calificar, reseñar o las dos.
           </p>
           {(existing?.rating || existing?.review) && (
             <div className="flex flex-wrap gap-4 text-xs leading-[1.4]">

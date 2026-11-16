@@ -21,6 +21,8 @@ export interface ReviewCardData {
   musicTitle: string
   musicSubtitle: string
   musicImageUrl: string | null
+  /** Ficha de lo reseñado: el título lleva a ella (2026-11-15). */
+  musicHref?: string
   /** Voto del autor; null si no calificó. */
   score: number | null
   content: string
@@ -76,7 +78,18 @@ export function ReviewCard({ review, className, full = false }: { review: Review
           {review.musicImageUrl !== null && <img src={review.musicImageUrl} alt="" className="size-full object-cover" />}
         </span>
         <div className="flex min-w-0 flex-1 flex-col gap-1 leading-[1.4]">
-          <p className="truncate text-lg font-bold text-fg md:text-[22px]">{review.musicTitle}</p>
+          <p className="truncate text-lg font-bold text-fg md:text-[22px]">
+            {review.musicHref ? (
+              <Link
+                to={review.musicHref}
+                className="rounded hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-fg"
+              >
+                {review.musicTitle}
+              </Link>
+            ) : (
+              review.musicTitle
+            )}
+          </p>
           <p className="truncate text-sm text-fg-soft">{review.musicSubtitle}</p>
           {review.score !== null && <StarRating value={review.score} />}
         </div>

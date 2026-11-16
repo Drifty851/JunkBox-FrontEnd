@@ -22,6 +22,8 @@ import { SPOTIFY_CALLBACK_PATH } from '../features/player/models/spotify'
 import { PROFILE_PATH } from '../features/profile/models/profile'
 import { connectionsPath, USER_PROFILE_PATH } from '../features/profile/models/profile'
 import { ConnectionsPage } from '../features/profile/views/ConnectionsPage'
+import { RECOMMENDATIONS_PATH } from '../features/home/models/home.types'
+import { RecommendationsPage } from '../features/home/views/RecommendationsPage'
 import { ProfilePage } from '../features/profile/views/ProfilePage'
 import { SpotifyCallbackPage } from '../features/player/views/SpotifyCallbackPage'
 import { SETTINGS_PATH } from '../features/settings/models/settings'
@@ -63,6 +65,7 @@ export const router = createBrowserRouter([
       {
         element: <AppLayout />,
         children: [
+          { path: RECOMMENDATIONS_PATH, element: <RecommendationsPage /> },
           { path: SEARCH_PATH, element: <SearchPage /> },
           { path: SONG_PATH, element: <SongPage /> },
           { path: ALBUM_PATH, element: <AlbumPage /> },

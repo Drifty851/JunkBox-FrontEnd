@@ -83,6 +83,7 @@ export function ReviewDetailPage() {
               authorHref: userProfilePath(review.author.username),
               when: formatRelativeTime(review.created_at),
               musicTitle: music?.title ?? 'Música',
+              musicHref: music?.href,
               musicSubtitle: music?.subtitle ?? '',
               musicImageUrl: music?.imageUrl ?? null,
               score: review.rating_score,

@@ -16,7 +16,7 @@ import {
 } from '../controllers/catalogLoaders'
 import { useLoad } from '../controllers/useLoad'
 import { writeReviewPath } from '../../reviews/models/writeReview'
-import { artistPath, songPath, spotifyUrl } from '../models/catalogPaths'
+import { albumPath, artistPath, songPath, spotifyUrl } from '../models/catalogPaths'
 import {
   Breadcrumb,
   CommunityRating,
@@ -126,6 +126,7 @@ export function AlbumPage() {
                 .filter(Boolean)
                 .join(' · '),
               imageUrl: album.image_url,
+              href: albumPath(album.id),
             }}
           />
         </div>

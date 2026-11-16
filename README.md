@@ -121,7 +121,7 @@ src/
 |---|---|---|---|
 | Landing | `/` (sin sesión) | Implementado (`implementacion.md` §9). 80 portadas fijas elegidas por el propietario; 40 al azar en móvil (LANDING-01) | — |
 | Autenticación | `/login`, `/register`, `/recuperar-contrasena`, `/restablecer-contrasena`, `/verificar-correo` | Implementado. El registro envía `terms_accepted` (obligatorio en el backend desde el 2026-11-12) | `POST /auth/login`, `POST /auth/register`, `GET /auth/me`, `POST /auth/refresh`, `POST /auth/logout`, `POST /auth/password/forgot`, `POST /auth/password/reset`, `POST /auth/email/verify` |
-| Inicio | `/` | Base implementada con carátulas (`album_image_url`): crece con los demás módulos (`implementacion.md` §4) | `GET /music/tracks/{id}` |
+| Inicio | `/` (`?feed=siguiendo`), `/recomendaciones` | Implementado con contenido al azar de la lista de prueba (§4.9): recomendaciones, "Ver todo" y feed "Para ti (Popular)" | `GET /reviews` |
 | Cuenta y legales | `/terminos`, `/privacidad` · menú del avatar | Implementado (§5). Textos legales en revisión | — (avatar por defecto en `POST /auth/register`) |
 | Buscador | `/buscar?q=` (`&tipo=usuarios`) · campo de la Navbar | Implementado (§6). Usuarios, plantilla hasta SEARCH-04 (§6.8) | `GET /music/search`, `GET /music/albums/{id}` |
 | Fichas del catálogo | `/cancion/:id`, `/album/:id`, `/artista/:id` | Implementado (§7) | `GET /music/tracks\|albums\|artists/{id}`, `GET /music/search` (cascada), `GET /reviews`, `GET /ratings/my` |

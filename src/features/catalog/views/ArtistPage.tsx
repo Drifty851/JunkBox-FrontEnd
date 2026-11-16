@@ -6,7 +6,7 @@ import { usePlayer } from '../../player/controllers/playerContext'
 import { discographyKey, loadArtist, loadDiscography, loadMyRating, loadReviews, reviewsKey } from '../controllers/catalogLoaders'
 import { useLoad } from '../controllers/useLoad'
 import { writeReviewPath } from '../../reviews/models/writeReview'
-import { albumPath, songPath, spotifyUrl } from '../models/catalogPaths'
+import { albumPath, artistPath, songPath, spotifyUrl } from '../models/catalogPaths'
 import {
   Breadcrumb,
   CommunityRating,
@@ -100,7 +100,7 @@ export function ArtistPage() {
           title="Lo que dice la comunidad"
           state={reviews}
           variant="artist"
-          music={{ title: artist.name, subtitle: 'Artista', imageUrl }}
+          music={{ title: artist.name, subtitle: 'Artista', imageUrl, href: artistPath(artist.id) }}
         />
 
         {/* ArtistDiscography · "Imprescindibles" (Figma): álbumes y canciones como MusicRow. */}

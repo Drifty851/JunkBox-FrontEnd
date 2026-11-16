@@ -9,6 +9,7 @@ import { catalogService } from '../../music/services/catalogService'
 import type { Rating, Review, ReviewTargetType } from '../models/review.types'
 import {
   isReviewTargetType,
+  RATING_STEP,
   validateWriteReview,
   type WriteReviewErrors,
   type WriteReviewValues,
@@ -153,8 +154,9 @@ export function useWriteReviewController(): WriteReviewController {
       setSubmitting(true)
       setFormError(null)
       const content = values.content.trim()
-      reviewsService
-        .rate(resolved.type, resolved.id, values.score)
+      // Calificar es opcional si hay reseña (2026-11-15).
+      const rating = values.score >= RATING_STEP ? reviewsService.rate(resolved.type, resolved.id, values.score) : Promise.resolve(null)
+      rating
         .then(() =>
           content === ''
             ? null

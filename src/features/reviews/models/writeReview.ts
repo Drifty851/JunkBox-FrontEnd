@@ -53,11 +53,17 @@ export interface WriteReviewValues {
 
 export type WriteReviewErrors = Partial<Record<'score' | 'content', string>>
 
+/**
+ * Regla del propietario (2026-11-15): se puede calificar sin reseñar, reseñar sin calificar o las
+ * dos cosas, pero no ninguna.
+ */
 export function validateWriteReview(values: WriteReviewValues, hasExistingReview: boolean): WriteReviewErrors {
   const errors: WriteReviewErrors = {}
-  if (values.score < RATING_STEP) errors.score = 'Elige de media a cinco estrellas.'
   const length = countCharacters(values.content.trim())
-  if (length === 0 && hasExistingReview) {
+  const rated = values.score >= RATING_STEP
+  if (!rated && length === 0 && !hasExistingReview) {
+    errors.score = 'Califica con estrellas, escribe una reseña o las dos.'
+  } else if (length === 0 && hasExistingReview) {
     errors.content = 'Escribe tu reseña o usa «Eliminar mi reseña».'
   } else if (length > 0 && length < REVIEW_MIN_LENGTH) {
     errors.content = `La reseña debe tener al menos ${REVIEW_MIN_LENGTH} caracteres.`

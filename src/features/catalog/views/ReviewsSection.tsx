@@ -12,6 +12,8 @@ interface MusicPreview {
   title: string
   subtitle: string
   imageUrl: string | null
+  /** Ficha de lo reseñado (el título de cada ReviewCard lleva a ella). */
+  href: string
 }
 
 interface ReviewsSectionProps {
@@ -55,6 +57,7 @@ export function ReviewsSection({ title, state, music, variant = 'card' }: Review
                 reviewHref: reviewPath(review.id),
                 when: formatRelativeTime(review.created_at),
                 musicTitle: music.title,
+                musicHref: music.href,
                 musicSubtitle: music.subtitle,
                 musicImageUrl: music.imageUrl,
                 score: review.rating_score,

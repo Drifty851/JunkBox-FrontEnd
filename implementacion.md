@@ -417,8 +417,8 @@ Componentes: `Navbar` (14296:14145), `BottomBar` (14296:15745), `SearchField` (1
 |---|---|
 | Navbar y BottomBar | Estructura común (`AppLayout`) para todas las pantallas con sesión. |
 | Feed introduction (escritorio): "Tu próxima obsesión empieza aquí." | Correcto |
-| "Hecho para tus oídos" (`MusicCard`) | Con una plantilla de canciones con carátula (§4.3); cada tarjeta abre su ficha (§7). |
-| Tabs "Para ti (Popular)" / "Siguiendo" y `ReviewCard` | Pendiente: no hay feed de reseñas en el backend (HOME-04); las reseñas sí se ven en cada ficha (§7). |
+| "Hecho para tus oídos" (`MusicCard`) | Canciones, álbumes y artistas al azar de la lista de prueba (§4.9); cada tarjeta abre su ficha (§7). |
+| Tabs "Para ti (Popular)" / "Siguiendo" y `ReviewCard` | "Para ti (Popular)" con reseñas reales de los usuarios de prueba (§4.9); "Siguiendo" pendiente (FOL-01, HOME-04). |
 | "Conecta por lo que suena" (escritorio) | Pendiente: no hay sugerencias de usuarios. |
 | `MiniPlayer` y `SnippetPlayer` | Pendiente: no hay audio. |
 
@@ -438,7 +438,7 @@ Componentes: `Navbar` (14296:14145), `BottomBar` (14296:15745), `SearchField` (1
 | Carátula de cada canción (desde 2026-11-12) | La misma respuesta de `GET /api/v1/music/tracks/{id}` | `album_image_url` | `null` → la tarjeta se muestra con el recuadro neutro |
 | Avatar de la Navbar | `GET /api/v1/auth/me` (ya lo hace `AuthProvider`) | `avatar_url` | `null` o imagen que no carga → placeholder |
 
-**Plantilla:** no hay endpoint de recomendaciones. `features/home/data/homeTemplate.ts` lista 8 **IDs de Spotify** del dataset, verificados en el catálogo y aprobados por el propietario, iguales para todos los usuarios. Se guardan los IDs de Spotify porque son estables; los IDs locales dependen del orden de carga del dataset. La vista recibe una lista de `RecommendedTrack` y no sabe de dónde salen: cuando exista el endpoint solo cambia `homeService.getRecommendations()`.
+**Plantilla (hasta el 2026-11-15, sustituida por la lista de prueba de §4.9):** no hay endpoint de recomendaciones. `features/home/data/homeTemplate.ts` lista 8 **IDs de Spotify** del dataset, verificados en el catálogo y aprobados por el propietario, iguales para todos los usuarios. Se guardan los IDs de Spotify porque son estables; los IDs locales dependen del orden de carga del dataset. La vista recibe una lista de `RecommendedTrack` y no sabe de dónde salen: cuando exista el endpoint solo cambia `homeService.getRecommendations()`.
 
 **Carátulas.** Desde el 2026-11-12 cada canción trae `album_image_url` (commit `9e0794d` del backend) y la plantilla solo guarda el ID de la canción. Las canciones del dataset solo tienen álbum cuando el backend las enlaza con Spotify, lo que ocurre al aparecer en una búsqueda: las 8 se enlazaron el 2026-11-12 buscándolas una vez. **Una canción nueva en la plantilla hay que buscarla una vez** para que tenga carátula. Del 2026-11-06 al 2026-11-12, sin ese campo, la plantilla fijaba a mano el álbum de cada canción; son los mismos que enlazó el backend:
 
@@ -488,7 +488,7 @@ Inicio es el primer módulo que llama a endpoints protegidos después de abrir l
 
 ### 4.7 Limitaciones Conocidas
 
-- **Recomendaciones:** no hay endpoint. Se usa una plantilla igual para todos los usuarios.
+- **Recomendaciones y feed:** no hay endpoints (HOME-01, HOME-04). Salen al azar de la lista de prueba (§4.9).
 - **Carátulas:** salen de `album_image_url` (HOME-02, resuelta el 2026-11-12). Una canción del dataset que nunca apareció en una búsqueda llega sin álbum ni carátula (recuadro neutro) hasta que el backend la enlaza.
 - **Una petición por canción:** no hay endpoint para pedir varias canciones a la vez (8 peticiones al cargar Inicio).
 - **Reseñas, sugerencias de usuarios y reproducción:** no hay backend, así que esas secciones de Figma no se muestran y QuickPlay no reproduce.
@@ -511,6 +511,39 @@ Inicio es el primer módulo que llama a endpoints protegidos después de abrir l
 En desarrollo se ven 16 peticiones a `/music/tracks`: `StrictMode` monta el efecto dos veces y la primera tanda se cancela. En producción son 8.
 
 **Carátulas (2026-11-12):** las 8 salen de `album_image_url`, con capturas headless en escritorio claro y sin errores en la consola. Antes (2026-11-06) se resolvían por el ID de Spotify de su álbum.
+
+### 4.9 Datos de prueba y contenido al azar (2026-11-15)
+
+**Pedido del propietario:** poblar la base con usuarios, reseñas y calificaciones para que Inicio tenga contenido. "Hecho para tus oídos", "Ver todo" y el feed eligen al azar en cada carga canciones, álbumes, artistas y sus reseñas.
+
+**Cómo se poblaron** (decisión del propietario): **solo por la API pública**, como un usuario más, sin tocar seeds, migraciones ni SQL del backend.
+- El script vive fuera del repositorio, en la carpeta temporal de Claude Code, junto con su `manifest.json` (ids creados). Tiene dos modos: `seed` y `undo`.
+- Creó 12 usuarios `@junkbox.local` (contraseña `Password123!`, avatar robot), 106 calificaciones y 72 reseñas en español. Hay calificaciones sin reseña, 48 reseñas con calificación y 24 sin calificación (modo `extra`). Están repartidas sobre 71 objetivos de 14 artistas: 29 canciones, 28 álbumes y 14 artistas.
+- Los usuarios: `lucia_vinilos`, `marco_beats`, `sofi_playlist`, `diego_bpm`, `ana_lofi`, `pablo_riffs`, `carla_bside`, `javi_track7`, `nora_eco`, `leo_subgrave`, `vale_coros` y `tomas_rewind`.
+- `undo` borra las reseñas y calificaciones. **Los usuarios no se pueden borrar por la API**: quitarlos es tarea del backend. El desarrollador del backend debe saber que existen.
+
+**Lista de objetivos:** `features/home/data/demoPool.ts`, generado por el script. Sustituye a `homeTemplate.ts`, que se eliminó.
+- Cada objetivo guarda tipo, id (ID de Spotify para canciones, UUID local para álbumes y artistas), título, subtítulo, carátula y si tiene reseñas.
+- Las tarjetas usan esos datos tal como estaban al generarse, sin una petición por tarjeta. Las reseñas sí se piden en vivo.
+
+**Inicio:**
+- **"Hecho para tus oídos":** 8 elementos al azar en cada carga (escritorio muestra 4, en 2×2). Solo las canciones tienen QuickPlay; `MusicCard` ya no muestra el QuickPlay decorativo sin `onPlay`. Álbumes y artistas abren su ficha.
+- **"Ver todo":** abre `/recomendaciones` (`RECOMMENDATIONS_PATH`). No está en Figma: cabecera de Configuración y 24 filas `MusicRow` al azar; las canciones se pueden reproducir. Las canciones repetidas en el catálogo con otro ID ("Da Funk") se muestran una vez.
+- **Feed** (Figma · Tabs + ReviewCard), con las pestañas de Figma y la pestaña activa en la URL (`?feed=siguiendo`):
+  - **"Para ti (Popular)":** pide `GET /reviews` (3 por objetivo) de 8 objetivos reseñados al azar y muestra 10, ordenadas por Me gusta; en empate quedan al azar, para que las reseñas sin calificación no queden siempre al final. Hoy los Me gusta son siempre 0 (LIKE-01).
+  - **"Siguiendo":** "Pendiente del backend" (FOL-01, HOME-04).
+- Cada reseña enlaza al perfil del autor y a la Reseña Completa. Hay estados de carga, error con reintento y vacío.
+
+**Verificación (2026-11-15):**
+
+| Prueba | Resultado |
+|---|---|
+| `pnpm typecheck` · `pnpm lint` | Correcto |
+| Inicio a 1440 claro y 390 claro | 10 reseñas y 8 recomendaciones; el contenido cambia al recargar |
+| "Siguiendo" | Pone `?feed=siguiendo` y muestra el estado pendiente |
+| "Comentarios" de una reseña del feed | Abre la Reseña Completa con su música |
+| `/recomendaciones` a 390 claro y 1440 oscuro | 24 filas sin repetidas; play solo en canciones; artistas con retrato circular |
+| Consola | Sin errores |
 
 ---
 
@@ -701,7 +734,7 @@ Estructura común (`views/DetailParts.tsx`):
 - **MusicHero:** franja con la carátula difuminada (171/304 px), artwork 136/240 (redondo en el artista), tipo, título 24/56, subtítulo con enlaces, metadatos y la calificación de la comunidad.
 - **MusicActions:** "Calificar / Reseñar" (→ §8), "Reproducir en Spotify" (abre `open.spotify.com/{track|album|artist}/{id}` en otra pestaña; "No disponible en Spotify" si el artista no tiene ID de Spotify) y compartir (solo escritorio: `navigator.share` o copia el enlace).
 - **CommunityRating** ("La comunidad opina"): promedio 36, estrellas 76×12, "sobre 5 estrellas" y, si ya voté, "Tu calificación: 4,5 · Cambiar".
-- **ReviewsSection:** las 3 reseñas más recientes (`ReviewCard`; en el artista, `ArtistReviewCard`). El avatar y el nombre del autor abren su perfil (`/usuario/:username`, §12); si es mi reseña, ese enlace redirige a `/perfil` (2026-11-15). En `ReviewCard` es el campo opcional `authorHref`; el componente compartido no conoce las rutas.
+- **ReviewsSection:** las 3 reseñas más recientes (`ReviewCard`; en el artista, `ArtistReviewCard`). El avatar y el nombre del autor abren su perfil (`/usuario/:username`, §12); si es mi reseña, ese enlace redirige a `/perfil` (2026-11-15). En `ReviewCard` es el campo opcional `authorHref`; el componente compartido no conoce las rutas. El título de lo reseñado lleva a su ficha en **todas** las tarjetas de reseña (`musicHref`: fichas, feed de Inicio y Reseña Completa; 2026-11-15).
 
 | Ficha | Contenido propio | Escritorio |
 |---|---|---|
@@ -812,20 +845,20 @@ Referencia: backend `README.md` (endpoints 15–22) e `implementacion.md` §6.
 
 ### 8.4 Decisiones de Implementación
 
-1. **Calificar en Escribir Reseña** (decisión del propietario, como Figma): las estrellas guardan la calificación (obligatoria) y el texto, si se escribe, la reseña (opcional).
+1. **Calificar en Escribir Reseña:** las estrellas guardan la calificación y el texto, la reseña. **Desde el 2026-11-15 (regla del propietario) se puede calificar sin reseñar, reseñar sin calificar o las dos cosas, pero no ninguna.** Antes la calificación era obligatoria.
 2. **Estrellas de media en media** (`StarRatingInput`, recurso de Figma de 176×32 como máscara): mitad izquierda de una estrella = media, derecha = entera; vista previa al pasar el ratón; teclado ← ↓ / → ↑ (±0,5), Inicio (0,5) y Fin (5).
 3. **Texto por nivel** (Figma solo define "5 de 5 · Brutal"; propuesta): 0,5 Nada para mí · 1 Malo · 1,5 Flojo · 2 Regular · 2,5 Pasable · 3 Bueno · 3,5 Muy bueno · 4 Excelente · 4,5 Increíble · 5 Brutal.
-4. **Validación** (`writeReview.ts`): estrellas obligatorias; texto de **5 a 2.000** caracteres (el contador de Figma; el backend admite 5.000), contados como el backend (code points). Un texto vacío con reseña existente pide usar «Eliminar mi reseña».
+4. **Validación** (`writeReview.ts`): sin estrellas ni texto, "Califica con estrellas, escribe una reseña o las dos."; texto de **5 a 2.000** caracteres (el contador de Figma; el backend admite 5.000), contados como el backend (code points). Un texto vacío con reseña existente pide usar «Eliminar mi reseña».
 5. **Publicar:** `POST /ratings` y, si hay texto, `PUT` de mi reseña o `POST` (si responde `409`, la busca y hace `PUT`).
 6. **Precarga:** mi calificación (`GET /ratings/my`) y mi reseña, que se busca en `GET /reviews` paginado porque no existe `GET /reviews/my` (REV-02). El borrador va ligado a su objetivo, así que se muestra lo publicado hasta que se edita (sin `setState` en efectos). Con algo publicado, el botón dice "Guardar cambios" y aparecen "Quitar mi calificación (4,5)" y "Eliminar mi reseña".
 7. **"Elige tus 30 segundos"** se muestra atenuado y "próximamente": no hay reproductor (HOME-06).
-8. **Textos cambiados respecto a Figma:** "Seleccionado: TT — Hoke" (en lugar de "Sugerencia: …") y "La reseña es opcional; la calificación, no" (en lugar de "Reproducción en pausa").
+8. **Textos cambiados respecto a Figma:** "Seleccionado: TT — Hoke" (en lugar de "Sugerencia: …") y "Puedes calificar, reseñar o las dos" (en lugar de "Reproducción en pausa"; antes "La reseña es opcional; la calificación, no").
 9. **ComposerContext** (escritorio, desde `lg`): carátula 296 y los textos de Figma.
 
 ### 8.5 Accesibilidad
 
 - Las estrellas son un `slider` (`aria-valuemin` 0,5, `aria-valuemax` 5, `aria-valuetext` "4,5 de 5 estrellas" o "Sin calificar") descrito por el texto del nivel.
-- El buscador de la pantalla es un `combobox` con su `listbox`; la textarea tiene nombre ("Tu reseña (opcional)") y `aria-invalid`.
+- El buscador de la pantalla es un `combobox` con su `listbox`; la textarea tiene nombre ("Tu reseña") y `aria-invalid`.
 - Errores con `role="alert"`; el botón usa el estado Loading de `PrimaryButton`.
 
 ### 8.6 Limitaciones Conocidas
@@ -1423,3 +1456,5 @@ Además: probar las rutas del módulo con el backend en marcha (`pnpm dev`), rev
 | 2026-11-15 | Fichas: el avatar y el nombre del autor de cada reseña abren su perfil (`/usuario/:username`); en `ArtistReviewCard`, "Nombre · @usuario" (§7, §12). Verificado con una reseña temporal, borrada al terminar. |
 | 2026-11-15 | Reseñas: nueva Reseña Completa (`/resena/:id`) con comentarios anidados (sangría hasta 3 niveles) y Me gusta como plantillas; las tarjetas solo tienen Me gusta y Comentarios (sin Guardar ni "más opciones"); "Comentarios" abre la reseña (§8.8). |
 | 2026-11-15 | Buscador: la pestaña Usuarios funciona (`?tipo=usuarios`) con la tarjeta de Figma sin bio y el panel "La música se descubre mejor en compañía" sin "Os une…"; lista pendiente de SEARCH-04 (§6.8). |
+| 2026-11-15 | Inicio: datos de prueba creados por la API (12 usuarios, 106 calificaciones, 48 reseñas); "Hecho para tus oídos", "Ver todo" (`/recomendaciones`) y el feed "Para ti (Popular)" eligen al azar de `demoPool.ts` en cada carga; "Siguiendo" pendiente (§4.9). |
+| 2026-11-15 | Reseñas: se puede calificar, reseñar o las dos, pero no ninguna (Escribir Reseña); el título de lo reseñado enlaza a su ficha en todas las tarjetas; 24 reseñas de prueba sin calificación; "Popular" ordena por Me gusta con empates al azar (§4.9, §7, §8). |

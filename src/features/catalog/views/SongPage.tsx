@@ -13,7 +13,7 @@ import {
 import { useLoad } from '../controllers/useLoad'
 import { usePlayer } from '../../player/controllers/playerContext'
 import { writeReviewPath } from '../../reviews/models/writeReview'
-import { albumPath, artistPath, spotifyUrl } from '../models/catalogPaths'
+import { albumPath, artistPath, songPath, spotifyUrl } from '../models/catalogPaths'
 import {
   Breadcrumb,
   CommunityRating,
@@ -163,6 +163,7 @@ export function SongPage() {
               title: track.track_name,
               subtitle: [track.artist_name, album?.title, track.year].filter(Boolean).join(' · '),
               imageUrl,
+              href: songPath(track.spotify_id),
             }}
           />
         </div>
