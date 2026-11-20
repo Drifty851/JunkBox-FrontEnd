@@ -1,13 +1,8 @@
 import { useInfiniteScroll } from '../../../shared/hooks/useInfiniteScroll'
 import { FormAlert } from '../../../shared/ui/FormAlert'
-import { ReviewCard } from '../../../shared/ui/ReviewCard'
-import { defaultAvatarUrl } from '../../../shared/utils/defaultAvatar'
-import { formatRelativeTime } from '../../../shared/utils/formatTime'
-import { userProfilePath } from '../../profile/models/profile'
 import { ProfileTabList, type TabItem } from '../../profile/views/ProfileTabs'
-import type { Review } from '../../reviews/models/review.types'
-import { reviewPath } from '../../reviews/models/reviewDetail'
 import { reviewedMusicFromSummary } from '../../reviews/services/reviewDetailService'
+import { SocialReviewCard } from '../../social/views/SocialReviewCard'
 import type { FeedState } from '../controllers/useHomeFeed'
 import type { HomeFeedTab } from '../models/home.types'
 
@@ -28,31 +23,6 @@ function Skeletons({ count }: { count: number }) {
   return Array.from({ length: count }, (_, index) => (
     <div key={index} aria-hidden="true" className="h-56 w-full rounded-lg bg-surface-input-disabled motion-safe:animate-pulse" />
   ))
-}
-
-function FeedReviewCard({ review }: { review: Review }) {
-  const name = review.author.display_name?.trim() || review.author.username
-  const music = reviewedMusicFromSummary(review.target)
-  return (
-    <ReviewCard
-      review={{
-        authorName: name,
-        authorUsername: review.author.username,
-        authorAvatarUrl: review.author.avatar_url,
-        authorFallbackAvatarUrl: defaultAvatarUrl(review.author.username),
-        authorHref: userProfilePath(review.author.username),
-        reviewHref: reviewPath(review.id),
-        when: formatRelativeTime(review.created_at),
-        musicTitle: music?.title ?? 'Música no disponible',
-        musicHref: music?.href,
-        musicSubtitle: music?.subtitle ?? '',
-        musicImageUrl: music?.imageUrl ?? null,
-        score: review.rating_score,
-        content: review.content,
-        likes: review.likes_count,
-      }}
-    />
-  )
 }
 
 interface HomeFeedProps {
@@ -101,7 +71,7 @@ export function HomeFeed({ tab, onSelectTab, feed, onLoadMore, onRetry }: HomeFe
         ) : (
           <>
             {feed.reviews.map((review) => (
-              <FeedReviewCard key={review.id} review={review} />
+              <SocialReviewCard key={review.id} review={review} music={reviewedMusicFromSummary(review.target)} />
             ))}
             {feed.loadingMore && (
               <>

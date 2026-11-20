@@ -2,7 +2,7 @@ import type { Review, ReviewAuthor } from '../../reviews/models/review.types'
 
 /**
  * Contrato del módulo social del backend (commits b2968e8 y 7523d54, HOME-04 y HOME-05).
- * Fuente: domain/social.go y README del backend (endpoints 24 y 28).
+ * Fuente: domain/social.go y README del backend (endpoints 24 a 28).
  */
 
 /** Pestañas del feed: "Para ti (Popular)" y "Siguiendo". */
@@ -42,4 +42,21 @@ export interface SuggestionPage {
   limit: number
   computed_at: string | null
   users: UserSuggestion[]
+}
+
+/** Perfil público (GET /users/{id} y respuesta de POST/DELETE /users/{id}/follow). */
+export interface PublicProfile extends ReviewAuthor {
+  created_at: string
+  followers_count: number
+  following_count: number
+  reviews_count: number
+  followed_by_me: boolean
+  is_me: boolean
+}
+
+/** POST/DELETE /reviews/{id}/like → 200. */
+export interface LikeResult {
+  review_id: string
+  liked: boolean
+  likes_count: number
 }

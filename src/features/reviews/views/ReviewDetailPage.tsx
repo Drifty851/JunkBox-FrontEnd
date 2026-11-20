@@ -2,11 +2,8 @@ import { useEffect } from 'react'
 import { Link, useNavigate } from 'react-router'
 import arrowLeftIcon from '../../../assets/icons/arrow-left-20.svg'
 import { MaskIcon } from '../../../shared/ui/MaskIcon'
-import { ReviewCard } from '../../../shared/ui/ReviewCard'
-import { defaultAvatarUrl } from '../../../shared/utils/defaultAvatar'
-import { formatRelativeTime } from '../../../shared/utils/formatTime'
 import { DetailError, DetailLayout, DetailSkeleton } from '../../catalog/views/DetailParts'
-import { userProfilePath } from '../../profile/models/profile'
+import { SocialReviewCard } from '../../social/views/SocialReviewCard'
 import { useReviewDetailController } from '../controllers/useReviewDetailController'
 import { publishedLabel } from '../models/reviewDetail'
 import { CommentThread } from './CommentThread'
@@ -73,24 +70,7 @@ export function ReviewDetailPage() {
       {header(`La reseña de ${authorName}`)}
       <div className="flex w-full flex-col gap-6 xl:flex-row xl:items-start xl:gap-12">
         <div className="flex min-w-0 flex-1 flex-col gap-4">
-          <ReviewCard
-            full
-            review={{
-              authorName: authorName ?? review.author.username,
-              authorUsername: review.author.username,
-              authorAvatarUrl: review.author.avatar_url,
-              authorFallbackAvatarUrl: defaultAvatarUrl(review.author.username),
-              authorHref: userProfilePath(review.author.username),
-              when: formatRelativeTime(review.created_at),
-              musicTitle: music?.title ?? 'Música',
-              musicHref: music?.href,
-              musicSubtitle: music?.subtitle ?? '',
-              musicImageUrl: music?.imageUrl ?? null,
-              score: review.rating_score,
-              content: review.content,
-              likes: review.likes_count,
-            }}
-          />
+          <SocialReviewCard full review={review} music={music} />
           {caption && (
             <p className="text-xs leading-[1.4] text-fg-placeholder">
               {music ? (

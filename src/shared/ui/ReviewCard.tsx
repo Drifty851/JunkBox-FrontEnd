@@ -4,6 +4,7 @@ import type { ReactNode } from 'react'
 import { Link } from 'react-router'
 import { cn } from '../utils/cn'
 import { Avatar } from './Avatar'
+import { FollowButton, type FollowControl } from './FollowButton'
 import { MaskIcon } from './MaskIcon'
 import { StarRating } from './StarRating'
 
@@ -27,20 +28,45 @@ export interface ReviewCardData {
   score: number | null
   content: string
   likes: number
+  /** Comentarios de la reseña (`comments_count`). */
+  comments: number
 }
 
-const PENDING = 'Disponible cuando el backend lo permita'
+/** Me gusta de la tarjeta (los aporta el módulo social con `useLike`). */
+export interface LikeControl {
+  liked: boolean
+  count: number
+  pending: boolean
+  onToggle: () => void
+}
+
+const likesLabel = (count: number) => (count === 1 ? '1 Me gusta' : `${count} Me gusta`)
+const commentsLabel = (count: number) => (count === 1 ? '1 comentario' : `${count} comentarios`)
 
 /**
  * ReviewCard (Figma · 14296:11962). Escritorio (ReviewCard-21): tarjeta con borde, padding 20,
  * fondo surface/default-5 y título 22. Móvil (ReviewCard-22): sin borde ni padding, título 18.
  * Acciones (decisión del propietario, 2026-11-15): solo Me gusta y Comentarios; Guardar y "más
- * opciones" se quitaron. Me gusta y Seguir no tienen backend (LIKE-01, FOL-01): estilo de Figma,
- * sin acción y con `aria-disabled`. "Comentarios" abre la Reseña Completa (`reviewHref`).
+ * opciones" se quitaron. "N comentarios" (Figma) abre la Reseña Completa (`reviewHref`).
+ * Interacciones (2026-11-19): `follow` pinta Seguir / Siguiendo (sin él no hay botón: reseña propia)
+ * y `like` hace pulsable el Me gusta; dado, el corazón y el contador van en `accent` (Figma no tiene
+ * esa variante; decisión del propietario).
  * Con `authorHref`, el avatar y el nombre abren el perfil del autor (2026-11-15).
  * `full` es la tarjeta de la Reseña Completa (ReviewCard-17): portada de 104 en escritorio.
  */
-export function ReviewCard({ review, className, full = false }: { review: ReviewCardData; className?: string; full?: boolean }) {
+export function ReviewCard({
+  review,
+  className,
+  full = false,
+  follow,
+  like,
+}: {
+  review: ReviewCardData
+  className?: string
+  full?: boolean
+  follow?: FollowControl
+  like?: LikeControl
+}) {
   return (
     <article
       className={cn(
@@ -63,14 +89,7 @@ export function ReviewCard({ review, className, full = false }: { review: Review
             </span>
           </span>
         </AuthorLink>
-        <button
-          type="button"
-          aria-disabled="true"
-          title={PENDING}
-          className="flex h-8 shrink-0 cursor-default items-center rounded-lg border border-line bg-surface-quickplay px-3 text-sm leading-[1.4] font-medium text-fg"
-        >
-          Seguir
-        </button>
+        {follow && <FollowButton name={review.authorName} control={follow} />}
       </header>
 
       <div className="flex w-full items-center gap-3">
@@ -98,22 +117,40 @@ export function ReviewCard({ review, className, full = false }: { review: Review
       <p className="w-full text-sm leading-[1.4] break-words whitespace-pre-line text-fg">{review.content}</p>
 
       <footer className="flex w-full items-center gap-5 text-xs leading-[1.4] text-fg">
-        <span aria-disabled="true" title={PENDING} className="flex items-center gap-1.5">
-          <MaskIcon src={likeIcon} size={18} className="bg-fg" />
-          {review.likes === 1 ? '1 Me gusta' : `${review.likes} Me gusta`}
-        </span>
+        {like ? (
+          <button
+            type="button"
+            onClick={like.onToggle}
+            aria-pressed={like.liked}
+            aria-disabled={like.pending || undefined}
+            aria-label={`${like.liked ? 'Quitar Me gusta' : 'Me gusta'} (${likesLabel(like.count)})`}
+            className={cn(
+              'flex cursor-pointer items-center gap-1.5 rounded hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-fg',
+              like.liked && 'text-accent',
+              like.pending && 'cursor-progress',
+            )}
+          >
+            <MaskIcon src={likeIcon} size={18} className={like.liked ? 'bg-accent' : 'bg-fg'} />
+            {likesLabel(like.count)}
+          </button>
+        ) : (
+          <span className="flex items-center gap-1.5">
+            <MaskIcon src={likeIcon} size={18} className="bg-fg" />
+            {likesLabel(review.likes)}
+          </span>
+        )}
         {review.reviewHref ? (
           <Link
             to={review.reviewHref}
             className="flex items-center gap-1.5 rounded hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-fg"
           >
             <MaskIcon src={messageSquareIcon} size={18} className="bg-fg" />
-            Comentarios
+            {commentsLabel(review.comments)}
           </Link>
         ) : (
           <span className="flex items-center gap-1.5">
             <MaskIcon src={messageSquareIcon} size={18} className="bg-fg" />
-            Comentarios
+            {commentsLabel(review.comments)}
           </span>
         )}
       </footer>

@@ -1,5 +1,6 @@
 import { Link } from 'react-router'
 import { Avatar } from '../../../shared/ui/Avatar'
+import type { FollowControl } from '../../../shared/ui/FollowButton'
 import { defaultAvatarUrl } from '../../../shared/utils/defaultAvatar'
 import { userProfilePath } from '../models/profile'
 import { FollowButton } from './FollowButton'
@@ -19,7 +20,7 @@ export interface UserSummary {
  * Sin datos hasta FOL-02. `detail` reemplaza la línea secundaria (@usuario): en Inicio es el motivo
  * de la sugerencia ("También escucha Hoke", decisión del propietario, 2026-11-19).
  */
-export function UserCard({ user, detail }: { user: UserSummary; detail?: string }) {
+export function UserCard({ user, detail, follow }: { user: UserSummary; detail?: string; follow?: FollowControl }) {
   const name = user.displayName || user.username
   return (
     <li className="relative flex w-full items-center gap-3 rounded-lg">
@@ -33,7 +34,7 @@ export function UserCard({ user, detail }: { user: UserSummary; detail?: string 
         </Link>
         <p className="truncate text-xs text-fg-placeholder">{detail ?? `@${user.username}`}</p>
       </div>
-      <FollowButton name={name} />
+      <FollowButton name={name} control={follow} />
     </li>
   )
 }

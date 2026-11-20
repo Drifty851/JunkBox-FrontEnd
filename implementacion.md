@@ -80,7 +80,7 @@ Módulos posteriores (misma estructura de capas; solo las que necesitan):
 | Fichas | `features/catalog/` | `models/catalogPaths.ts`, `controllers/` (`useLoad`, `catalogLoaders`), `views/` (`SongPage`, `AlbumPage`, `ArtistPage`, `DetailParts`, `ReviewsSection`). §7. |
 | Landing | `features/landing/` | `data/landingCovers.ts` (80 portadas fijas y el easter egg), `views/` (`LandingPage`, `CoverWall` con `MobileCoverWall`). §9. |
 | Social | `features/social/` | `models/social.types.ts` (feed y sugerencias), `infrastructure/socialApi.ts` (`getFeed`, `getSuggestions`), `services/socialService.ts` (zona horaria del navegador). Lo usa Inicio; después, seguir, Me gusta y comentarios (decisión del propietario, 2026-11-19: un solo módulo para lo social). §4.10. |
-| Calificaciones y Reseñas | `features/reviews/` | `models/` (`review.types.ts`, `writeReview.ts`), `infrastructure/reviewsApi.ts`, `services/reviewsService.ts`, `controllers/useWriteReviewController.ts`, `views/WriteReviewPage.tsx`. §8. |
+| Calificaciones y Reseñas | `features/reviews/` | `models/` (`review.types.ts`, `writeReview.ts`), `infrastructure/reviewsApi.ts`, `services/reviewsService.ts`, `controllers/useWriteReviewController.ts`, `views/WriteReviewPage.tsx`. §8. Me gusta y Seguir viven en `features/social/` (§8.9). |
 
 Lo reutilizable entre módulos vive en `src/shared/` (`api/`, `hooks/`, `ui/`, `layout/`, `utils/`). La composición global (proveedores, router, guardas y `AppLayout`) está en `src/app/`.
 
@@ -204,7 +204,8 @@ Los iconos de un solo color (`eye`, `lock`, los de navegación, QuickPlay, filas
 | `SecondaryButton` | `Button` (14296:3647, Button-15/16) | Alto 44, borde `line`, fondo `surface-quickplay`; `aria-disabled` para destinos pendientes. |
 | `StarRating` | `StarRating` (14296:5021) | Tamaños `sm` 76×12, `md` 96×16 y `lg` 106×18. Pinta el **promedio real**: el recurso de Figma como máscara, vacío en `line` y relleno en `fg` recortado al porcentaje. |
 | `StarRatingInput` | `StarRating` Rating-08 (176×32) | Editable de 0,5 en 0,5 (rol `slider`). §8.4. |
-| `ReviewCard` | `ReviewCard` (14296:11962) | Escritorio con borde y padding 20; móvil sin borde. Solo Me gusta y Comentarios (Guardar y "más opciones" se quitaron el 2026-11-15); Seguir y Me gusta con `aria-disabled` (FOL-01, LIKE-01); "Comentarios" abre la Reseña Completa (§8.8). |
+| `ReviewCard` | `ReviewCard` (14296:11962) | Escritorio con borde y padding 20; móvil sin borde. Solo Me gusta y Comentarios (Guardar y "más opciones" se quitaron el 2026-11-15). Props `follow` y `like` (2026-11-19, §8.9): Seguir / Siguiendo y Me gusta pulsable (dado, en `accent`); sin `follow` no hay botón. "N comentarios" abre la Reseña Completa (§8.8). Desde las pantallas se usa `SocialReviewCard`. |
+| `FollowButton` | `Button` Follow / Following (14296:3462 / 14296:3539) | "Seguir" / "Siguiendo" con `aria-pressed`; sin `control`, `aria-disabled` (§8.9). |
 | `PlayButton` | `MusicRow › play-circle` | 28 px; sin `onPlay` queda `aria-disabled` (el reproductor está pendiente). |
 | `Navbar` (`shared/layout`) | `Navbar` (14296:14145) | Móvil 52 / escritorio 80; enlace activo con `aria-current`. |
 | `BottomBar` (`shared/layout`) | `BottomBar` (14296:15745) | Solo móvil; ítem activo con el color `link`. |
@@ -1024,6 +1025,48 @@ features/reviews/
 
 ---
 
+### 8.9 Me gusta y Seguir (2026-11-19)
+
+El backend añadió Me gusta y Seguir (commit `b2968e8`, HOME-04): `POST/DELETE /reviews/{id}/like` → `{ review_id, liked, likes_count }` y `POST/DELETE /users/{id}/follow` → perfil público. Las reseñas traen `liked_by_me`, `likes_count`, `comments_count` y `following_author`. Este módulo conecta los botones que estaban con `aria-disabled`.
+
+**Decisiones del propietario:**
+
+| Tema | Decisión |
+|---|---|
+| Estado | Compartido: `SocialProvider` (`features/social/controllers`, montado en `src/app/App.tsx`) guarda lo que el usuario cambia en la sesión, por id de persona y de reseña. Todas las tarjetas del mismo autor o de la misma reseña quedan iguales sin recargar (Inicio, Fichas, Reseña Completa y "Conecta por lo que suena"). |
+| Me gusta dado | Figma no tiene esa variante: mismo icono `like.svg` y contador en el token `accent`. |
+| Reseñas propias | Sin botón Seguir (el backend no deja seguirse a uno mismo). |
+| Dejar de seguir | Un toque en "Siguiendo", sin confirmación. |
+
+**Figma:** `Button · Follow` ("Seguir", 14296:3462) y `Button · Following` ("Siguiendo", 14296:3539), con el mismo estilo. El pie de la tarjeta dice "24 comentarios": ahora muestra `comments_count` ("1 comentario" / "N comentarios").
+
+**Estructura:**
+
+| Pieza | Responsabilidad |
+|---|---|
+| `social/infrastructure/socialApi.ts` · `social/services/socialService.ts` | `setFollowing(userId, follow)` y `setLiked(reviewId, like)`. |
+| `social/controllers/socialContext.ts` | `useFollow(userId, serverFollowing)` y `useLike(reviewId, serverLiked, serverCount)`: el valor del backend, salvo que el usuario lo haya cambiado en la sesión. |
+| `social/controllers/SocialProvider.tsx` | Cambios optimistas (se ven al instante), una petición a la vez por botón y vuelta atrás si falla; un `401` cierra la sesión. Empieza de cero al cambiar de usuario. |
+| `social/views/SocialReviewCard.tsx` | Arma la `ReviewCard` desde una `Review` (antes se repetía en Inicio, Fichas y Reseña Completa) y le pasa `follow` y `like`. |
+| `shared/ui/FollowButton.tsx` | Botón de Figma "Seguir" / "Siguiendo" con `aria-pressed`; sin `control`, sin acción (Perfil y Buscador hasta sus módulos). |
+| `shared/ui/ReviewCard.tsx` | Props `follow` (sin ella no hay botón) y `like` (Me gusta pulsable); campo `comments`. |
+| `catalog/views/ReviewsSection.tsx` · `ArtistReviewCard` | "N Me gusta" pulsable con el mismo estilo de texto; "N comentarios". |
+| `home/views/CommunitySuggestion.tsx` | Seguir en la sugerencia: queda en "Siguiendo"; el backend deja de sugerirla en la siguiente carga. |
+
+**Accesibilidad:** Me gusta y Seguir son `<button>` con `aria-pressed`. El nombre incluye el contador o la persona ("Quitar Me gusta (3 Me gusta)", "Dejar de seguir a Omar"). Mientras la petición está en curso, `aria-disabled`.
+
+**Limitaciones:**
+- Si el backend falla, el cambio se revierte sin mensaje (Figma no define un aviso).
+- La pestaña "Siguiendo" de Inicio no se recarga sola al seguir a alguien: aparece en la siguiente carga o al reiniciar Inicio con el logo.
+- Perfil, Seguidores/Seguidos y el Buscador siguen con Seguir sin acción hasta sus módulos.
+
+**Verificación (2026-11-19):**
+
+| Prueba | Resultado |
+|---|---|
+| `pnpm typecheck` · `pnpm lint` · `pnpm build` | Correcto |
+| Me gusta, Seguir, reseña propia, sincronización entre pantallas, fallo de red, 390 y 1440, Claro y Oscuro | Pendiente de probar por el propietario |
+
 ## 9. Módulo 7: Landing (usuarios sin sesión)
 
 ### 9.1 Diseño
@@ -1596,3 +1639,4 @@ Además: probar las rutas del módulo con el backend en marcha (`pnpm dev`), rev
 | 2026-11-19 | Reproductor (Connect): con la app de Spotify dormida en el teléfono, el MiniPlayer ofrece "Abrir en Spotify" con la canción y la vuelve a pedir al regresar a Junkbox (§11.3). |
 | 2026-11-19 | Corrección (Connect, iPhone): "Atrás" y "Adelante" mostraban "necesitas Spotify Premium" con una cuenta Premium. Un 403 de Spotify solo se trata como falta de Premium si su motivo es `PREMIUM_REQUIRED`; no se envían órdenes que sobran (§11.3). |
 | 2026-11-19 | Corrección (Connect, iPhone): "Adelante" no dejaba la barra llena porque una lectura del estado anterior a la orden la deshacía; se descartan las lecturas de antes y de los 900 ms siguientes a cada orden (§11.3). |
+| 2026-11-19 | Interacciones (§8.9): Me gusta y Seguir reales en las tarjetas de reseña (Inicio, Fichas, Reseña Completa) y Seguir en "Conecta por lo que suena". Estado compartido en `SocialProvider`; `SocialReviewCard`, `FollowButton` compartido; "N comentarios" con `comments_count`. |

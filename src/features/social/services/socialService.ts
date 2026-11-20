@@ -1,6 +1,6 @@
 import { authService } from '../../auth/services/authService'
 import { socialApi } from '../infrastructure/socialApi'
-import type { FeedPage, FeedTab, UserSuggestion } from '../models/social.types'
+import type { FeedPage, FeedTab, LikeResult, PublicProfile, UserSuggestion } from '../models/social.types'
 
 const call = <T>(request: (token: string) => Promise<T>) => authService.withAccessToken(request)
 
@@ -31,5 +31,15 @@ export const socialService = {
   async getSuggestions(limit: number, signal?: AbortSignal): Promise<UserSuggestion[]> {
     const page = await call((token) => socialApi.getSuggestions(limit, token, signal))
     return page.users
+  },
+
+  /** Seguir o dejar de seguir a una persona. */
+  setFollowing(userId: string, follow: boolean): Promise<PublicProfile> {
+    return call((token) => socialApi.setFollowing(userId, follow, token))
+  },
+
+  /** Dar o quitar Me gusta a una reseña. */
+  setLiked(reviewId: string, like: boolean): Promise<LikeResult> {
+    return call((token) => socialApi.setLiked(reviewId, like, token))
   },
 }
