@@ -1,14 +1,25 @@
+import type { Album, Artist, TrackSummary } from '../../music/models/catalog.types'
+
 /**
- * Contrato de calificaciones y reseñas del backend (commit 6d77d4d).
- * Fuente: dto/review_dto.go, README del backend (endpoints 15–22) e implementacion.md §6.
+ * Contrato de calificaciones y reseñas del backend (commit 6d77d4d; resumen del objetivo y campos
+ * sociales desde los commits 195c611 y b2968e8, HOME-02 y HOME-04).
+ * Fuente: domain/review.go, README del backend (endpoints 15–22) e implementacion.md §6.
  */
 
 export type ReviewTargetType = 'song' | 'album' | 'artist'
+
+/**
+ * Resumen de lo reseñado (HOME-02), con los mismos objetos del catálogo: canción → TrackSummary,
+ * álbum → Album (sin `tracks` ni `ratings`), artista → Artist (sin `ratings`).
+ */
+export type ReviewTargetSummary = TrackSummary | Album | Artist
 
 /** Objetivo tal como lo devuelve el backend: siempre con el id LOCAL. */
 export interface ReviewTarget {
   type: ReviewTargetType
   id: string
+  /** Solo en las reseñas (no en las calificaciones). Ausente si el objetivo se borró. */
+  summary?: ReviewTargetSummary
 }
 
 /** POST /ratings → 201 (nuevo) / 200 (reemplazado) · GET /ratings/my → 200 · 404 si no votó. */
@@ -43,8 +54,13 @@ export interface Review {
   content: string
   /** Voto ACTUAL del autor sobre el mismo objetivo; null si no tiene. */
   rating_score: number | null
-  /** Reservado: siempre 0 (LIKE-01). */
   likes_count: number
+  comments_count: number
+  /** Campos del usuario que pide la reseña (HOME-04). */
+  liked_by_me: boolean
+  /** Siempre false: los guardados no existen todavía en el backend. */
+  saved_by_me: boolean
+  following_author: boolean
   author: ReviewAuthor
   created_at: string
   updated_at: string

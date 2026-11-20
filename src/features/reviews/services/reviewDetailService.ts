@@ -48,6 +48,38 @@ async function loadMusic(target: ReviewTarget, signal: AbortSignal): Promise<Rev
   return { title: artist.name, subtitle: 'Artista', artistName: null, imageUrl: artist.image_url, href: artistPath(artist.id) }
 }
 
+/**
+ * Lo reseñado a partir de `review.target.summary` (HOME-02), sin pedir el catálogo. Mismo formato
+ * que `loadMusic`, salvo el álbum de la canción, que el resumen solo trae como título. null si el
+ * objetivo se borró (sin `summary`).
+ */
+export function reviewedMusicFromSummary(target: ReviewTarget): ReviewedMusic | null {
+  const summary = target.summary
+  if (!summary) return null
+  if (target.type === 'song' && 'track_name' in summary) {
+    return {
+      title: summary.track_name,
+      subtitle: [summary.artist_name, summary.album_title, summary.year].filter(Boolean).join(' · '),
+      artistName: summary.artist_name,
+      imageUrl: summary.album_image_url,
+      href: songPath(summary.spotify_id),
+    }
+  }
+  if (target.type === 'album' && 'title' in summary) {
+    return {
+      title: summary.title,
+      subtitle: [summary.artist_name, summary.album_type === 'single' ? 'Sencillo' : 'Álbum', summary.release_year].filter(Boolean).join(' · '),
+      artistName: summary.artist_name,
+      imageUrl: summary.image_url,
+      href: albumPath(summary.id),
+    }
+  }
+  if (target.type === 'artist' && 'name' in summary) {
+    return { title: summary.name, subtitle: 'Artista', artistName: null, imageUrl: summary.image_url, href: artistPath(summary.id) }
+  }
+  return null
+}
+
 /** Reseña Completa: la reseña (GET /reviews/{id}) y lo reseñado (GET /music/…). */
 export async function loadReviewDetail(id: string, signal: AbortSignal): Promise<ReviewDetail> {
   const review = await reviewsService.get(id, signal)

@@ -41,7 +41,8 @@ El backend es un servicio en Go que se ejecuta aparte (en este equipo, dentro de
 
 - **Base de la API:** `/api/v1` (README del backend, §API REST).
 - **Proxy de desarrollo (por defecto):** en `pnpm dev`, Vite redirige `/api/*` a `VITE_BACKEND_URL` (por defecto `http://localhost:8080`), así el navegador ve un solo origen y funciona aunque Vite use otro puerto. WSL2 expone el puerto del backend en el `localhost` de Windows.
-- **Backend en Kubernetes** (kind + Envoy Gateway, commit `2d05563` del backend): la API está en el puerto 80. Pon `VITE_BACKEND_URL=http://localhost` en `.env.local`. Los contratos no cambian.
+- **Kubernetes:** el backend lo quitó (commit `1c7b308`, 2026-11-16) y volvió a escuchar en el puerto 8080. Si tu `.env.local` tiene `VITE_BACKEND_URL=http://localhost` o `http://localhost:80`, cámbialo a `http://localhost:8080`: con el puerto 80 todas las llamadas a la API dan `404`.
+- **Migraciones:** si el backend responde `500 "error interno"` en rutas que antes funcionaban (por ejemplo `GET /reviews` o `/feed`), probablemente le faltan migraciones. Las aplica quien mantiene el backend; el frontend no ejecuta `make` ni `goose`.
 - **CORS del backend:** el backend acepta peticiones del navegador desde los orígenes de su variable `CORS_ALLOWED_ORIGINS` (por defecto `http://localhost:5173`), con `GET`, `POST`, `PUT`, `DELETE` y `OPTIONS`, las cabeceras `Authorization` y `Content-Type`, y sin cookies. Para saltar el proxy, pon `VITE_API_BASE_URL=http://localhost:8080/api/v1`. Cualquier otro origen se rechaza.
 - **Usuarios de prueba:** con `make seed-up` en el backend se crean 4 usuarios con la contraseña `Password123!`, por ejemplo `cesar@junkbox.local`.
 
@@ -50,7 +51,7 @@ El backend es un servicio en Go que se ejecuta aparte (en este equipo, dentro de
 | Variable | Por defecto | Uso |
 |---|---|---|
 | `VITE_API_BASE_URL` | `/api/v1` | Base de la API que usa el navegador. Relativa: pasa por el proxy (desarrollo) o por el mismo origen (producción). Absoluta (`https://…/api/v1`): llamada directa usando el CORS del backend. |
-| `VITE_BACKEND_URL` | `http://localhost:8080` | Solo en desarrollo: destino del proxy de Vite (`http://localhost` si el backend corre en Kubernetes). |
+| `VITE_BACKEND_URL` | `http://localhost:8080` | Solo en desarrollo: destino del proxy de Vite. |
 | `VITE_SPOTIFY_CLIENT_ID` | — | Client ID **público** de la app de Spotify (PKCE, sin secreto) para vincular Spotify Premium desde Configuración. En el panel de Spotify, la Redirect URI debe ser `http://127.0.0.1:5173/spotify/callback` y, para vincular, Junkbox debe abrirse en `http://127.0.0.1:5173` (`implementacion.md` §11.1). |
 | `VITE_SPOTIFY_REDIRECT_URI` | `http://127.0.0.1:5173/spotify/callback` | Solo si se registra otra URL de retorno en Spotify. |
 
@@ -86,7 +87,8 @@ src/
 ├── assets/                  # recursos originales exportados de Figma (logo, iconos)
 ├── shared/                  # piezas reutilizables entre módulos
 │   ├── api/                 # cliente HTTP (fetch) y errores de API
-│   ├── layout/              # Navbar, BottomBar, menú de cuenta
+│   ├── hooks/               # hooks reutilizables (scroll infinito)
+│   ├── layout/              # Navbar, BottomBar, menú de cuenta, reinicio al volver a pulsar Inicio
 │   ├── ui/                  # componentes de UI (TextInput, PrimaryButton, MusicCard, Avatar…)
 │   └── utils/
 └── features/                # un directorio por módulo
@@ -97,11 +99,12 @@ src/
     │   ├── controllers/     # Controlador: contexto de sesión y hooks de cada formulario
     │   └── views/           # Vista: páginas y layout del módulo
     ├── home/
-    │   ├── data/            # plantilla de canciones recomendadas (IDs de Spotify)
-    │   ├── models/          # tipos de la vista
+    │   ├── models/          # contrato de GET /home y pestañas del feed
+    │   ├── infrastructure/  # adaptador de GET /home
     │   ├── services/        # caso de uso: recomendaciones de Inicio
-    │   ├── controllers/     # carga, error y reintento
-    │   └── views/           # Inicio y "Hecho para tus oídos"
+    │   ├── controllers/     # recomendaciones, sugerencias y feed paginado (scroll infinito)
+    │   └── views/           # Inicio, "Hecho para tus oídos", feed y "Conecta por lo que suena"
+    ├── social/              # feed, sugerencias de usuarios (y, después, seguir, Me gusta y comentarios)
     ├── music/               # catálogo compartido: tipos, adaptador /music/* y cascada del catálogo
     ├── search/              # Buscador (/buscar) y buscador de la Navbar con sugerencias
     ├── catalog/             # fichas de Canción, Álbum y Artista (rutas, useLoad, vistas)
@@ -115,13 +118,40 @@ src/
 
 ---
 
+## Probar en el teléfono y en otros navegadores
+
+### Desde un iPhone (o cualquier teléfono) en la misma red Wi-Fi
+
+1. Levanta el frontend escuchando en la red local: `pnpm dev --host`. La opción de la línea de comandos tiene prioridad sobre `server.host` de `vite.config.ts`, así que `http://127.0.0.1:5173` sigue funcionando en la PC.
+2. Vite muestra la dirección en la línea `Network`, por ejemplo `http://192.168.1.50:5173`. Ábrela en Safari del iPhone.
+3. Si no carga, Windows está bloqueando el puerto: al primer arranque acepta el aviso del firewall para **redes privadas**, o permite el puerto 5173 para Node.js. La red Wi-Fi debe estar marcada como privada en Windows.
+4. El backend no se toca: el teléfono solo habla con Vite y el proxy de Vite llama al backend desde la PC (`localhost:8080`), así que tampoco hace falta CORS.
+
+**Qué no funciona desde el teléfono:**
+
+- **Spotify:** el reproductor (Web Playback SDK) no funciona en navegadores móviles, y vincular la cuenta necesita `crypto.subtle`, que el navegador solo ofrece en `https` o en `127.0.0.1`/`localhost`. Desde `http://192.168…` el botón de vincular falla. Lo demás (sesión, Inicio, Buscador, Fichas, Reseñas, Perfil) no usa esas funciones.
+- **Vista previa en DevTools:** en el iPhone no hay DevTools. Para ver errores de Safari en iPhone hace falta una Mac (Safari › Desarrollo); desde Windows, el modo dispositivo de Chrome, Edge o Brave sirve para revisar el diseño a 390 px.
+
+### Navegadores compatibles
+
+Tailwind CSS v4 fija el mínimo: **Safari 16.4+** (iOS 16.4+), **Chrome/Edge/Brave 111+** y **Firefox 128+**. En navegadores más viejos el diseño se rompe (colores, espaciados). La app no usa nada que dependa de un navegador concreto: las máscaras de iconos llevan también el prefijo `-webkit-` para Safari.
+
+| Navegador | Estado | Notas |
+|---|---|---|
+| Chrome, Edge | Probado | Navegadores de referencia del proyecto. |
+| Brave | Probado (2026-11-19) | Si no cargan carátulas, avatares o Spotify, desactiva los Shields para `127.0.0.1`. El reproductor de Spotify necesita Widevine (Brave pregunta si se activa la primera vez). |
+| Firefox | Debería funcionar, sin verificar | El reproductor de Spotify necesita "Reproducir contenido controlado por DRM" activado (Ajustes › General). |
+| Safari (Mac y iPhone) | Debería funcionar, sin verificar | En iPhone, Chrome, Firefox y Brave también usan el motor de Safari (WebKit): se comportan igual que Safari. |
+
+---
+
 ## Módulos
 
 | Módulo | Rutas | Estado | Endpoints |
 |---|---|---|---|
 | Landing | `/` (sin sesión) | Implementado (`implementacion.md` §9). 80 portadas fijas elegidas por el propietario; 40 al azar en móvil (LANDING-01) | — |
 | Autenticación | `/login`, `/register`, `/recuperar-contrasena`, `/restablecer-contrasena`, `/verificar-correo` | Implementado. El registro envía `terms_accepted` (obligatorio en el backend desde el 2026-11-12) | `POST /auth/login`, `POST /auth/register`, `GET /auth/me`, `POST /auth/refresh`, `POST /auth/logout`, `POST /auth/password/forgot`, `POST /auth/password/reset`, `POST /auth/email/verify` |
-| Inicio | `/` (`?feed=siguiendo`), `/recomendaciones` | Implementado con contenido al azar de la lista de prueba (§4.9): recomendaciones, "Ver todo" y feed "Para ti (Popular)" | `GET /reviews` |
+| Inicio | `/` (`?feed=siguiendo`), `/recomendaciones` | Implementado con datos del backend (§4.10): recomendaciones, "Ver todo", feed "Para ti (Popular)" y "Siguiendo" con scroll infinito y "Conecta por lo que suena". El logo, "Inicio" y la BottomBar reinician Inicio si ya estás en él. Me gusta y Seguir, pendientes del siguiente módulo | `GET /home`, `GET /feed`, `GET /users/suggestions` |
 | Cuenta y legales | `/terminos`, `/privacidad` · menú del avatar | Implementado (§5). Textos legales en revisión | — (avatar por defecto en `POST /auth/register`) |
 | Buscador | `/buscar?q=` (`&tipo=usuarios`) · campo de la Navbar | Implementado (§6). Usuarios, plantilla hasta SEARCH-04 (§6.8) | `GET /music/search`, `GET /music/albums/{id}` |
 | Fichas del catálogo | `/cancion/:id`, `/album/:id`, `/artista/:id` | Implementado (§7) | `GET /music/tracks\|albums\|artists/{id}`, `GET /music/search` (cascada), `GET /reviews`, `GET /ratings/my` |

@@ -1,7 +1,10 @@
 import { Link } from 'react-router'
+import { FormAlert } from '../../../shared/ui/FormAlert'
 import { MusicCard } from '../../../shared/ui/MusicCard'
+import { songPath } from '../../catalog/models/catalogPaths'
+import type { LoadState } from '../../catalog/controllers/useLoad'
 import { usePlayer } from '../../player/controllers/playerContext'
-import { KIND_LABEL, RECOMMENDATIONS_PATH, targetPath, type DemoTarget } from '../models/home.types'
+import { RECOMMENDATIONS_PATH, type HomeItem } from '../models/home.types'
 
 /** Escritorio muestra 2×2 (Figma · RecommendationsSidebar); móvil, todas en el carrusel. */
 const LIST_CLASSES =
@@ -10,14 +13,14 @@ const ITEM_CLASSES = 'shrink-0 md:nth-[n+5]:hidden'
 
 /**
  * "Hecho para tus oídos" (Figma · Recommendations, móvil 14244:50349 / escritorio 14244:50642).
- * Canciones, álbumes y artistas al azar de la lista de prueba en cada carga (2026-11-15, hasta
- * HOME-01). Solo las canciones tienen QuickPlay; álbumes y artistas abren su ficha.
- * "Ver todo" abre /recomendaciones.
+ * Canciones de GET /home (HOME-01): parecidas a lo último que el usuario calificó o reseñó, o las
+ * más populares si aún no tiene actividad. QuickPlay reproduce la canción y la tarjeta abre su
+ * ficha. "Ver todo" abre /recomendaciones.
  */
-export function RecommendationsSection({ items }: { items: DemoTarget[] }) {
+export function RecommendationsSection({ state, onRetry }: { state: LoadState<HomeItem[]>; onRetry: () => void }) {
   const { play } = usePlayer()
   return (
-    <section aria-labelledby="home-recommendations-title" className="flex flex-col gap-3 md:gap-6">
+    <section aria-labelledby="home-recommendations-title" aria-busy={state.status === 'loading'} className="flex flex-col gap-3 md:gap-6">
       <div className="flex items-center justify-between gap-4">
         <h2 id="home-recommendations-title" className="text-lg leading-[1.4] font-semibold text-fg">
           Hecho para tus oídos
@@ -30,23 +33,47 @@ export function RecommendationsSection({ items }: { items: DemoTarget[] }) {
         </Link>
       </div>
 
-      {items.length === 0 ? (
-        <p className="text-sm leading-[1.4] text-fg-muted">Todavía no hay recomendaciones.</p>
+      {state.status === 'ready' ? (
+        state.data.length === 0 ? (
+          <p className="text-sm leading-[1.4] text-fg-muted">Todavía no hay recomendaciones.</p>
+        ) : (
+          <ul className={LIST_CLASSES}>
+            {state.data.map((item) => (
+              <li key={item.id} className={ITEM_CLASSES}>
+                <MusicCard
+                  title={item.track_name}
+                  artist={item.artist_name}
+                  kind="Canción"
+                  imageUrl={item.album_image_url}
+                  to={songPath(item.spotify_id)}
+                  onPlay={() => play(item.spotify_id)}
+                />
+              </li>
+            ))}
+          </ul>
+        )
+      ) : state.status === 'error' ? (
+        <div className="flex flex-col items-start gap-2">
+          <FormAlert message={state.message} />
+          <button
+            type="button"
+            onClick={onRetry}
+            className="cursor-pointer text-link-sm font-medium text-link underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-fg"
+          >
+            Reintentar
+          </button>
+        </div>
       ) : (
-        <ul className={LIST_CLASSES}>
-          {items.map((item) => (
-            <li key={`${item.type}:${item.id}`} className={ITEM_CLASSES}>
-              <MusicCard
-                title={item.title}
-                artist={item.type === 'artist' ? 'Artista' : item.subtitle.split(' · ')[0]}
-                kind={KIND_LABEL[item.type]}
-                imageUrl={item.imageUrl}
-                to={targetPath(item)}
-                onPlay={item.type === 'song' ? () => play(item.id) : undefined}
-              />
-            </li>
-          ))}
-        </ul>
+        <>
+          <p className="sr-only">Cargando recomendaciones…</p>
+          <ul aria-hidden="true" className={LIST_CLASSES}>
+            {[0, 1, 2, 3].map((index) => (
+              <li key={index} className={ITEM_CLASSES}>
+                <div className="size-28 rounded bg-surface-input-disabled motion-safe:animate-pulse md:size-41" />
+              </li>
+            ))}
+          </ul>
+        </>
       )}
     </section>
   )

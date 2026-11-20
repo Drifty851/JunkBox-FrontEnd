@@ -1,0 +1,35 @@
+import { authService } from '../../auth/services/authService'
+import { socialApi } from '../infrastructure/socialApi'
+import type { FeedPage, FeedTab, UserSuggestion } from '../models/social.types'
+
+const call = <T>(request: (token: string) => Promise<T>) => authService.withAccessToken(request)
+
+/** Reseñas por página del feed (backend: 1..50, por defecto 20). */
+const FEED_PAGE_SIZE = 20
+
+/**
+ * Zona horaria del navegador: "Para ti" agrupa las reseñas por día en esa zona. Si el navegador
+ * no la da, el backend usa America/Mazatlan.
+ */
+function browserTimezone(): string | undefined {
+  try {
+    return Intl.DateTimeFormat().resolvedOptions().timeZone || undefined
+  } catch {
+    return undefined
+  }
+}
+
+/** Casos de uso sociales (HOME-04, HOME-05). */
+export const socialService = {
+  /** Una página del feed. Sin `cursor`, la primera. */
+  getFeedPage(tab: FeedTab, cursor: string | null, signal?: AbortSignal): Promise<FeedPage> {
+    const timezone = tab === 'popular' ? browserTimezone() : undefined
+    return call((token) => socialApi.getFeed({ tab, timezone, limit: FEED_PAGE_SIZE, cursor }, token, signal))
+  },
+
+  /** Usuarios sugeridos ("Conecta por lo que suena"). */
+  async getSuggestions(limit: number, signal?: AbortSignal): Promise<UserSuggestion[]> {
+    const page = await call((token) => socialApi.getSuggestions(limit, token, signal))
+    return page.users
+  },
+}

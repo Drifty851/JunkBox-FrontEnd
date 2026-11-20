@@ -9,4 +9,6 @@ export interface NavigationItem {
   to: string | null
   /** Icono monocromo de la BottomBar (SVG original de Figma, 22 px). */
   icon: string
+  /** Volver a pulsarlo estando en la ruta reinicia la pantalla (ver `reselect.ts`). */
+  refreshOnReselect?: boolean
 }

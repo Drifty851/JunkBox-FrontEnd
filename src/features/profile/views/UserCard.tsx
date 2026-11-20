@@ -16,9 +16,10 @@ export interface UserSummary {
  * Seguidores / Seguidos (decisión del propietario, 2026-11-15): avatar 36, separación 12, nombre
  * Body/14/SemiBold, línea secundaria Caption/12 en text/secondary-2 y botón "Seguir".
  * Toda la tarjeta abre el perfil de la persona; el botón queda por encima del enlace (como MusicRow).
- * Sin datos hasta FOL-02.
+ * Sin datos hasta FOL-02. `detail` reemplaza la línea secundaria (@usuario): en Inicio es el motivo
+ * de la sugerencia ("También escucha Hoke", decisión del propietario, 2026-11-19).
  */
-export function UserCard({ user }: { user: UserSummary }) {
+export function UserCard({ user, detail }: { user: UserSummary; detail?: string }) {
   const name = user.displayName || user.username
   return (
     <li className="relative flex w-full items-center gap-3 rounded-lg">
@@ -30,7 +31,7 @@ export function UserCard({ user }: { user: UserSummary }) {
         >
           {name}
         </Link>
-        <p className="truncate text-xs text-fg-placeholder">@{user.username}</p>
+        <p className="truncate text-xs text-fg-placeholder">{detail ?? `@${user.username}`}</p>
       </div>
       <FollowButton name={name} />
     </li>

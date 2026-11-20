@@ -63,12 +63,12 @@ Cada módulo vive en `src/features/<módulo>/` con estas capas:
 | Capa | Carpeta | Responsabilidad | Auth | Inicio |
 |---|---|---|---|---|
 | Modelo | `models/` | Tipos del contrato de API y validación de cliente. | `auth.types.ts`, `auth.validation.ts`, `emailLink.ts` | `home.types.ts` |
-| Infraestructura | `infrastructure/` | Adaptadores HTTP y de almacenamiento. | `authApi.ts`, `sessionStorage.ts` | — (usa `music/`) |
+| Infraestructura | `infrastructure/` | Adaptadores HTTP y de almacenamiento. | `authApi.ts`, `sessionStorage.ts` | `homeApi.ts` |
 | Servicios | `services/` | Casos de uso; coordinan infraestructura. | `authService.ts`, `errorMessages.ts` | `homeService.ts` |
-| Controlador | `controllers/` | Estado de la vista, carga y errores; llama a servicios. | `AuthProvider.tsx`, `authContext.ts`, `useLoginController.ts`, `useRegisterController.ts`, `useForgotPasswordController.ts`, `useResetPasswordController.ts`, `useVerifyEmailController.ts`, `useEmailLinkToken.ts` | `useHomeController.ts` |
-| Vista | `views/` | Componentes React sin lógica de negocio. | `LoginPage.tsx`, `RegisterPage.tsx`, `ForgotPasswordPage.tsx`, `ResetPasswordPage.tsx`, `VerifyEmailPage.tsx`, `AuthLayout.tsx`, `AuthSwitchLink.tsx`, `passwordHelper.ts` | `HomePage.tsx`, `RecommendationsSection.tsx` |
+| Controlador | `controllers/` | Estado de la vista, carga y errores; llama a servicios. | `AuthProvider.tsx`, `authContext.ts`, `useLoginController.ts`, `useRegisterController.ts`, `useForgotPasswordController.ts`, `useResetPasswordController.ts`, `useVerifyEmailController.ts`, `useEmailLinkToken.ts` | `useHomeController.ts`, `useHomeFeed.ts` |
+| Vista | `views/` | Componentes React sin lógica de negocio. | `LoginPage.tsx`, `RegisterPage.tsx`, `ForgotPasswordPage.tsx`, `ResetPasswordPage.tsx`, `VerifyEmailPage.tsx`, `AuthLayout.tsx`, `AuthSwitchLink.tsx`, `passwordHelper.ts` | `HomePage.tsx`, `RecommendationsSection.tsx`, `HomeFeed.tsx`, `CommunitySuggestion.tsx`, `RecommendationsPage.tsx` |
 
-Inicio añade además `data/homeTemplate.ts` (la plantilla provisional de canciones y sus álbumes, §4.3).
+Inicio ya no tiene datos fijos: la plantilla (`data/homeTemplate.ts`, §4.3) y la lista de prueba (`data/demoPool.ts`, §4.9) se eliminaron al conectar los endpoints (§4.10).
 
 Módulos posteriores (misma estructura de capas; solo las que necesitan):
 
@@ -79,9 +79,10 @@ Módulos posteriores (misma estructura de capas; solo las que necesitan):
 | Buscador | `features/search/` | `models/search.types.ts`, `services/searchService.ts`, `controllers/` (`useSearchController`, `useSearchSuggestions`), `views/` (`SearchPage`, `SearchHeader`, `SearchResultsView`, `NavbarSearch`). §6. |
 | Fichas | `features/catalog/` | `models/catalogPaths.ts`, `controllers/` (`useLoad`, `catalogLoaders`), `views/` (`SongPage`, `AlbumPage`, `ArtistPage`, `DetailParts`, `ReviewsSection`). §7. |
 | Landing | `features/landing/` | `data/landingCovers.ts` (80 portadas fijas y el easter egg), `views/` (`LandingPage`, `CoverWall` con `MobileCoverWall`). §9. |
+| Social | `features/social/` | `models/social.types.ts` (feed y sugerencias), `infrastructure/socialApi.ts` (`getFeed`, `getSuggestions`), `services/socialService.ts` (zona horaria del navegador). Lo usa Inicio; después, seguir, Me gusta y comentarios (decisión del propietario, 2026-11-19: un solo módulo para lo social). §4.10. |
 | Calificaciones y Reseñas | `features/reviews/` | `models/` (`review.types.ts`, `writeReview.ts`), `infrastructure/reviewsApi.ts`, `services/reviewsService.ts`, `controllers/useWriteReviewController.ts`, `views/WriteReviewPage.tsx`. §8. |
 
-Lo reutilizable entre módulos vive en `src/shared/` (`api/`, `ui/`, `layout/`, `utils/`). La composición global (proveedores, router, guardas y `AppLayout`) está en `src/app/`.
+Lo reutilizable entre módulos vive en `src/shared/` (`api/`, `hooks/`, `ui/`, `layout/`, `utils/`). La composición global (proveedores, router, guardas y `AppLayout`) está en `src/app/`.
 
 ### 2.3 Tokens de Diseño y Temas
 
@@ -180,7 +181,7 @@ Los iconos de un solo color (`eye`, `lock`, los de navegación, QuickPlay, filas
 - Envía y recibe JSON con `GET`, `POST`, `PUT` y `DELETE` (los dos últimos, desde Calificaciones y Reseñas). Añade `Authorization: Bearer` si se le pasa un token.
 - Errores: el backend siempre responde `{"error": "..."}` (README del backend, "Formato Estándar de Errores"). Se convierten en `ApiError(status, message)`. Los fallos de red se convierten en `NetworkError`.
 
-`vite.config.ts` redirige `/api` → `VITE_BACKEND_URL` (`http://localhost:8080`). Es la opción por defecto porque funciona en cualquier puerto de Vite. Si el backend corre en Kubernetes (kind + Envoy Gateway, commit `2d05563`), la API está en el puerto 80: `VITE_BACKEND_URL=http://localhost` (ver `.env.example`). Cada respuesta trae entonces la cabecera `X-Instance` con la réplica que atendió; el frontend no la usa.
+`vite.config.ts` redirige `/api` → `VITE_BACKEND_URL` (`http://localhost:8080`). Es la opción por defecto porque funciona en cualquier puerto de Vite. El modo Kubernetes del backend (commit `2d05563`, API en el puerto 80) se retiró en el commit `1c7b308` (2026-11-16): el backend vuelve a estar en el 8080. Con `VITE_BACKEND_URL` en el puerto 80, todas las llamadas dan `404`.
 
 **CORS del backend** (desde el commit `bab8e12`): `go-chi/cors` con los orígenes de `CORS_ALLOWED_ORIGINS` (por defecto `http://localhost:5173`), métodos `GET`/`POST`/`PUT`/`DELETE`/`OPTIONS` (desde el commit `6d77d4d`), cabeceras `Authorization` y `Content-Type`, sin credenciales. Con `VITE_API_BASE_URL=http://localhost:8080/api/v1` el navegador llama al backend directamente, sin proxy. El cliente HTTP no cambia: no usa cookies (`credentials` queda por defecto) y solo envía esas dos cabeceras más `Accept`, que no necesita permiso de CORS.
 
@@ -207,7 +208,8 @@ Los iconos de un solo color (`eye`, `lock`, los de navegación, QuickPlay, filas
 | `PlayButton` | `MusicRow › play-circle` | 28 px; sin `onPlay` queda `aria-disabled` (el reproductor está pendiente). |
 | `Navbar` (`shared/layout`) | `Navbar` (14296:14145) | Móvil 52 / escritorio 80; enlace activo con `aria-current`. |
 | `BottomBar` (`shared/layout`) | `BottomBar` (14296:15745) | Solo móvil; ítem activo con el color `link`. |
-| `NavTarget` (`shared/layout`) | — | Enlace (`NavLink`) o botón con `aria-disabled` si el destino no existe. |
+| `NavTarget` (`shared/layout`) | — | Enlace (`NavLink`) o botón con `aria-disabled` si el destino no existe. Con `refreshOnReselect`, volver a pulsarlo estando en la ruta la reinicia (`reselect.ts`, §4.10.5). |
+| `useInfiniteScroll` (`shared/hooks`) | — | Scroll infinito para listas paginadas con cursor: centinela con `IntersectionObserver` a 600 px del final; se vuelve a observar al terminar cada página (§4.10.4). |
 | `AccountMenu` (`shared/layout`) | — (propuesta aprobada) | Tarjeta al pasar el ratón y menú con "Configuración" y "Cerrar sesión". Ver §5. |
 | `ThemeToggle` | — (aprobado 2026-11-13) | Sol/luna: alterna claro y oscuro y lo recuerda. 28 px en móvil, 36 en escritorio. Ver §2.3. |
 | `Navbar` · `search` | `Navbar › SearchField` | La Navbar recibe el campo de búsqueda como `ReactNode`: lo aporta el Buscador (`NavbarSearch`, §6.4). |
@@ -403,7 +405,7 @@ El caso de éxito de la verificación no se probó aquí: necesita un usuario si
 
 ## 4. Módulo 2: Inicio
 
-Inicio es una **base que crece con los demás módulos**. Muestra solo lo que tiene contrato de API; las secciones de Figma que dependen de módulos o endpoints que aún no existen (feed de reseñas, red social, reproductor) se añadirán cuando existan. No se muestra contenido de ejemplo.
+Inicio es una **base que crece con los demás módulos**. Desde el 2026-11-19 todo sale del backend (§4.10). §4.3 a §4.9 describen las versiones anteriores (plantilla y lista de prueba) y se conservan como historia; donde no coinciden, manda §4.10.
 
 ### 4.1 Pantallas de Figma
 
@@ -417,10 +419,10 @@ Componentes: `Navbar` (14296:14145), `BottomBar` (14296:15745), `SearchField` (1
 |---|---|
 | Navbar y BottomBar | Estructura común (`AppLayout`) para todas las pantallas con sesión. |
 | Feed introduction (escritorio): "Tu próxima obsesión empieza aquí." | Correcto |
-| "Hecho para tus oídos" (`MusicCard`) | Canciones, álbumes y artistas al azar de la lista de prueba (§4.9); cada tarjeta abre su ficha (§7). |
-| Tabs "Para ti (Popular)" / "Siguiendo" y `ReviewCard` | "Para ti (Popular)" con reseñas reales de los usuarios de prueba (§4.9); "Siguiendo" pendiente (FOL-01, HOME-04). |
-| "Conecta por lo que suena" (escritorio) | Pendiente: no hay sugerencias de usuarios. |
-| `MiniPlayer` y `SnippetPlayer` | Pendiente: no hay audio. |
+| "Hecho para tus oídos" (`MusicCard`) | Canciones de `GET /home` (§4.10); cada tarjeta abre su ficha y QuickPlay reproduce. |
+| Tabs "Para ti (Popular)" / "Siguiendo" y `ReviewCard` | `GET /feed` con scroll infinito (§4.10). Me gusta y Seguir sin acción hasta el módulo de interacciones. |
+| "Conecta por lo que suena" (escritorio, `14244:50676`) | Un usuario de `GET /users/suggestions` (§4.10). Seguir sin acción. |
+| `MiniPlayer` | Reproductor de Spotify (§11.2). `SnippetPlayer` no se usa (HOME-06 descartada). |
 
 ### 4.2 Rutas y Estructura
 
@@ -544,6 +546,77 @@ En desarrollo se ven 16 peticiones a `/music/tracks`: `StrictMode` monta el efec
 | "Comentarios" de una reseña del feed | Abre la Reseña Completa con su música |
 | `/recomendaciones` a 390 claro y 1440 oscuro | 24 filas sin repetidas; play solo en canciones; artistas con retrato circular |
 | Consola | Sin errores |
+
+### 4.10 Inicio con el backend (2026-11-19)
+
+El backend añadió las recomendaciones, el feed y las sugerencias de usuarios (commits `1c35740` a `7ade768`, 2026-11-16; HOME-01, HOME-04 y HOME-05). Inicio deja la lista de prueba (`demoPool.ts`, eliminada) y usa esos endpoints.
+
+#### 4.10.1 Decisiones del propietario
+
+| Tema | Decisión |
+|---|---|
+| Dónde va lo social | Módulo nuevo `features/social/` (feed y sugerencias; después seguir, Me gusta y comentarios). Los demás módulos lo importan. |
+| Me gusta y Seguir | Siguen sin acción en Inicio: se conectan en el módulo de interacciones de `ReviewCard`, una sola vez para Inicio, Fichas y Perfil. Los contadores ya son reales. |
+| Paginación del feed | Scroll infinito, con el hook compartido `useInfiniteScroll` (`shared/hooks`), reutilizable en seguidores y comentarios. |
+| "Conecta por lo que suena" | Como Figma: solo escritorio y un usuario. Reutiliza `UserCard` con el motivo como segunda línea (prop opcional `detail`). |
+| "Porque calificaste X" | No se muestra (no está en Figma), aunque `GET /home` trae la canción semilla. |
+| Volver a pulsar Inicio | El logo, "Inicio" de la Navbar y la BottomBar reinician Inicio sin recargar el navegador (§4.10.5). |
+
+#### 4.10.2 Contrato con el Backend
+
+| Bloque | Endpoint | Uso |
+|---|---|---|
+| "Hecho para tus oídos" | `GET /home?limit=8` | `sections[]` con `id: "made_for_you"`: `items` son `TrackSummary` más `type: "track"`. Parecidas a lo último que el usuario calificó o reseñó (`strategy: "similar_to_last"`) o las más populares (`popular`). |
+| "Ver todo" (`/recomendaciones`) | `GET /home?limit=24` | Las mismas recomendaciones, más canciones. Ahora solo hay canciones (antes la lista de prueba mezclaba álbumes y artistas). |
+| Feed | `GET /feed?tab=popular\|following&tz=&limit=20&cursor=` | "Para ti": reseñas del día ordenadas por Me gusta + 2 × comentarios, después las de días anteriores, sin las propias. `tz` es la zona del navegador (`Intl.DateTimeFormat().resolvedOptions().timeZone`). "Siguiendo": las de las personas que sigues, de la más nueva a la más antigua. `next_cursor: null` = última página. |
+| "Conecta por lo que suena" | `GET /users/suggestions?limit=1` | `reason.text` se muestra tal cual ("También escucha Hoke", "Gustos parecidos a los tuyos", "Popular en JunkBox"). |
+| Cabecera de cada `ReviewCard` | `review.target.summary` (HOME-02) | Título, subtítulo, carátula y ficha sin pedir el catálogo: `reviewedMusicFromSummary` (`reviews/services/reviewDetailService.ts`), con el mismo formato que la Reseña Completa. Sin `summary` (objetivo borrado): "Música no disponible", sin enlace. |
+
+`Review` (`reviews/models/review.types.ts`) añade `comments_count`, `liked_by_me`, `saved_by_me`, `following_author` y `target.summary`. Errores: `401` cierra la sesión si no se puede renovar; el resto muestra `FormAlert` con "Reintentar".
+
+#### 4.10.3 Estructura
+
+| Capa | Archivos |
+|---|---|
+| `features/social/` | `models/social.types.ts`, `infrastructure/socialApi.ts`, `services/socialService.ts` |
+| `features/home/` | `models/home.types.ts` (contrato de `/home` y pestañas), `infrastructure/homeApi.ts`, `services/homeService.ts`, `controllers/useHomeController.ts` (recomendaciones y sugerencias con `useLoad`), `controllers/useHomeFeed.ts` (feed paginado), `views/HomePage.tsx`, `HomeFeed.tsx`, `RecommendationsSection.tsx`, `CommunitySuggestion.tsx`, `RecommendationsPage.tsx` |
+| `shared/` | `hooks/useInfiniteScroll.ts`, `layout/reselect.ts`, `layout/NavTarget.tsx` (`refreshOnReselect`) |
+
+#### 4.10.4 Feed: paginación y estados
+
+- El estado se deriva de la clave `pestaña:intento`, sin `setState` síncrono en el efecto. Cambiar de pestaña o reintentar empieza desde la primera página.
+- Las páginas nuevas se añaden sin repetir reseñas (por `id`): en "Para ti" una reseña puede cambiar de página si gana Me gusta mientras se pagina.
+- El centinela del scroll infinito pide la siguiente página a 600 px del final. Si la lista es corta y el centinela sigue a la vista al terminar una página, se pide la siguiente sin esperar al desplazamiento.
+- Estados: esqueletos al cargar (2 la primera vez, 1 al pedir más), `FormAlert` con "Reintentar" si falla la primera página, y si falla una página siguiente se conserva lo cargado y aparece "Reintentar" al final. Vacío: "Todavía no hay reseñas." / "Aquí aparecerán las reseñas de las personas que sigues.".
+- "Hecho para tus oídos" y "Ver todo" tienen esqueletos con la geometría de `MusicCard` / `MusicRow` y "Reintentar". El panel de sugerencias no se muestra mientras carga, si falla o si está vacío: es secundario y no debe empujar el contenido.
+
+#### 4.10.5 Volver a pulsar Inicio
+
+Con `refreshOnReselect` (`HOME_ITEM` en `app/layout/navigation.ts` y el logo de la Navbar), si ya se está en `/`:
+
+1. La página sube al principio.
+2. Se navega a `/` con `replace` y una marca nueva en `location.state` (`reselectState()`); se pierde `?feed=siguiendo`, así que vuelve a "Para ti".
+3. `HomePage` usa esa marca como `key` de su contenido: se vuelve a montar y pide de nuevo recomendaciones, feed y sugerencias.
+
+No recarga el navegador: la música sigue sonando (el reproductor vive en `App.tsx`) y la sesión no cambia. Cambiar de pestaña conserva la marca (`setParams(..., { state })`), así que no vuelve a pedir las recomendaciones. Con Ctrl/Cmd/Mayús o el botón central el enlace se comporta como siempre (otra pestaña).
+
+#### 4.10.6 Limitaciones Conocidas
+
+- **Me gusta y Seguir** (tarjetas y sugerencia) siguen sin acción hasta el módulo de interacciones; los endpoints ya existen (`POST/DELETE /reviews/{id}/like`, `POST/DELETE /users/{id}/follow`).
+- **Guardar:** el backend envía `saved_by_me` siempre `false`; la tarjeta no tiene el botón.
+- **Recomendaciones sin carátula:** algunas canciones llegan con `album_image_url: null` si Spotify no respondió a tiempo (recuadro neutro); la siguiente carga ya la trae.
+- **Solo canciones** en "Hecho para tus oídos": el backend aún no recomienda álbumes ni artistas.
+- **Sugerencias:** se recalculan cada hora en el backend; seguir a alguien lo quitará al volver a pedirlas.
+
+#### 4.10.7 Verificación (2026-11-19)
+
+| Prueba | Resultado |
+|---|---|
+| `pnpm typecheck` · `pnpm lint` · `pnpm build` | Correcto (el aviso de tamaño del bundle, 554 kB, ya existía) |
+| `GET /home`, `GET /feed` (las dos pestañas), `GET /users/suggestions` con `cesar` | 200 con la forma documentada |
+| Primer intento contra el backend | `500 "error interno"` en `/feed`, `/users/*` y `/reviews`: faltaban migraciones en la base del backend; el desarrollador del backend las aplicó |
+| `.env.local` con `VITE_BACKEND_URL=http://localhost:80` | `404` en toda la API (el backend volvió al 8080, commit `1c7b308`); se corrigió a `http://localhost:8080` |
+| Inicio, feed con scroll infinito, "Siguiendo", sugerencia y reinicio desde el logo, "Inicio" y la BottomBar | Probado por el propietario en Brave |
 
 ---
 
@@ -1458,3 +1531,7 @@ Además: probar las rutas del módulo con el backend en marcha (`pnpm dev`), rev
 | 2026-11-15 | Buscador: la pestaña Usuarios funciona (`?tipo=usuarios`) con la tarjeta de Figma sin bio y el panel "La música se descubre mejor en compañía" sin "Os une…"; lista pendiente de SEARCH-04 (§6.8). |
 | 2026-11-15 | Inicio: datos de prueba creados por la API (12 usuarios, 106 calificaciones, 48 reseñas); "Hecho para tus oídos", "Ver todo" (`/recomendaciones`) y el feed "Para ti (Popular)" eligen al azar de `demoPool.ts` en cada carga; "Siguiendo" pendiente (§4.9). |
 | 2026-11-15 | Reseñas: se puede calificar, reseñar o las dos, pero no ninguna (Escribir Reseña); el título de lo reseñado enlaza a su ficha en todas las tarjetas; 24 reseñas de prueba sin calificación; "Popular" ordena por Me gusta con empates al azar (§4.9, §7, §8). |
+| 2026-11-19 | Revisión del backend (commits `1c35740` a `2117b07`, 2026-11-16 y 17): HOME-01 a HOME-05 y SEARCH-01 a SEARCH-04 resueltas, HOME-06 descartada; nuevos `GET /home`, `GET /feed`, seguidores, Me gusta, comentarios, `GET /users/suggestions`, `GET /users/search` y la discografía del artista; las reseñas traen `target.summary` y campos sociales; los listados, `ratings`. Kubernetes retirado (`1c7b308`): `VITE_BACKEND_URL` vuelve a `http://localhost:8080`. |
+| 2026-11-19 | Inicio con el backend (§4.10): "Hecho para tus oídos" y "Ver todo" con `GET /home`, feed "Para ti" y "Siguiendo" con `GET /feed` y scroll infinito (`shared/hooks/useInfiniteScroll`), "Conecta por lo que suena" con `GET /users/suggestions` (`UserCard` con `detail`). Nuevo módulo `features/social/`. Se elimina `demoPool.ts`. |
+| 2026-11-19 | Navegación: el logo, "Inicio" de la Navbar y la BottomBar reinician Inicio si ya se está en él, sin recargar el navegador (`NavTarget` con `refreshOnReselect`, `shared/layout/reselect.ts`; §4.10.5). |
+| 2026-11-19 | README: cómo probar desde el teléfono (`pnpm dev --host`) y navegadores compatibles (Safari 16.4+, Chrome/Edge/Brave 111+, Firefox 128+). |

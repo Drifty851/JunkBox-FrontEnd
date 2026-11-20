@@ -1,66 +1,49 @@
-import { useCallback, useEffect, useState } from 'react'
-import { useSearchParams } from 'react-router'
-import { ApiError } from '../../../shared/api/httpClient'
-import { useAuth } from '../../auth/controllers/authContext'
-import { toUserMessage } from '../../auth/services/errorMessages'
-import { FEED_TAB_PARAM, feedTabFromParam, FOLLOWING_VALUE, type DemoTarget, type FeedReview, type HomeFeedTab } from '../models/home.types'
+import { useCallback } from 'react'
+import { useLocation, useSearchParams } from 'react-router'
+import { useLoad, type LoadState } from '../../catalog/controllers/useLoad'
+import type { UserSuggestion } from '../../social/models/social.types'
+import { socialService } from '../../social/services/socialService'
+import { FEED_TAB_PARAM, feedTabFromParam, FOLLOWING_VALUE, type HomeFeedTab, type HomeItem } from '../models/home.types'
 import { homeService } from '../services/homeService'
+import { useHomeFeed, type FeedState } from './useHomeFeed'
 
 /** "Hecho para tus oídos": 4 en escritorio (2×2, Figma); el carrusel de móvil muestra todas. */
 const RECOMMENDATIONS = 8
+/** "Conecta por lo que suena": Figma muestra un usuario. */
+const SUGGESTIONS = 1
 
-export type FeedState =
-  | { status: 'loading' }
-  | { status: 'ready'; reviews: FeedReview[] }
-  | { status: 'error'; message: string }
-
-type Outcome = { attempt: number; reviews: FeedReview[] } | { attempt: number; message: string }
+const loadRecommendations = (_key: string, signal: AbortSignal) => homeService.getRecommendations(RECOMMENDATIONS, signal)
+const loadSuggestions = (_key: string, signal: AbortSignal) => socialService.getSuggestions(SUGGESTIONS, signal)
 
 export interface HomeController {
-  recommendations: DemoTarget[]
+  recommendations: LoadState<HomeItem[]>
+  retryRecommendations: () => void
+  suggestions: LoadState<UserSuggestion[]>
   tab: HomeFeedTab
   selectTab: (tab: HomeFeedTab) => void
   feed: FeedState
+  loadMoreFeed: () => void
   retryFeed: () => void
 }
 
 /**
- * Controlador de Inicio. Las recomendaciones se eligen al azar al entrar (síncrono, de la lista
- * de prueba); el feed pide las reseñas reales. La pestaña vive en la URL (`?feed=siguiendo`).
+ * Controlador de Inicio: recomendaciones (GET /home), sugerencias de usuarios
+ * (GET /users/suggestions) y el feed (GET /feed). La pestaña vive en la URL (`?feed=siguiendo`).
  * Un 401 sin renovación posible cierra la sesión.
  */
 export function useHomeController(): HomeController {
-  const { logout } = useAuth()
   const [params, setParams] = useSearchParams()
+  const { state } = useLocation()
   const tab = feedTabFromParam(params.get(FEED_TAB_PARAM))
-  const [recommendations] = useState(() => homeService.pickRecommendations(RECOMMENDATIONS))
-  const [attempt, setAttempt] = useState(0)
-  const [outcome, setOutcome] = useState<Outcome | null>(null)
-
-  useEffect(() => {
-    const controller = new AbortController()
-    homeService
-      .loadFeed(controller.signal)
-      .then((reviews) => setOutcome({ attempt, reviews }))
-      .catch((error: unknown) => {
-        if (controller.signal.aborted) return
-        if (error instanceof ApiError && error.status === 401) {
-          void logout()
-          return
-        }
-        setOutcome({ attempt, message: toUserMessage(error) })
-      })
-    return () => controller.abort()
-  }, [attempt, logout])
-
-  let feed: FeedState = { status: 'loading' }
-  if (outcome?.attempt === attempt) feed = 'reviews' in outcome ? { status: 'ready', reviews: outcome.reviews } : { status: 'error', message: outcome.message }
+  const [recommendations, retryRecommendations] = useLoad('home', loadRecommendations)
+  const [suggestions] = useLoad('suggestions', loadSuggestions)
+  const { feed, loadMore, retry } = useHomeFeed(tab)
 
   const selectTab = useCallback(
-    (next: HomeFeedTab) => setParams(next === 'following' ? { [FEED_TAB_PARAM]: FOLLOWING_VALUE } : {}),
-    [setParams],
+    // Se conserva `state` (marca de reinicio de HomePage): cambiar de pestaña no recarga Inicio.
+    (next: HomeFeedTab) => setParams(next === 'following' ? { [FEED_TAB_PARAM]: FOLLOWING_VALUE } : {}, { state }),
+    [setParams, state],
   )
-  const retryFeed = useCallback(() => setAttempt((value) => value + 1), [])
 
-  return { recommendations, tab, selectTab, feed, retryFeed }
+  return { recommendations, retryRecommendations, suggestions, tab, selectTab, feed, loadMoreFeed: loadMore, retryFeed: retry }
 }

@@ -6,7 +6,7 @@ Registro, por módulo del frontend, de los cambios, aclaraciones o capacidades q
 
 > **El backend es de solo lectura para el frontend.** Ningún cambio de esta lista lo hace el equipo de frontend. Cada solicitud se entrega a quien desarrolla el backend para que la apruebe e implemente (CLAUDE.md §2 y §11).
 
-**Última revisión:** 2026-11-12 (backend hasta el commit `4855a38`, "fix: Atender solicitud AUTH-06"). El backend registra sus respuestas a estas solicitudes en `Backend/junkbox-backend/docs/solicitudes.md`.
+**Última revisión:** 2026-11-19 (backend hasta el commit `2117b07`, "feat: Atender SEARCH-04: Implementar búsqueda de usuarios."). El backend registra sus respuestas a estas solicitudes en `Backend/junkbox-backend/docs/solicitudes.md`.
 
 **Fuentes consultadas (solo lectura):**
 - `Backend/junkbox-backend/internal/adapters/primary/http/router.go`: rutas y CORS.
@@ -18,7 +18,9 @@ Registro, por módulo del frontend, de los cambios, aclaraciones o capacidades q
 - `Backend/junkbox-backend/internal/adapters/primary/http/handlers_music.go`, `internal/core/services/music_service.go` y `db/queries/catalog.sql`: búsqueda y catálogo.
 - `Backend/junkbox-backend/internal/adapters/primary/http/dto/review_dto.go`: calificaciones y reseñas.
 - `Backend/junkbox-backend/internal/adapters/secondary/spotify/client.go`: integración con Spotify (solo credenciales de la app).
-- `Backend/junkbox-backend/README.md` (§API REST) y `implementacion.md` (§3.5).
+- `Backend/junkbox-backend/internal/core/domain/social.go`, `recommendation.go` y `review.go`: feed, perfiles, comentarios, sugerencias, `/home` y campos sociales de las reseñas.
+- `Backend/junkbox-backend/docs/solicitudes.md`: respuestas del backend a HOME-01 a SEARCH-04.
+- `Backend/junkbox-backend/README.md` (§API REST, endpoints 1 a 29) y `implementacion.md` (§3.5).
 
 ---
 
@@ -32,7 +34,7 @@ Registro, por módulo del frontend, de los cambios, aclaraciones o capacidades q
 - [6. Módulo: Spotify y Reproductor](#6-módulo-spotify-y-reproductor)
 - [7. Módulo: Fichas (Canción, Álbum, Artista) y Calificaciones](#7-módulo-fichas-canción-álbum-artista-y-calificaciones)
 - [8. Módulo: Landing (sin sesión)](#8-módulo-landing-sin-sesión)
-- [9. Módulo: Perfil](#9-módulo-perfil) (PROF-01 a PROF-05, FOL-01, FOL-02)
+- [9. Módulo: Perfil](#9-módulo-perfil) (PROF-01 a PROF-04)
 - [10. Plantilla para nuevas solicitudes](#10-plantilla-para-nuevas-solicitudes)
 - [11. Historial de cambios](#11-historial-de-cambios)
 
@@ -43,7 +45,7 @@ Registro, por módulo del frontend, de los cambios, aclaraciones o capacidades q
 
 ## 1. Contratos vigentes del backend
 
-**Base URL:** `http://localhost:8080/api/v1`. La dirección viene de `HTTP_ADDR` (`:8080` por defecto). El backend corre en WSL Debian. **En Kubernetes** (commit `2d05563`: 4 réplicas en kind detrás de Envoy Gateway) la API queda en `http://localhost/api/v1` (puerto 80), con `CORS_ALLOWED_ORIGINS` y `FRONTEND_URL` en `http://localhost:5173`; cada respuesta trae la cabecera `X-Instance` (nombre del pod). El commit no cambia ningún contrato de la API.
+**Base URL:** `http://localhost:8080/api/v1`. La dirección viene de `HTTP_ADDR` (`:8080` por defecto). El backend corre en WSL Debian. El despliegue en Kubernetes (commit `2d05563`, puerto 80) se revirtió en el commit `1c7b308` (2026-11-16).
 
 | Método | Ruta | Auth | Body | Respuesta |
 |---|---|---|---|---|
@@ -63,12 +65,24 @@ Registro, por módulo del frontend, de los cambios, aclaraciones o capacidades q
 | `GET` | `/music/albums/{id}` | Bearer | `{id}` UUID o de Spotify | `200 {id, spotify_id, title, artist_id, artist_name, release_year, album_type, image_url, total_tracks, created_at, ratings, tracks[]}` |
 | `POST` · `GET` · `DELETE` | `/ratings` · `/ratings/my?target_type=&target_id=` · `/ratings/{id}` | Bearer | `{target_type: song\|album\|artist, target_id, score: 0.5..5.0}` | `201`/`200` Rating · `404` si no votó |
 | `POST` · `GET` · `PUT` · `DELETE` | `/reviews` · `/reviews?target_type=&target_id=&limit=&page=` · `/reviews/{id}` | Bearer | `{target_type, target_id, title?, content}` | Review · `403` si no es tuya · `409` si ya reseñaste ese objetivo |
+| `GET` | `/music/artists/{id}/tracks` · `/music/artists/{id}/albums` | Bearer | `?limit=1..50` (20) | `200 {count, results[]}` (Track / Album con `ratings`) · `404`. Se sincronizan con Spotify la primera vez y cada 7 días (SEARCH-02, commit `fc7c9d5`) |
+| `GET` | `/home` | Bearer | `?limit=1..50` (8) | `200 {sections: [{id: "made_for_you", title, strategy: "similar_to_last"\|"popular", seed \| null, items: [{type: "track", ...Track}]}]}` (HOME-01, commit `1c35740`) |
+| `GET` | `/feed` | Bearer | `?tab=popular\|following` (obligatorio) `&tz=` (IANA, solo `popular`, por defecto `America/Mazatlan`) `&limit=1..50` (20) `&cursor=` | `200 {tab, timezone?, limit, next_cursor \| null, reviews: [Review]}` · `400` si tab, tz, cursor o limit no son válidos (HOME-04, commit `b2968e8`) |
+| `GET` | `/users/{id}` (UUID o username) | Bearer | — | `200 {id, username, display_name, avatar_url, created_at, followers_count, following_count, reviews_count, followed_by_me, is_me}` · `404` |
+| `POST` · `DELETE` | `/users/{id}/follow` | Bearer | — | Perfil actualizado; idempotente · `400` si es uno mismo |
+| `GET` | `/users/{id}/followers` · `/users/{id}/following` | Bearer | `?limit=&cursor=` | `200 {user_id, limit, next_cursor, users: [{id, username, display_name, avatar_url, followed_at, followed_by_me}]}` |
+| `POST` · `DELETE` | `/reviews/{id}/like` | Bearer | — | `200 {review_id, liked, likes_count}`; idempotente |
+| `GET` · `POST` | `/reviews/{id}/comments` | Bearer | `?limit=&cursor=` · `{content, parent_id?}` | Comentarios raíz paginados `{review_id, parent_id, limit, next_cursor, comments[]}` · `201 Comment`. Un solo nivel de respuestas |
+| `GET` · `PUT` · `DELETE` | `/comments/{id}/replies` · `/comments/{id}` | Bearer | `?limit=&cursor=` · `{content}` | Respuestas paginadas · editar o borrar solo el autor (`403`) |
+| `GET` | `/users/suggestions` | Bearer | `?limit=1..50` (10) | `200 {limit, computed_at \| null, users: [{id, username, display_name, avatar_url, reason: {type, text, common_count, artists, similarity}}]}` (HOME-05, commit `7523d54`) |
+| `GET` | `/users/search` | Bearer | `?q=` (obligatorio, hasta 100) `&limit=1..50` (20) | `200 {query, count, results: [{id, username, display_name, avatar_url, followed_by_me}]}` (SEARCH-04, commit `2117b07`). Excluye a quien busca |
 
 **`AuthResponse`:** `{ access_token, refresh_token, expires_in, user: UserProfile }`
 **`UserProfile`:** `{ id, username, email, display_name | null, avatar_url | null, email_verified, created_at }`. `email_verified` es nuevo en el commit `51ec315`; los usuarios seed vienen verificados.
 **Correos de cuenta** (commit `51ec315`): los enlaces apuntan al frontend, con el token en el fragmento: `{FRONTEND_URL}/restablecer-contrasena#token=…` (válido 30 min) y `{FRONTEND_URL}/verificar-correo#token=…` (24 h). `FRONTEND_URL` vale por defecto el primer origen de CORS. En desarrollo los correos llegan a **Mailpit** (`make db-up`, bandeja en `http://localhost:8025`). El registro envía el correo de verificación automáticamente.
-**`Track`** (resultados de búsqueda y `tracks[]` de un álbum): `{id, spotify_id, track_name, artist_name, album_title?, album_image_url | null, artist_image_url | null, year, genre, popularity, duration_ms, has_embedding, pending_embedding}`. Las dos imágenes son nuevas (commit `9e0794d`). **Sin calificación.** `TrackDetail` añade `artist_id, album_id, isrc, audio_features, ratings{count, average}`.
-**Búsqueda:** coincidencia difusa (trigramas) en la base local; si no hay resultados o el mejor puntaje es < 0.8 (`SEARCH_FALLBACK_THRESHOLD`) consulta Spotify y guarda lo encontrado. Desde el commit `9e0794d`, si a un resultado le falta la portada o la foto del artista, la búsqueda la pide a Spotify antes de responder (como máximo `SEARCH_ENRICH_BUDGET`, 2 s); lo que no llega a tiempo sale en `null` y lo completa un worker para la siguiente búsqueda. Al consultar se enlazan también las canciones del dataset con su álbum.
+**`Track`** (resultados de búsqueda, `tracks[]` de un álbum, discografía y `/home`): `{id, spotify_id, track_name, artist_name, album_title?, album_image_url | null, artist_image_url | null, year, genre, popularity, duration_ms, has_embedding, pending_embedding, ratings{count, average | null}}`. Las imágenes son del commit `9e0794d`; `ratings` en todos los listados, del commit `34a027e` (SEARCH-03). `TrackDetail` añade `artist_id, album_id, isrc, audio_features`.
+**`Review`** (desde los commits `195c611` y `b2968e8`): añade `target.summary` (Track, Album sin `tracks` ni `ratings`, o Artist sin `ratings`; ausente si el objetivo se borró), `comments_count`, `liked_by_me`, `saved_by_me` (siempre `false`: no hay guardados) y `following_author`.
+**Búsqueda:** coincidencia difusa (trigramas) en la base local, sin distinguir tildes (SEARCH-01, commit `1927abc`); orden: puntaje, coincidencia exacta, `popularity` y `similarity`. Desde ese commit también consulta Spotify cuando la mejor canción local no es una coincidencia exacta. Antes: si no hay resultados o el mejor puntaje es < 0.8 (`SEARCH_FALLBACK_THRESHOLD`) consulta Spotify y guarda lo encontrado. Desde el commit `9e0794d`, si a un resultado le falta la portada o la foto del artista, la búsqueda la pide a Spotify antes de responder (como máximo `SEARCH_ENRICH_BUDGET`, 2 s); lo que no llega a tiempo sale en `null` y lo completa un worker para la siguiente búsqueda. Al consultar se enlazan también las canciones del dataset con su álbum.
 **Tokens:** el access token es JWT HS256 de 15 min. El refresh token es opaco, dura 7 días y rota por familias. Reutilizar un refresh token revoca toda su familia.
 **CORS:** `go-chi/cors` con los orígenes de `CORS_ALLOWED_ORIGINS` (por defecto `http://localhost:5173`). Métodos `GET, POST, PUT, DELETE, OPTIONS` (sin `PATCH`), cabeceras `Authorization, Content-Type`, sin credenciales (no hay cookies). Otros orígenes se rechazan.
 **Errores:** siempre `{"error": "<mensaje>"}`.
@@ -108,46 +122,9 @@ Sin solicitudes abiertas.
 
 **Figma:** Móvil `14244:50321` (claro) / `14263:21466` (oscuro), Escritorio `14244:50496` (claro) / `14263:21659` (oscuro).
 
-**Endpoints que usa (v1):** `GET /music/tracks/{id}` para la plantilla de recomendaciones y `GET /auth/me` para el avatar. **No usa `/music/search`**, porque en cache-miss consulta Spotify y escribe en la base de datos (backend `implementacion.md` §4.1).
+**Endpoints que usa (2026-11-19):** `GET /home` ("Hecho para tus oídos" y "Ver todo"), `GET /feed` ("Para ti" y "Siguiendo", scroll infinito), `GET /users/suggestions` ("Conecta por lo que suena") y `GET /auth/me` (avatar). Ver `FrontEnd/implementacion.md` §4.10.
 
-**Contexto:** Inicio v1 es una base. Muestra contenido real solo donde hay contrato de API, y cada sección pendiente se añadirá cuando exista su endpoint. Las solicitudes no son bloqueantes para v1.
-
-### HOME-01 · Endpoint de recomendaciones / feed de Inicio
-- **Estado:** Pendiente · **Responsable:** Backend y Producto · **Bloqueante:** no (se usa una plantilla).
-- **Qué pasa:** la sección "Hecho para tus oídos" (`MusicCard`, nodo `14244:50349`) necesita una lista de canciones o álbumes recomendados. No existe ningún endpoint. El frontend usa una lista fija de IDs del dataset, igual para todos.
-- **Qué se pide (propuesta):**
-  - Endpoint: `GET /api/v1/home` (o `GET /api/v1/recommendations`), con Bearer.
-  - Response: `200 { "sections": [ { "id": "made_for_you", "title": "Hecho para tus oídos", "items": [ { "type": "track" | "album", ...TrackSummary | AlbumSummary } ] } ] }`.
-  - Al principio puede ser igual para todos (populares). Después se personaliza con los embeddings (procesos por lotes, criterio SMART §4.1).
-  - Errores: `401` con `{"error": "..."}`.
-- **Alternativa en el frontend (implementada):** plantilla de 8 IDs de Spotify del dataset (`features/home/data/homeTemplate.ts`) con `GET /music/tracks/{id}` por cada ID. Solo cambia `homeService.getRecommendations()` cuando exista el endpoint.
-- **Impacto en el frontend:** todos los usuarios ven lo mismo.
-
-### HOME-03 · Detalle de varias canciones en una llamada
-- **Estado:** Pendiente · **Responsable:** Backend · **Bloqueante:** no.
-- **Qué pasa:** la plantilla hace una petición `GET /music/tracks/{id}` por canción (unas 12).
-- **Qué se pide:** `GET /api/v1/music/tracks?ids=<id1>,<id2>,…` (máximo unos 50, IDs locales o de Spotify) → `200 { "results": [TrackSummary…] }`. Los IDs que no existan se omiten, sin `404`. `400` si la lista está vacía o es demasiado larga.
-- **Alternativa en el frontend (implementada):** peticiones en paralelo, omitiendo las `404`. Si el token caduca, la renovación es única y compartida para no reutilizar el refresh token.
-- **Impacto en el frontend:** más peticiones al cargar Inicio. Deja de importar si HOME-01 devuelve los datos completos.
-
-### HOME-04 · Feed de reseñas "Para ti (Popular)" y "Siguiendo"
-- **Estado:** Pendiente · **Responsable:** Backend y Producto · **Bloqueante:** no (corresponde al módulo Reseñas).
-- **Qué pasa:** las tabs y `ReviewCard` (nodo `14296:10728`) necesitan reseñas con autor, canción, calificación (1–5), texto, número de Me gusta y comentarios, si el usuario sigue al autor y si la guardó. El backend no tiene reseñas, seguidores ni likes.
-- **Qué se pide:** se definirá con el módulo Reseñas. Como mínimo: `GET /api/v1/feed?tab=popular|following&cursor=…` con paginación por cursor.
-- **Alternativa en el frontend (implementada, 2026-11-15):** "Para ti (Popular)" muestra reseñas reales de objetivos elegidos al azar de una lista de prueba (`FrontEnd/src/features/home/data/demoPool.ts`); "Siguiendo" queda pendiente.
-
-### HOME-05 · Sugerencias de usuarios ("Conecta por lo que suena")
-- **Estado:** Pendiente · **Responsable:** Backend y Producto · **Bloqueante:** no.
-- **Qué pasa:** el panel de escritorio sugiere usuarios con gustos parecidos ("También escucha Hoke") y un botón Seguir. No hay usuarios públicos ni seguidores en la API.
-- **Qué se pide:** se definirá con el módulo de red social. Por ejemplo, `GET /api/v1/users/suggestions?limit=…` → `{ id, username, display_name, avatar_url, reason }`.
-- **Alternativa en el frontend (implementada):** el panel no se muestra en v1.
-
-### HOME-06 · Vista previa de audio
-- **Estado:** Pendiente · **Responsable:** Backend y Producto · **Bloqueante:** no.
-- **Qué pasa:** `MiniPlayer`, `SnippetPlayer` ("Fragmento · 30 s") y el botón QuickPlay de `MusicCard` reproducen audio. No hay URL de vista previa en las respuestas. Además, Spotify dejó de enviar `preview_url` a las apps nuevas.
-- **Qué se pide:** decidir si habrá reproducción y de qué fuente. Si la hay, añadir `preview_url: string | null` a `TrackSummary`.
-- **Alternativa en el frontend (implementada):** el MiniPlayer no se muestra y QuickPlay es decorativo.
-- **Actualización 2026-11-06:** el propietario decidió reproducir canciones completas con el **Web Playback SDK de Spotify** (requiere Premium) a partir del enlace de cuenta de Configuración. Ver §6 (SPOT-01). La vista previa de 30 s deja de ser necesaria para el reproductor.
+Sin solicitudes abiertas. HOME-01, HOME-02, HOME-04 y HOME-05 se resolvieron en el backend; HOME-03 se cerró por innecesaria y HOME-06 se descartó (se reproduce con el Web Playback SDK). Me gusta y Seguir ya tienen endpoint: el frontend los conecta en el módulo de interacciones.
 
 ---
 
@@ -157,42 +134,7 @@ Sin solicitudes abiertas.
 
 **Endpoints que usa:** `GET /music/search` (tres llamadas en paralelo: `type=track`, `album` y `artist`).
 
-### SEARCH-01 · Un nombre de artista que coincide con palabras de títulos no consulta Spotify
-- **Estado:** Pendiente · **Responsable:** Backend · **Bloqueante:** no.
-- **Qué pasa:** `type=track` busca con `strict_word_similarity` sobre "título + artista", y funciona bien con artistas que están en la base ("The Weeknd" devuelve sus canciones; "Blinding Lights The Weeknd" pone la suya primero). El problema es el caso límite del umbral:
-  - "Hoke" (artista que no está en el dataset) coincide con la palabra "Hoke" en títulos como "Deewane Hoke Hum" (puntaje 1.0 ≥ 0.8), así que **nunca consulta Spotify** y no aparece ninguna canción de Hoke. `type=artist` y `type=album` con "Hoke" sí van a Spotify y traen al artista y sus álbumes (comprobado 2026-11-06).
-  - "Blinding Lights" sola pone primero versiones de otros artistas: empatan a 1.0 y el desempate por `similarity` favorece los nombres de artista cortos antes que `popularity`.
-- **Qué se pide (una de estas, o similar):**
-  - Si el mejor resultado de `type=artist` es una coincidencia exacta del nombre y sus canciones no están en la base, traer sus canciones de Spotify (por ejemplo, top tracks del artista) y añadirlas a los resultados.
-  - En el desempate de `type=track`, ordenar por `popularity` antes que por `similarity`.
-- **Alternativa en el frontend (implementada, `FrontEnd/implementacion.md` §6):** el Buscador hace las tres búsquedas (`track`, `album`, `artist`) y muestra lo que llega. Los álbumes del artista sí aparecen gracias a `type=album`. Tras abrir la ficha del artista, la cascada (CAT-01) guarda sus canciones y la búsqueda ya las encuentra.
-- **Impacto en el frontend:** con artistas que no están en el dataset, la lista de canciones puede no traer las suyas.
-
-### SEARCH-02 · Canciones y álbumes de un artista
-- **Estado:** Pendiente · **Responsable:** Backend · **Bloqueante:** no.
-- **Qué pasa:** `GET /music/artists/{id}` no trae su discografía. El Buscador (tarjeta Artistas) y la futura Ficha de Artista (`14244:52049`) la necesitan.
-- **Qué se pide:**
-  - `GET /api/v1/music/artists/{id}/tracks?limit=` → `200 { results: [Track…] }` (ordenadas por popularidad).
-  - `GET /api/v1/music/artists/{id}/albums?limit=` → `200 { results: [Album…] }` (con `image_url`).
-  - Errores: `404` si el artista no existe.
-- **Relacionado:** ver también CAT-01 (sincronizar la discografía desde Spotify). `GET /music/albums/{id}` solo devuelve en `tracks[]` las canciones que ya están en la base: "BBO" de Hoke tiene `total_tracks: 11` pero `tracks[]` trae 1 ("Medallones"), comprobado 2026-11-06. Se pide también completar la lista del álbum desde Spotify cuando falten canciones.
-- **Alternativa en el frontend (implementada, §7):** álbumes con `/music/search?type=album&q=<artista>` filtrando por `artist_name`; canciones con `type=track&q=<artista>` filtrando por `artist_name` (con el límite descrito en SEARCH-01).
-
-### SEARCH-03 · Calificación en los resultados
-- **Estado:** Pendiente · **Responsable:** Backend · **Bloqueante:** no.
-- **Qué pasa:** Figma muestra "★ 4,6" en cada canción, álbum y artista. Los resultados de búsqueda no traen `ratings` (solo el detalle).
-- **Qué se pide:** añadir `ratings: { count, average | null }` a cada elemento de `results`.
-- **Alternativa en el frontend (implementada):** la estrella se muestra solo cuando hay calificación disponible (el álbum destacado pide su detalle); en las filas se omite.
-
-### SEARCH-04 · Búsqueda de usuarios
-- **Estado:** Pendiente · **Responsable:** Backend y Producto · **Bloqueante:** no.
-- **Qué pasa:** la pestaña "Usuarios" del Buscador (Figma 14244:51045) no tiene endpoint. Desde el 2026-11-15 la pestaña funciona y su tarjeta ya está hecha.
-- **Qué se pide:**
-  - `GET /api/v1/users/search?q=&limit=&page=` (Bearer). Busca por nombre visible y `username`, sin distinguir mayúsculas ni acentos.
-  - Response: `200 { results: [ { id, username, display_name, avatar_url, followers_count, following } ], total, page, limit }`. `following` dice si yo sigo a esa persona (FOL-01). Sin bio (decisión del propietario).
-  - Errores: `400` si `q` está vacío o pasa de 200 caracteres · `401`.
-  - Opcional, a definir con Producto: qué música tienen en común con la búsqueda, para "· Escucha Hoke" en la tarjeta y "Os une BBO" en el panel lateral.
-- **Alternativa en el frontend (implementada):** la lista muestra "Pendiente del backend"; el panel muestra solo el título y el texto.
+Sin solicitudes abiertas. SEARCH-01 a SEARCH-04 se resolvieron en el backend (2026-11-17). Pendiente en el frontend: la pestaña Usuarios con `GET /users/search`, la estrella con `ratings` en las filas y la discografía del artista con `/music/artists/{id}/tracks` y `/albums`.
 
 ---
 
@@ -261,6 +203,7 @@ Sin solicitudes abiertas.
 
 ### CAT-01 · Sincronizar la discografía de un artista desde Spotify
 - **Estado:** Pendiente · **Responsable:** Backend · **Bloqueante:** no (hay alternativa parcial).
+- **Actualización 2026-11-19:** SEARCH-02 (commit `fc7c9d5`) cubre gran parte: álbumes y sencillos del artista (hasta 50, cada 7 días), canciones completadas con las de sus álbumes, pistas completas de cada álbum y la foto del artista en `GET /music/artists/{id}`. El backend deja fuera de alcance la sincronización completa del catálogo. Cuando el frontend pase la ficha de artista a esos endpoints y deje la cascada, se revisará si CAT-01 se puede cerrar.
 - **Qué pasa:** la única forma que tiene el frontend de traer datos de Spotify a la base es `/music/search`, y solo consulta Spotify si no hay buenos resultados locales (SEARCH-01). Prueba en vivo de la cascada (2026-11-06), buscando `type=track q="<álbum> <artista>"` por cada álbum:
   - **Funciona** cuando la búsqueda acaba en Spotify: BBO 1 → 10 de 11 canciones, TRES CREUS 0 → 10 de 10, Starboy 0 → 11 de 18, Hurry Up Tomorrow 0 → 16 de 22.
   - **No funciona** cuando hay canciones del CSV con títulos parecidos: Will Of The People (Muse) 0 de 10, After Hours 2 de 14, los sencillos de Knights of Cydonia y Blinding Lights 0. Las canciones del CSV nunca quedan enlazadas a su álbum.
@@ -281,42 +224,16 @@ Sin solicitudes abiertas.
 - **Qué se pide:** añadir `distribution: { "5": n, "4.5": n, …, "0.5": n }` (o agrupado por estrella entera, `"1"`–`"5"`) a `ratings` en el detalle de canción, álbum y artista.
 - **Alternativa en el frontend (implementada, decisión del propietario):** las barras no se muestran; solo el promedio, las estrellas y el total.
 
-### REV-01 · Me gusta, comentarios, guardar y seguir en las reseñas
-- **Estado:** Reemplazada (2026-11-15) por COM-01, LIKE-01, LIKE-02, LIKE-03 y FOL-01. Guardar quedó descartado por el propietario: las reseñas solo tienen Me gusta y Comentarios.
-- **Responsable:** Backend y Producto · **Bloqueante:** no.
-- **Qué pasa:** `ReviewCard` (Figma) tiene "128 Me gusta", "24 comentarios", guardar y "Seguir / Siguiendo". `likes_count` está reservado (siempre 0) y no hay comentarios, guardados ni seguidores (backend `implementacion.md` §6.1).
-- **Qué se pide:** se definirá con el módulo social. Como mínimo, `POST/DELETE /reviews/{id}/like` y `liked_by_me` en la reseña.
-- **Alternativa en el frontend (implementada):** los contadores y botones se muestran deshabilitados (plantilla); "Me gusta" usa `likes_count` (siempre 0).
-
-### COM-01 · Comentarios y respuestas en las reseñas
-- **Estado:** Pendiente · **Responsable:** Backend · **Bloqueante:** no.
-- **Qué pasa:** la Reseña Completa (`/resena/:id`, Figma 14244:52506) muestra los comentarios. El propietario pidió que cada comentario se pueda responder, y esas respuestas también, sin límite de profundidad (2026-11-15). No existen comentarios en el backend.
-- **Qué se pide:**
-  - `GET /api/v1/reviews/{id}/comments?limit=&page=` (Bearer). Lista **plana** de los comentarios de la reseña (principales y respuestas de cualquier nivel), de la más antigua a la más reciente. `limit` de 1 a 500. Response: `200 { results: [Comment], total, page, limit }`. El frontend arma el hilo con `parent_id`.
-  - `POST /api/v1/reviews/{id}/comments` (Bearer) con `{ content, parent_id? }`. `parent_id` es otro comentario de la **misma** reseña, de cualquier nivel. Response: `201 Comment`.
-  - `Comment = { id, review_id, parent_id | null, author: { id, username, display_name, avatar_url }, content, likes_count, liked_by_me, created_at }`.
-  - Añadir `comments_count` a `Review` (en `GET /reviews` y `GET /reviews/{id}`), para "24 comentarios" en las tarjetas y "Comentarios (24)" en el hilo.
-  - Errores: `400` si `content` está vacío o pasa de 1000 caracteres, o si `parent_id` es de otra reseña · `401` · `404` si la reseña o el padre no existen.
-  - Opcional: `DELETE /api/v1/comments/{id}` (solo el autor) → `204`.
-- **Alternativa en el frontend (implementada):** hilo vacío con "Pendiente del backend" y la caja para comentar deshabilitada. El hilo anidado (`buildCommentTree`, `CommentThread`) ya está hecho y probado con datos de ejemplo.
-- **Impacto en el frontend:** solo cambia `useReviewDetailController` (cargar y enviar), y se habilitan la caja y "Responder".
-
-### LIKE-01 · Me gusta en las reseñas
-- **Estado:** Pendiente · **Responsable:** Backend · **Bloqueante:** no.
-- **Qué pasa:** cada reseña muestra "N Me gusta". `likes_count` está reservado (siempre 0).
-- **Qué se pide:** `PUT /api/v1/reviews/{id}/like` y `DELETE /api/v1/reviews/{id}/like` (Bearer, idempotentes) → `200 { likes_count, liked }`. Añadir `liked_by_me` a `Review`. Errores: `401` · `404`.
-- **Alternativa en el frontend (implementada):** "Me gusta" con `aria-disabled` y el contador `likes_count`.
-
 ### LIKE-02 · Me gusta en los comentarios
-- **Estado:** Pendiente · **Responsable:** Backend · **Bloqueante:** no (depende de COM-01).
+- **Estado:** Pendiente · **Responsable:** Backend · **Bloqueante:** no. Los comentarios ya existen (HOME-04), pero sin Me gusta: el backend lo deja fuera de alcance.
 - **Qué pasa:** cada comentario muestra "♡ 12" (Figma · CommentCard).
-- **Qué se pide:** `PUT /api/v1/comments/{id}/like` y `DELETE /api/v1/comments/{id}/like` (Bearer) → `200 { likes_count, liked }`. `Comment` incluye `likes_count` y `liked_by_me`. Errores: `401` · `404`.
+- **Qué se pide:** `POST /api/v1/comments/{id}/like` y `DELETE /api/v1/comments/{id}/like` (Bearer, idempotentes, como `/reviews/{id}/like`) → `200 { comment_id, liked, likes_count }`. `Comment` incluye `likes_count` y `liked_by_me`. Errores: `401` · `404`.
 - **Alternativa en el frontend (implementada):** "♡ N" con `aria-disabled`.
 
 ### LIKE-03 · Me gusta en las calificaciones
 - **Estado:** Pendiente · **Responsable:** Backend · **Bloqueante:** no.
 - **Qué pasa:** el propietario pidió Me gusta también en las calificaciones (2026-11-15). Por ahora no hay interfaz para ello; se mostrará en el historial de calificaciones cuando exista PROF-02.
-- **Qué se pide:** `PUT /api/v1/ratings/{id}/like` y `DELETE /api/v1/ratings/{id}/like` (Bearer) → `200 { likes_count, liked }`, más `likes_count` y `liked_by_me` en `Rating` y en los resultados de PROF-02. Errores: `401` · `404`.
+- **Qué se pide:** `POST /api/v1/ratings/{id}/like` y `DELETE /api/v1/ratings/{id}/like` (Bearer, idempotentes, como `/reviews/{id}/like`) → `200 { rating_id, liked, likes_count }`, más `likes_count` y `liked_by_me` en `Rating` y en los resultados de PROF-02. Errores: `401` · `404`.
 - **Alternativa en el frontend:** ninguna por ahora (sin interfaz).
 
 ### REV-02 · Consultar mi reseña de un objetivo
@@ -360,15 +277,18 @@ Sin solicitudes abiertas.
 
 **Endpoints que usa:** `GET /auth/me` (avatar, nombre, @usuario y `created_at`).
 
-Decisión del propietario (2026-11-15): **mi perfil** (`/perfil`) sin bio. Después, el mismo día: páginas de **seguidores y seguidos** (`/perfil/seguidores`, `/perfil/seguidos`) y el **perfil de otra persona** (`/usuario/:username` y sus listas), como plantillas hasta FOL-01, FOL-02 y PROF-05.
+Decisión del propietario (2026-11-15): **mi perfil** (`/perfil`) sin bio. Después, el mismo día: páginas de **seguidores y seguidos** (`/perfil/seguidores`, `/perfil/seguidos`) y el **perfil de otra persona** (`/usuario/:username` y sus listas), como plantillas.
+
+**2026-11-19:** FOL-01, FOL-02 y PROF-05 se resolvieron con HOME-04 (`GET /users/{id}`, `POST/DELETE /users/{id}/follow`, `GET /users/{id}/followers|following`). El frontend los conecta en el módulo de Perfil. Siguen abiertas las listas de reseñas y calificaciones por usuario y parte de las estadísticas.
 
 ### PROF-01 · Listar mis reseñas
 - **Estado:** Pendiente · **Responsable:** Backend · **Bloqueante:** no.
 - **Qué pasa:** la pestaña "Mis Reseñas" muestra las reseñas del usuario con su `ReviewCard`. `GET /reviews` solo filtra por objetivo (`target_type`/`target_id`), no por autor.
 - **Qué se pide:**
-  - Endpoint: `GET /api/v1/users/me/reviews?limit=&page=` (Bearer), de la más reciente a la más antigua. Debe aceptar también `{username}` en lugar de `me` (perfil de otra persona, 2026-11-15).
-  - Response: `200 { results: [Review & { target: { type, id, title, subtitle, image_url } }], total, page, limit }`. `subtitle` es, por ejemplo, "Hoke · BBO · 2022".
-  - Errores: `400` si `limit` o `page` no son válidos · `401`.
+  - Endpoint: `GET /api/v1/users/{id}/reviews?limit=&cursor=` (Bearer; `{id}` UUID o username, como `GET /users/{id}`), de la más reciente a la más antigua.
+  - Response: `200 { user_id, limit, next_cursor, reviews: [Review] }`, con el mismo `Review` del feed (`target.summary` y campos sociales), para reutilizar `ReviewCard` y el scroll infinito.
+  - Errores: `400` si `limit` o `cursor` no son válidos · `401` · `404` si el usuario no existe.
+- **Actualización 2026-11-19:** `GET /users/{id}` ya trae `reviews_count`.
 - **Alternativa en el frontend (implementada):** la pestaña muestra un estado vacío con "Pendiente del backend".
 - **Impacto en el frontend:** el título "N reseñas publicadas" y la lista se llenan cuando exista; se reutiliza `ReviewCard`.
 
@@ -376,8 +296,8 @@ Decisión del propietario (2026-11-15): **mi perfil** (`/perfil`) sin bio. Despu
 - **Estado:** Pendiente · **Responsable:** Backend · **Bloqueante:** no.
 - **Qué pasa:** "Historial de Calificaciones" lista lo que el usuario calificó (canciones, álbumes y artistas) con sus estrellas y la fecha. `/ratings/my` solo da la calificación de un elemento concreto.
 - **Qué se pide:**
-  - Endpoint: `GET /api/v1/users/me/ratings?limit=&page=` (Bearer), de la más reciente a la más antigua. Debe aceptar también `{username}` en lugar de `me`.
-  - Response: `200 { results: [{ id, score, created_at, updated_at, target: { type, id, title, subtitle, image_url } }], total, page, limit }`.
+  - Endpoint: `GET /api/v1/users/{id}/ratings?limit=&cursor=` (Bearer; UUID o username), de la más reciente a la más antigua.
+  - Response: `200 { user_id, limit, next_cursor, ratings: [{ id, score, created_at, updated_at, target: { type, id, summary } }] }`, con `target.summary` como en las reseñas.
   - Errores: `400` · `401`.
 - **Alternativa en el frontend (implementada):** estado vacío con "Pendiente del backend". El propietario descartó un historial parcial con `/ratings/my`.
 - **Impacto en el frontend:** la lista usa `MusicRow` con `StarRating`, como en Figma (RatingRecord).
@@ -385,11 +305,8 @@ Decisión del propietario (2026-11-15): **mi perfil** (`/perfil`) sin bio. Despu
 ### PROF-03 · Estadísticas del perfil
 - **Estado:** Pendiente · **Responsable:** Backend · **Bloqueante:** no.
 - **Qué pasa:** ProfileStats muestra Reseñas, Calificaciones, Seguidores y Seguidos, y "Una vida en canciones" muestra la media personal y el total de cinco estrellas.
-- **Qué se pide:**
-  - Endpoint: `GET /api/v1/users/me/stats` (Bearer).
-  - Response: `200 { reviews_count, ratings_count, average_score | null, five_star_count, followers_count, following_count }`.
-  - Los seguidores dependen de que exista "seguir" (REV-01); mientras tanto pueden venir en `0` o `null`.
-  - Alternativa: incluir estos campos en `GET /auth/me`.
+- **Actualización 2026-11-19:** `GET /users/{id}` ya trae `reviews_count`, `followers_count` y `following_count`. Faltan las tres de calificaciones.
+- **Qué se pide:** añadir a `GET /users/{id}` `ratings_count`, `average_score | null` (media de sus calificaciones) y `five_star_count`.
 - **Alternativa en el frontend (implementada):** los seis valores se muestran como "—" (leído como "sin datos").
 - **Impacto en el frontend:** solo cambia `useProfileController` (`stats` y `summary`).
 
@@ -399,36 +316,6 @@ Decisión del propietario (2026-11-15): **mi perfil** (`/perfil`) sin bio. Despu
 - **Qué se pide:** que Producto decida el criterio; después, por ejemplo, `GET /api/v1/users/me/highlights?limit=3` → `200 { results: [{ target: { type, id, title, subtitle, image_url }, reason, score | null }] }`.
 - **Alternativa en el frontend (implementada):** panel con "Tus canciones más escuchadas aparecerán aquí. Pendiente del backend." y la fecha de alta ("En Junkbox desde…", de `created_at`).
 - **Impacto en el frontend:** el panel se llena con `MusicRow` y `PlayButton`.
-
-### FOL-01 · Seguir y dejar de seguir
-- **Estado:** Pendiente · **Responsable:** Backend · **Bloqueante:** no.
-- **Qué pasa:** el botón "Seguir" aparece en el perfil de otra persona, en las tarjetas de seguidores y seguidos, en las reseñas (REV-01) y en las sugerencias de Inicio (HOME-05). No existe la relación "seguir" en el backend.
-- **Qué se pide:**
-  - Endpoints: `POST /api/v1/users/{username}/follow` y `DELETE /api/v1/users/{username}/follow` (Bearer).
-  - Response: `204`.
-  - Errores: `400` si es uno mismo · `401` · `404` si el usuario no existe · `409` si ya lo sigue (`POST`).
-- **Alternativa en el frontend (implementada):** "Seguir" con `aria-disabled` y el texto "Seguir estará disponible cuando el backend lo permita.".
-- **Impacto en el frontend:** `FollowButton` pasa a "Siguiendo" y se puede pulsar; los contadores de PROF-03 cambian al momento.
-
-### FOL-02 · Listar seguidores y seguidos
-- **Estado:** Pendiente · **Responsable:** Backend · **Bloqueante:** no (depende de FOL-01).
-- **Qué pasa:** al pulsar "Seguidores" o "Seguidos" en un perfil se abre una página con dos pestañas. Cada tarjeta (SuggestedUser de Figma) abre el perfil de esa persona.
-- **Qué se pide:**
-  - Endpoints: `GET /api/v1/users/{username}/followers?limit=&page=` y `GET /api/v1/users/{username}/following?limit=&page=` (Bearer). `me` vale como `{username}`.
-  - Response: `200 { results: [{ id, username, display_name, avatar_url, following }], total, page, limit }`. `following` indica si yo sigo a esa persona (para el botón).
-  - Errores: `400` si `limit` o `page` no son válidos · `401` · `404` si el usuario no existe.
-- **Alternativa en el frontend (implementada):** las dos pestañas muestran un estado vacío con "Pendiente del backend".
-- **Impacto en el frontend:** se llena la lista de `UserCard` (`features/profile/views/UserCard.tsx`, ya hecha).
-
-### PROF-05 · Perfil público de otra persona
-- **Estado:** Pendiente · **Responsable:** Backend · **Bloqueante:** no.
-- **Qué pasa:** `/usuario/:username` muestra el perfil de otra persona, pero solo existe `GET /auth/me` (el mío).
-- **Qué se pide:**
-  - Endpoint: `GET /api/v1/users/{username}` (Bearer).
-  - Response: `200 { id, username, display_name, avatar_url, created_at, stats: { reviews_count, ratings_count, average_score | null, five_star_count, followers_count, following_count }, following }`.
-  - Errores: `401` · `404` si no existe.
-- **Alternativa en el frontend (implementada):** plantilla con el robot por defecto, "@usuario" como nombre, contadores "—", "Seguir" deshabilitado y la nota "Pendiente del backend: aún no se puede consultar el perfil de otros usuarios.". No se comprueba si la persona existe.
-- **Impacto en el frontend:** `useProfileController` carga estos datos cuando hay `:username`; un `404` mostrará "No encontrado".
 
 ---
 
@@ -478,3 +365,4 @@ Decisión del propietario (2026-11-15): **mi perfil** (`/perfil`) sin bio. Despu
 | 2026-11-15 | Revisión del backend: sin commits nuevos desde `4855a38`. Prueba en vivo: siguen sin existir `/users/search`, `/users/me` (GET y PATCH), `/users/me/stats`, `/users/me/reviews`, `/users/me/ratings`, `/users/{username}` y sus seguidores, `POST /users/{username}/follow`, `/reviews/{id}/comments`, `PUT /reviews/{id}/like`, `/home`, `/feed`, `/users/me/preferences` y `/music/landing` (404); `/reviews/my` da 400 porque lo toma `/reviews/{id}`. Nada resuelto. Se preparó un resumen por prioridad para el desarrollador del backend. |
 | 2026-11-15 | Datos de prueba creados **por la API pública** (no se tocó la base ni los seeds): 12 usuarios `@junkbox.local` (`lucia_vinilos`, `marco_beats`, `sofi_playlist`, `diego_bpm`, `ana_lofi`, `pablo_riffs`, `carla_bside`, `javi_track7`, `nora_eco`, `leo_subgrave`, `vale_coros`, `tomas_rewind`; contraseña `Password123!`), 106 calificaciones y 48 reseñas. Las reseñas y calificaciones se pueden borrar con el script del frontend; los usuarios no, porque no hay API para ello. HOME-01 y HOME-04 tienen ahora una alternativa con contenido al azar. |
 | 2026-11-15 | Datos de prueba: 24 reseñas más, **sin calificación** (regla del propietario: calificar, reseñar o las dos). Total: 106 calificaciones y 72 reseñas. Se comprobó que `POST /reviews` sin calificación previa funciona y que la reseña sale con `rating_score: null`. |
+| 2026-11-19 | Revisión del backend (commits `1c35740` a `2117b07`, 2026-11-16 y 17; respuestas en `Backend/junkbox-backend/docs/solicitudes.md`). **Retiradas por resueltas:** HOME-01, HOME-04, HOME-05, SEARCH-01 a SEARCH-04, COM-01, LIKE-01, FOL-01, FOL-02 y PROF-05 (HOME-02 ya estaba resuelta). **Cerradas:** HOME-03 (innecesaria tras HOME-01 y HOME-02) y HOME-06 (descartada: Web Playback SDK). **Retirada:** REV-01 (reemplazada el 2026-11-15). **Actualizadas:** PROF-01 y PROF-02 (proponen `/users/{id}/reviews` y `/ratings` con cursor y el `Review` del feed), PROF-03 (solo faltan las estadísticas de calificaciones), LIKE-02 y LIKE-03 (mismo contrato que `/reviews/{id}/like`) y CAT-01 (en gran parte cubierta por SEARCH-02). §1 añade los endpoints 13.1, 13.2 y 23 a 29, los campos nuevos de `Track` y `Review`, y la vuelta al puerto 8080 (`1c7b308`). Inicio ya usa `/home`, `/feed` y `/users/suggestions` (`FrontEnd/implementacion.md` §4.10). Al probar, el backend respondía `500` hasta que su desarrollador aplicó las migraciones pendientes. |

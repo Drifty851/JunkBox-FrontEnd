@@ -13,7 +13,8 @@ import type { NavigationItem } from '../../shared/layout/navigation.types'
  * `to: null` = el módulo aún no existe. Al implementar Buscador, Reseñas o Perfil,
  * basta con poner aquí su ruta.
  */
-export const HOME_ITEM: NavigationItem = { label: 'Inicio', to: '/', icon: houseIcon }
+/** Inicio se reinicia al volver a pulsarlo estando en él (2026-11-19). */
+export const HOME_ITEM: NavigationItem = { label: 'Inicio', to: '/', icon: houseIcon, refreshOnReselect: true }
 export const SEARCH_ITEM: NavigationItem = { label: 'Buscador', to: SEARCH_PATH, icon: searchIcon }
 export const CREATE_REVIEW_ITEM: NavigationItem = { label: 'Crear Reseña', to: WRITE_REVIEW_PATH, icon: squarePlusIcon }
 export const PROFILE_ITEM: NavigationItem = { label: 'Perfil', to: PROFILE_PATH, icon: personIcon }

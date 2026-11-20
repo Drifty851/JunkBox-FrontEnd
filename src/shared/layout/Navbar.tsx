@@ -33,7 +33,8 @@ interface NavbarProps {
 export function Navbar({ links, createReviewTo, search, account, settingsTo, onLogout }: NavbarProps) {
   return (
     <header className="sticky top-0 z-10 flex h-[52px] shrink-0 items-center gap-3 border-b border-line bg-surface-nav px-4 md:h-20 md:gap-6 md:px-8 xl:gap-10 xl:px-16">
-      <NavTarget to="/" ariaLabel="Junkbox, ir a Inicio" className={() => 'shrink-0 rounded'}>
+      {/* Estando en Inicio, el logo lo reinicia (2026-11-19). */}
+      <NavTarget to="/" ariaLabel="Junkbox, ir a Inicio" refreshOnReselect className={() => 'shrink-0 rounded'}>
         {() => <JunkboxLogo className="h-[27.81px] w-32 md:h-[34.77px] md:w-40" />}
       </NavTarget>
 
@@ -45,6 +46,7 @@ export function Navbar({ links, createReviewTo, search, account, settingsTo, onL
           <NavTarget
             key={link.label}
             to={link.to}
+            refreshOnReselect={link.refreshOnReselect}
             className={(isActive) =>
               cn(
                 'shrink-0 whitespace-nowrap text-sm leading-[1.4]',
