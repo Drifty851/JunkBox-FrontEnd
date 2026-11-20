@@ -1350,6 +1350,63 @@ La canción del reproductor puede no estar en el catálogo de Junkbox: por ejemp
 | (Correcciones) `pnpm typecheck` · `pnpm lint` | Correcto |
 | (Correcciones) Persistencia al navegar, "Device not found", barra arrastrable, adelante y atrás | **Pendiente**: el backend no respondía (`/healthz` sin respuesta, proxy 502), así que no se pudo iniciar sesión en el navegador de prueba; lo prueba el propietario |
 
+### 11.3 Motores de reproducción y Spotify Connect (2026-11-19)
+
+**Pedido del propietario:** que se pueda reproducir igual en escritorio, teléfonos y tabletas. El Web Playback SDK solo funciona en navegadores de escritorio (en iPhone y iPad no existe la protección de contenido que usa Spotify, y Spotify no da soporte a navegadores móviles).
+
+**Decisiones del propietario:**
+
+| Tema | Decisión |
+|---|---|
+| Escritorio | Igual que antes: el SDK reproduce en la pestaña. |
+| Teléfono y tableta | Spotify Connect: suena en la app de Spotify del dispositivo, con la interfaz del MiniPlayer de Junkbox. |
+| Estructura | Un motor por fuente con la misma interfaz (`models/playback.ts`); `PlayerProvider` elige el motor y el MiniPlayer no cambia. |
+| https para vincular desde el teléfono | Certificado local con mkcert, **temporal hasta tener hosting** (README · "Probar en el teléfono…"). |
+| Siguientes fases | 2) Vista previa de 30 s sin vincular, con el MiniPlayer y "Requieres vincular tu cuenta para escuchar la canción completa" (PLAY-01). 3) Fragmento de 5 a 30 s en las reseñas con `AudioSnippetPicker` y `SnippetPlayer` de Figma (PLAY-01 y REV-03). |
+
+**Estructura (`features/player`):**
+
+| Archivo | Responsabilidad |
+|---|---|
+| `models/playback.ts` | `PlaybackEngine` (`prepare`, `play(spotifyId, positionMs?)`, `pause`, `resume`, `seek`, `setVolume`, `readState`, `pollInterval`, `dispose`), `EngineSnapshot`, `PlaybackTarget`, `EngineUnsupportedError`, `NoDeviceError`. |
+| `infrastructure/sdkEngine.ts` | El SDK de §11.2 sin cambios de comportamiento: dispositivo "Junkbox", `transfer`, reintentos ante "Device not found", eventos `player_state_changed`. Si el SDK lanza `initialization_error`, se pasa a Connect. |
+| `infrastructure/connectEngine.ts` | Spotify Connect con la Web API. |
+| `infrastructure/spotifyApi.ts` | Añade `devices`, `resume`, `pause`, `seek`, `volume`; `play` acepta `position_ms` (se usará en la fase 3). |
+| `services/playbackMode.ts` | Elige el motor: SDK si el puntero principal es fino (ratón o trackpad) y el navegador tiene EME; si no (pantalla táctil, también el iPad aunque se presente como Mac), Connect. |
+| `controllers/PlayerProvider.tsx` | Estado, avisos, Premium, "Cambiar aquí", ended y lectura periódica; delega el sonido en el motor. `usePlayer()` no cambia. |
+
+**Spotify Connect:**
+- **Dispositivo:** `GET /v1/me/player/devices`. Se elige el de tipo Smartphone o Tablet activo; si no hay, el primero de esos tipos. Se vuelve a elegir en cada canción.
+- **App de Spotify dormida** (probado por el propietario en iPhone, 2026-11-19): iOS y Android suspenden las apps en segundo plano y una app suspendida deja de aparecer en `devices`, aunque esté "abierta". Una página web no puede despertarla. Decisión del propietario: el MiniPlayer muestra "Spotify está dormido en este dispositivo. Abre la canción en Spotify y, al volver, la controlas desde aquí." con el botón **"Abrir en Spotify"** (`spotifyUrl('song', id)`, en otra pestaña para no cerrar Junkbox). Al volver a Junkbox (`visibilitychange`) se pide otra vez la canción sin preguntar; si la app sigue dormida, se repite el aviso.
+- **Controles:** `PUT /me/player/play` (canción y posición), `play` sin cuerpo para continuar, `pause`, `seek` y `volume`. Si Spotify responde `404` (la app se durmió o se cerró), el mismo aviso con "Abrir en Spotify".
+- **Estado:** no hay eventos; se lee `GET /me/player` cada 1 s mientras suena y cada 5 s en pausa. Así también se ven los cambios hechos en la app de Spotify (otra canción, pausa). Si la música pasa a otro dispositivo, el MiniPlayer queda en pausa como con el SDK. Tras pedir una canción se marca como sonando y se lee el estado a los 700 ms.
+- **403 no es siempre "falta Premium"** (corrección del 2026-11-19, reportada por el propietario en iPhone): Spotify también responde 403 "Restriction violated" cuando una orden no aplica (reanudar algo que ya suena, pausar algo en pausa). Solo `reason: "PREMIUM_REQUIRED"` muestra el aviso de Premium (`SpotifyError.premiumRequired`); los demás 403 de los controles se ignoran y se vuelve a leer el estado. "Atrás" ya no envía "reanudar" si la canción sonaba, ni "Adelante" "pausar" si estaba en pausa.
+- **Lecturas viejas** (corrección del 2026-11-19, reportada en iPhone: "Adelante" no dejaba la barra llena): una lectura de `GET /me/player` que salió antes de una orden, o hasta 900 ms después, puede traer el estado anterior y deshacer lo que ya muestra el MiniPlayer (barra llena, nueva posición, pausa). Esas lecturas se descartan (`COMMAND_GRACE_MS`).
+- **Volumen:** solo si el dispositivo lo permite (`supports_volume`); en iPhone y iPad no se muestra el control.
+- **"Cambiar aquí":** si ya suena en otro dispositivo, se pregunta "¿Quieres cambiarla a este dispositivo?" (con el SDK sigue siendo "a esta pestaña").
+- **Vista ampliada:** "Sonando en Spotify · {dispositivo}" bajo los controles (no está en Figma; propuesta de esta fase).
+- **Fin de la canción:** pausa al final o vuelta a 0 tras haber llegado al final. Si la app de Spotify tiene la reproducción automática activada y pone otra canción, el MiniPlayer la muestra.
+- **Permisos:** ninguno nuevo; `user-read-playback-state` y `user-modify-playback-state` ya estaban en `SPOTIFY_SCOPES`. Requiere Premium, igual que el SDK.
+
+**Vincular desde el teléfono:** `spotifyRedirectUri()` (`models/spotify.ts`) usa el origen actual si Spotify lo acepta (https o `127.0.0.1`); si no, `http://127.0.0.1:5173`. Cada origen debe estar registrado en el panel de Spotify. `VITE_SPOTIFY_REDIRECT_URI` sigue fijando una. La vinculación se guarda por origen y por navegador: en el teléfono hay que vincular aparte.
+
+**Decisión técnica tomada al implementar:** el plan proponía comprobar Widevine para elegir el SDK. Se descartó porque Brave lo trae desactivado hasta que el usuario lo acepta y habría mandado a escritorio a Connect. Se usa el tipo de puntero y, como respaldo, el `initialization_error` del SDK.
+
+**Limitaciones:**
+- La Web API no dice cuál es "este" dispositivo: con dos teléfonos con Spotify abierto se usa el activo.
+- En el teléfono, la app de Spotify solo está disponible mientras está despierta (sonando o recién abierta): la primera canción de cada rato suele requerir "Abrir en Spotify" una vez.
+- El progreso de Connect avanza a saltos de 1 s.
+- El motor se elige **una vez por sesión**, con la primera canción. El modo dispositivo de DevTools simula una pantalla táctil y cuenta como teléfono: si la primera canción se pone ahí, sigue en Connect aunque se cierre DevTools, hasta recargar la página. Reducir la ventana del navegador no cambia el motor.
+- Sin Premium o sin vincular sigue el aviso de §11.2 hasta la fase 2.
+
+**Verificación (2026-11-19):**
+
+| Prueba | Resultado |
+|---|---|
+| `pnpm typecheck` · `pnpm lint` · `pnpm build` | Correcto |
+| Escritorio (SDK): reproducir, pausa, atrás, adelante, barra, volumen, "Cambiar aquí", "Ver ficha" | Pendiente de probar por el propietario |
+| Teléfono y tableta (Connect) con https | Pendiente de probar por el propietario (requiere mkcert y la URL de retorno registrada en Spotify) |
+
 ---
 
 ## 12. Módulo 10: Perfil
@@ -1535,3 +1592,7 @@ Además: probar las rutas del módulo con el backend en marcha (`pnpm dev`), rev
 | 2026-11-19 | Inicio con el backend (§4.10): "Hecho para tus oídos" y "Ver todo" con `GET /home`, feed "Para ti" y "Siguiendo" con `GET /feed` y scroll infinito (`shared/hooks/useInfiniteScroll`), "Conecta por lo que suena" con `GET /users/suggestions` (`UserCard` con `detail`). Nuevo módulo `features/social/`. Se elimina `demoPool.ts`. |
 | 2026-11-19 | Navegación: el logo, "Inicio" de la Navbar y la BottomBar reinician Inicio si ya se está en él, sin recargar el navegador (`NavTarget` con `refreshOnReselect`, `shared/layout/reselect.ts`; §4.10.5). |
 | 2026-11-19 | README: cómo probar desde el teléfono (`pnpm dev --host`) y navegadores compatibles (Safari 16.4+, Chrome/Edge/Brave 111+, Firefox 128+). |
+| 2026-11-19 | Reproductor (§11.3): motores de reproducción (`sdkEngine`, `connectEngine`) con la misma interfaz; en teléfonos y tabletas suena con Spotify Connect en la app de Spotify, con el MiniPlayer de Junkbox. La URL de retorno de Spotify se calcula desde el origen (https en el teléfono). https de desarrollo opcional con mkcert (`VITE_DEV_HTTPS_KEY`/`CERT`), temporal hasta tener hosting. Solicitudes PLAY-01 y REV-03 al backend. |
+| 2026-11-19 | Reproductor (Connect): con la app de Spotify dormida en el teléfono, el MiniPlayer ofrece "Abrir en Spotify" con la canción y la vuelve a pedir al regresar a Junkbox (§11.3). |
+| 2026-11-19 | Corrección (Connect, iPhone): "Atrás" y "Adelante" mostraban "necesitas Spotify Premium" con una cuenta Premium. Un 403 de Spotify solo se trata como falta de Premium si su motivo es `PREMIUM_REQUIRED`; no se envían órdenes que sobran (§11.3). |
+| 2026-11-19 | Corrección (Connect, iPhone): "Adelante" no dejaba la barra llena porque una lectura del estado anterior a la orden la deshacía; se descartan las lecturas de antes y de los 900 ms siguientes a cada orden (§11.3). |

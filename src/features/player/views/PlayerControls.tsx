@@ -106,9 +106,13 @@ export function ProgressBar({ thickness, className }: { thickness: number; class
   )
 }
 
-/** Icono volume-2 (Figma) con el control de 0 a 100 (empieza en 50; regla del propietario). */
+/**
+ * Icono volume-2 (Figma) con el control de 0 a 100 (empieza en 50; regla del propietario). No se
+ * muestra si el dispositivo no deja cambiarlo (Spotify Connect en iPhone y iPad).
+ */
 export function VolumeControl({ className, sliderClassName }: { className?: string; sliderClassName?: string }) {
   const { state, setVolume } = usePlayer()
+  if (!state.supportsVolume) return null
   return (
     <label className={cn('flex items-center gap-2', className)}>
       <MaskIcon src={volumeIcon} size={20} className="bg-fg" />

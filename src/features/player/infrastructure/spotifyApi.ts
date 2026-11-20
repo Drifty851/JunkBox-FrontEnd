@@ -1,15 +1,29 @@
-import type { SpotifyCurrentPlayback, SpotifyProfile, SpotifyTokenResponse, SpotifyTrack } from '../models/spotify'
+import type { SpotifyCurrentPlayback, SpotifyDevice, SpotifyProfile, SpotifyTokenResponse, SpotifyTrack } from '../models/spotify'
 
 const ACCOUNTS = 'https://accounts.spotify.com'
 const API = 'https://api.spotify.com/v1'
 
-/** Error de una llamada a Spotify, con el estado HTTP. */
+/** Motivo de Spotify cuando la cuenta no es Premium (403 de las órdenes de reproducción). */
+export const PREMIUM_REQUIRED = 'PREMIUM_REQUIRED'
+
+/**
+ * Error de una llamada a Spotify, con el estado HTTP y, en las órdenes de reproducción, el motivo
+ * (`error.reason`). Un 403 no siempre es "falta Premium": también es "Restriction violated" cuando la
+ * orden no aplica (reanudar algo que ya suena, pausar algo en pausa).
+ */
 export class SpotifyError extends Error {
   readonly status: number
-  constructor(status: number, message: string) {
+  readonly reason: string | null
+  constructor(status: number, message: string, reason: string | null = null) {
     super(message)
     this.name = 'SpotifyError'
     this.status = status
+    this.reason = reason
+  }
+
+  /** La cuenta no es Premium. */
+  get premiumRequired(): boolean {
+    return this.status === 403 && (this.reason === PREMIUM_REQUIRED || /premium/i.test(this.message))
   }
 }
 
@@ -25,6 +39,25 @@ async function tokenRequest(body: Record<string, string>): Promise<SpotifyTokenR
   }
   return (await response.json()) as SpotifyTokenResponse
 }
+
+/**
+ * Orden de reproducción (PUT/POST a /v1/me/player/…): 200, 202 o 204 si se acepta. 403 si la
+ * cuenta no es Premium o el dispositivo no lo permite; 404 si el dispositivo no está disponible.
+ */
+async function command(accessToken: string, method: 'PUT' | 'POST', path: string, body?: unknown): Promise<void> {
+  const response = await fetch(`${API}${path}`, {
+    method,
+    headers: { Authorization: `Bearer ${accessToken}`, ...(body === undefined ? {} : { 'Content-Type': 'application/json' }) },
+    body: body === undefined ? undefined : JSON.stringify(body),
+  })
+  if (!response.ok) {
+    const detail = (await response.json().catch(() => null)) as { error?: { message?: string; reason?: string } } | null
+    throw new SpotifyError(response.status, detail?.error?.message ?? 'Spotify no pudo completar la acción.', detail?.error?.reason ?? null)
+  }
+}
+
+const withDevice = (path: string, deviceId: string, extra: Record<string, string> = {}) =>
+  `${path}?${new URLSearchParams({ device_id: deviceId, ...extra }).toString()}`
 
 /** Adaptador de las APIs de Spotify (cuentas y Web API). */
 export const spotifyApi = {
@@ -47,19 +80,42 @@ export const spotifyApi = {
   },
 
   /**
-   * PUT /v1/me/player/play?device_id=: reproduce una canción en el dispositivo del SDK (Junkbox).
+   * PUT /v1/me/player/play?device_id=: reproduce una canción en un dispositivo (el del SDK o, con
+   * Connect, la app de Spotify del teléfono), desde `positionMs`.
    * 204 si se acepta; 403 si la cuenta no es Premium; 404 si el dispositivo aún no está listo.
    */
-  async play(accessToken: string, deviceId: string, spotifyTrackId: string): Promise<void> {
-    const response = await fetch(`${API}/me/player/play?device_id=${encodeURIComponent(deviceId)}`, {
-      method: 'PUT',
-      headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ uris: [`spotify:track:${spotifyTrackId}`] }),
+  play(accessToken: string, deviceId: string, spotifyTrackId: string, positionMs = 0): Promise<void> {
+    return command(accessToken, 'PUT', withDevice('/me/player/play', deviceId), {
+      uris: [`spotify:track:${spotifyTrackId}`],
+      position_ms: Math.max(0, Math.round(positionMs)),
     })
-    if (!response.ok) {
-      const detail = (await response.json().catch(() => null)) as { error?: { message?: string } } | null
-      throw new SpotifyError(response.status, detail?.error?.message ?? 'Spotify no pudo reproducir la canción.')
-    }
+  },
+
+  /** PUT /v1/me/player/play sin cuerpo: continúa lo que estaba en pausa. */
+  resume(accessToken: string, deviceId: string): Promise<void> {
+    return command(accessToken, 'PUT', withDevice('/me/player/play', deviceId))
+  },
+
+  /** PUT /v1/me/player/pause. */
+  pause(accessToken: string, deviceId: string): Promise<void> {
+    return command(accessToken, 'PUT', withDevice('/me/player/pause', deviceId))
+  },
+
+  /** PUT /v1/me/player/seek?position_ms=. */
+  seek(accessToken: string, deviceId: string, positionMs: number): Promise<void> {
+    return command(accessToken, 'PUT', withDevice('/me/player/seek', deviceId, { position_ms: String(Math.max(0, Math.round(positionMs))) }))
+  },
+
+  /** PUT /v1/me/player/volume?volume_percent= (solo si el dispositivo lo admite). */
+  volume(accessToken: string, deviceId: string, percent: number): Promise<void> {
+    return command(accessToken, 'PUT', withDevice('/me/player/volume', deviceId, { volume_percent: String(Math.round(percent)) }))
+  },
+
+  /** GET /v1/me/player/devices: dispositivos de Spotify Connect de la cuenta. */
+  async devices(accessToken: string): Promise<SpotifyDevice[]> {
+    const response = await fetch(`${API}/me/player/devices`, { headers: { Authorization: `Bearer ${accessToken}` } })
+    if (!response.ok) throw new SpotifyError(response.status, 'No se pudieron leer tus dispositivos de Spotify.')
+    return ((await response.json()) as { devices: SpotifyDevice[] }).devices
   },
 
   /**

@@ -9,15 +9,34 @@ export const SPOTIFY_CLIENT_ID: string = import.meta.env.VITE_SPOTIFY_CLIENT_ID 
 /** Ruta de retorno del flujo OAuth dentro de Junkbox. */
 export const SPOTIFY_CALLBACK_PATH = '/spotify/callback'
 
+/** URL de retorno fija (opcional): si está, la vinculación solo funciona desde su origen. */
+const FIXED_REDIRECT_URI: string = import.meta.env.VITE_SPOTIFY_REDIRECT_URI ?? ''
+
+/** Origen por defecto en escritorio. Spotify no acepta "localhost" (desde 2025), sí la IP de loopback. */
+const LOOPBACK_ORIGIN = 'http://127.0.0.1:5173'
+
 /**
- * URL de retorno registrada en el panel de Spotify. Spotify no acepta "localhost" (desde 2025):
- * se usa la IP de loopback. Se puede cambiar con VITE_SPOTIFY_REDIRECT_URI.
+ * Spotify solo acepta URLs de retorno con https o con la IP de loopback. Desde el teléfono, Junkbox
+ * se abre con https (certificado de desarrollo, README · "Probar en el teléfono").
  */
-export const SPOTIFY_REDIRECT_URI: string =
-  import.meta.env.VITE_SPOTIFY_REDIRECT_URI ?? `http://127.0.0.1:5173${SPOTIFY_CALLBACK_PATH}`
+export function isSecureLinkOrigin(origin: string): boolean {
+  const url = new URL(origin)
+  return url.protocol === 'https:' || url.hostname === '127.0.0.1'
+}
+
+/**
+ * URL de retorno de la vinculación (2026-11-19): la del origen actual si Spotify la acepta
+ * (`http://127.0.0.1:5173` en escritorio, `https://<IP de la PC>:5173` en el teléfono); si no, la de
+ * loopback. Cada una debe estar registrada en el panel de Spotify. VITE_SPOTIFY_REDIRECT_URI fija una.
+ */
+export function spotifyRedirectUri(): string {
+  if (FIXED_REDIRECT_URI) return FIXED_REDIRECT_URI
+  const origin = window.location.origin
+  return `${isSecureLinkOrigin(origin) ? origin : LOOPBACK_ORIGIN}${SPOTIFY_CALLBACK_PATH}`
+}
 
 /** Origen desde el que debe iniciarse la vinculación (el mismo de la URL de retorno). */
-export const SPOTIFY_LINK_ORIGIN = new URL(SPOTIFY_REDIRECT_URI).origin
+export const spotifyLinkOrigin = (): string => new URL(spotifyRedirectUri()).origin
 
 /**
  * Permisos mínimos: reproducir en el navegador (streaming + Web Playback SDK, solo Premium),
@@ -50,10 +69,15 @@ export interface SpotifyProfile {
   product?: 'premium' | 'free' | 'open' | string
 }
 
-/** GET /v1/me/player (campos que se usan): dispositivo activo de la cuenta. */
-export interface SpotifyCurrentPlayback {
-  is_playing: boolean
-  device: { id: string | null; name: string; type: string }
+/** Dispositivo de Spotify Connect (GET /v1/me/player/devices y `device` de /me/player). */
+export interface SpotifyDevice {
+  id: string | null
+  name: string
+  /** "Computer", "Smartphone", "Tablet", "Speaker"… */
+  type: string
+  is_active: boolean
+  volume_percent: number | null
+  supports_volume: boolean
 }
 
 /** GET /v1/tracks/{id} (campos que se usan). */
@@ -63,6 +87,15 @@ export interface SpotifyTrack {
   duration_ms: number
   artists: { name: string }[]
   album: { images: { url: string }[] }
+}
+
+/** GET /v1/me/player (campos que se usan): qué suena, dónde y en qué punto. */
+export interface SpotifyCurrentPlayback {
+  is_playing: boolean
+  device: SpotifyDevice
+  progress_ms: number | null
+  /** null si suena un anuncio o algo que no es una canción. */
+  item: SpotifyTrack | null
 }
 
 /** Estado de la vinculación que ve la interfaz. */

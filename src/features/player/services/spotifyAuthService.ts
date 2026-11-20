@@ -2,9 +2,9 @@ import { spotifyApi, SpotifyError } from '../infrastructure/spotifyApi'
 import { spotifyTokenVault } from '../infrastructure/spotifyTokenVault'
 import {
   SPOTIFY_CLIENT_ID,
-  SPOTIFY_LINK_ORIGIN,
-  SPOTIFY_REDIRECT_URI,
   SPOTIFY_SCOPES,
+  spotifyLinkOrigin,
+  spotifyRedirectUri,
   type SpotifyProfile,
 } from '../models/spotify'
 
@@ -45,12 +45,15 @@ export const spotifyAuthService = {
     return SPOTIFY_CLIENT_ID !== ''
   },
 
-  /** La vinculación tiene que empezar en el mismo origen que la URL de retorno (127.0.0.1). */
+  /**
+   * La vinculación tiene que empezar en el mismo origen que la URL de retorno: 127.0.0.1 en
+   * escritorio o https (teléfono), ver `spotifyRedirectUri`.
+   */
   isOnLinkOrigin(): boolean {
-    return window.location.origin === SPOTIFY_LINK_ORIGIN
+    return window.location.origin === spotifyLinkOrigin()
   },
 
-  linkOrigin: SPOTIFY_LINK_ORIGIN,
+  linkOrigin: spotifyLinkOrigin,
 
   hasLink(userId: string): boolean {
     return spotifyTokenVault.hasLink(userId)
@@ -64,7 +67,7 @@ export const spotifyAuthService = {
     const params = new URLSearchParams({
       client_id: SPOTIFY_CLIENT_ID,
       response_type: 'code',
-      redirect_uri: SPOTIFY_REDIRECT_URI,
+      redirect_uri: spotifyRedirectUri(),
       scope: SPOTIFY_SCOPES.join(' '),
       code_challenge_method: 'S256',
       code_challenge: await challengeFor(verifier),
@@ -88,7 +91,7 @@ export const spotifyAuthService = {
     }
     const code = params.get('code')
     if (!code) throw new Error('Spotify no devolvió la autorización. Vuelve a intentarlo.')
-    const tokens = await spotifyApi.exchangeCode(SPOTIFY_CLIENT_ID, code, SPOTIFY_REDIRECT_URI, pending.verifier)
+    const tokens = await spotifyApi.exchangeCode(SPOTIFY_CLIENT_ID, code, spotifyRedirectUri(), pending.verifier)
     if (!tokens.refresh_token) throw new Error('Spotify no devolvió el permiso para mantener la vinculación.')
     await spotifyTokenVault.saveRefreshToken(userId, tokens.refresh_token)
     remember(userId, tokens.access_token, tokens.expires_in)

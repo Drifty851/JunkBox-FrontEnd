@@ -100,6 +100,11 @@ export function PlayerSheet() {
         </div>
 
         <VolumeControl className="w-full max-w-72" sliderClassName="min-w-0 flex-1" />
+
+        {/* Spotify Connect (2026-11-19): la música sale de la app de Spotify de este dispositivo. */}
+        {state.mode === 'connect' && state.deviceName && (
+          <p className="text-xs leading-[1.4] text-fg-placeholder">Sonando en Spotify · {state.deviceName}</p>
+        )}
       </div>
     </div>
   )

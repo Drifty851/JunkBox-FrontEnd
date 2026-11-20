@@ -1,134 +1,172 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useAuth } from '../../auth/controllers/authContext'
+import { createConnectEngine } from '../infrastructure/connectEngine'
+import { createSdkEngine } from '../infrastructure/sdkEngine'
 import { spotifyApi, SpotifyError } from '../infrastructure/spotifyApi'
-import { loadSpotifySdk, type SdkPlaybackState, type SdkPlayer } from '../infrastructure/spotifyPlaybackSdk'
+import { EngineUnsupportedError, NoDeviceError, type EngineSnapshot, type PlaybackEngine, type PlaybackMode, type PlaybackTarget } from '../models/playback'
 import { INITIAL_PLAYER_STATE, type PlayerNotice, type PlayerState } from '../models/player'
+import { detectPlaybackMode } from '../services/playbackMode'
 import { spotifyAuthService } from '../services/spotifyAuthService'
 import { PlayerContext, type PlayerContextValue } from './playerContext'
 
 const NOTICES: Record<PlayerNotice['kind'], string> = {
   unlinked: 'Vincula tu cuenta de Spotify Premium en Configuración para reproducir.',
   'not-premium': 'Para reproducir en Junkbox necesitas Spotify Premium.',
+  'no-device': new NoDeviceError().message,
   error: 'Spotify no pudo reproducir la canción. Inténtalo de nuevo.',
 }
 
 const notice = (kind: PlayerNotice['kind'], message = NOTICES[kind]): PlayerNotice => ({ kind, message })
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
-/** Esperas entre reintentos ante "Device not found". */
-const RETRY_DELAYS_MS = [800, 1600, 3200]
+/** Connect: la app de Spotify tarda un momento en empezar; después se lee el estado. */
+const CONNECT_SETTLE_MS = 700
+/**
+ * Connect: tras una orden (pausa, "Adelante", barra…), las lecturas que salieron antes o en este
+ * margen pueden traer el estado anterior y deshacer lo que ya muestra el MiniPlayer: se descartan.
+ */
+const COMMAND_GRACE_MS = 900
+
+/** Aviso que corresponde a un error de Spotify o del motor. */
+function noticeFor(error: unknown, linked: boolean, spotifyId: string | null): PlayerNotice {
+  if (error instanceof NoDeviceError) return { ...notice('no-device'), spotifyId: spotifyId ?? undefined }
+  if (error instanceof SpotifyError && error.premiumRequired) return notice('not-premium')
+  if (error instanceof SpotifyError && error.status === 401 && !linked) return notice('unlinked')
+  // Los mensajes de la Web API vienen en inglés ("Restriction violated"): se usa el aviso general.
+  if (error instanceof SpotifyError) return notice('error')
+  return notice('error', error instanceof Error ? error.message : undefined)
+}
 
 /**
  * Reproductor global (vive en src/app/App.tsx, por encima de las rutas, para que la música siga al
- * cambiar de pantalla; se desconecta al cerrar sesión). Usa el Web Playback SDK de Spotify: Junkbox aparece como un dispositivo de Spotify y la
- * canción se pide con PUT /v1/me/player/play. Requiere la vinculación de Configuración (§11.1).
+ * cambiar de pantalla; se reinicia al cerrar sesión). Requiere la vinculación de Configuración
+ * (§11.1) y Spotify Premium. La música suena con uno de dos motores (§11.3, 2026-11-19):
+ *  - Escritorio: Web Playback SDK, en la pestaña (`sdkEngine`).
+ *  - Teléfonos y tabletas: Spotify Connect, en la app de Spotify del dispositivo (`connectEngine`).
+ * El MiniPlayer es el mismo en los dos casos.
  */
 export function PlayerProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth()
   const userId = user?.id ?? null
   const [state, setState] = useState<PlayerState>(INITIAL_PLAYER_STATE)
 
-  const playerRef = useRef<SdkPlayer | null>(null)
-  const deviceRef = useRef<Promise<string> | null>(null)
+  const engineRef = useRef<PlaybackEngine | null>(null)
+  const modeRef = useRef<PlaybackMode | null>(null)
   const premiumRef = useRef<boolean | null>(null)
   const volumeRef = useRef(INITIAL_PLAYER_STATE.volume)
   const lastPositionRef = useRef(0)
+  /** Última canción pedida (para "Abrir en Spotify" si la app está dormida). */
+  const requestedRef = useRef<string | null>(null)
+  /** Momento de la última orden del usuario (pausa, barra, atrás, adelante, volumen). */
+  const lastCommandRef = useRef(0)
   /**
-   * Esta pestaña es el dispositivo activo de Spotify. Si otra pestaña o dispositivo tomó la música (o
-   * se pulsó "Cancelar"), los controles locales no sirven: reproducir vuelve a preguntar.
+   * La música suena en el dispositivo de este motor (esta pestaña o, con Connect, este teléfono).
+   * Si otro dispositivo la tomó (o se pulsó "Cancelar"), los controles no sirven: reproducir
+   * vuelve a preguntar.
    */
   const activeRef = useRef(false)
 
   const update = useCallback((patch: Partial<PlayerState>) => setState((current) => ({ ...current, ...patch })), [])
 
-  const onSdkState = useCallback((sdk: SdkPlaybackState | null) => {
-    if (!sdk) {
-      // Spotify quitó la reproducción a esta pestaña (otra pestaña, el teléfono o la app la tomó):
-      // el MiniPlayer sigue a la vista con la canción en pausa (decisión del propietario, 2026-11-15).
+  const applySnapshot = useCallback((snapshot: EngineSnapshot) => {
+    if (!snapshot.active) {
+      // Otra pestaña, otro dispositivo o la app de Spotify tomó la música: el MiniPlayer sigue a la
+      // vista con la canción en pausa (decisión del propietario, 2026-11-15).
       activeRef.current = false
       setState((current) => (current.track ? { ...current, paused: true, loading: false } : current))
       return
     }
     activeRef.current = true
-    const track = sdk.track_window.current_track
-    // Con una sola canción, al terminar Spotify pausa y vuelve la posición a 0.
-    const ended = sdk.paused && sdk.position === 0 && sdk.duration > 0 && lastPositionRef.current > sdk.duration - 2500
-    lastPositionRef.current = sdk.position
+    const { paused, positionMs, durationMs } = snapshot
+    // Con una sola canción, al terminar Spotify pausa y vuelve la posición a 0 (SDK) o la deja al
+    // final (Connect).
+    const ended =
+      paused && durationMs > 0 && ((positionMs === 0 && lastPositionRef.current > durationMs - 2500) || positionMs >= durationMs - 1500)
+    lastPositionRef.current = positionMs
     setState((current) => {
       // Terminada (sola o con "Adelante") y en pausa: la barra se queda llena.
-      const stillEnded = ended || (current.ended && sdk.paused)
+      const stillEnded = ended || (current.ended && paused)
       return {
         ...current,
         loading: false,
-        paused: sdk.paused,
+        paused,
         ended: stillEnded,
-        positionMs: stillEnded ? sdk.duration : sdk.position,
-        durationMs: sdk.duration,
-        track: track
-          ? {
-              spotifyId: track.id ?? current.track?.spotifyId ?? '',
-              title: track.name,
-              artist: track.artists.map((artist) => artist.name).join(', '),
-              imageUrl: track.album.images[0]?.url ?? null,
-            }
-          : current.track,
+        positionMs: stillEnded ? durationMs : positionMs,
+        durationMs,
+        track: snapshot.track ? { ...snapshot.track, spotifyId: snapshot.track.spotifyId || current.track?.spotifyId || '' } : current.track,
       }
     })
   }, [])
 
-  /** Crea (una vez) el reproductor del SDK y espera a que Spotify le asigne un dispositivo. */
-  const ensureDevice = useCallback(
-    (forUser: string): Promise<string> => {
-      if (deviceRef.current) return deviceRef.current
-      deviceRef.current = (async () => {
-        const Spotify = await loadSpotifySdk()
-        const player = new Spotify.Player({
-          name: 'Junkbox',
-          volume: volumeRef.current / 100,
-          getOAuthToken: (callback) => {
-            spotifyAuthService
-              .getAccessToken(forUser)
-              .then(callback)
-              .catch(() => update({ loading: false, notice: notice('unlinked') }))
-          },
-        })
-        playerRef.current = player
-        const ready = new Promise<string>((resolve, reject) => {
-          player.addListener('ready', ({ device_id }) => resolve(device_id))
-          player.addListener('initialization_error', ({ message }) => reject(new Error(message)))
-          player.addListener('account_error', () => reject(new SpotifyError(403, NOTICES['not-premium'])))
-          setTimeout(() => reject(new Error('Spotify tardó demasiado en preparar el reproductor.')), 15000)
-        })
-        player.addListener('player_state_changed', onSdkState)
-        player.addListener('account_error', () => update({ loading: false, notice: notice('not-premium') }))
-        player.addListener('authentication_error', () => update({ loading: false, notice: notice('unlinked') }))
-        player.addListener('playback_error', () => update({ loading: false, notice: notice('error') }))
-        player.addListener('not_ready', () => {
-          // Spotify dio el dispositivo por desconectado: se descarta para no tener dos reproductores.
-          player.disconnect()
-          if (playerRef.current === player) playerRef.current = null
-          deviceRef.current = null
-        })
-        if (!(await player.connect())) throw new Error('No se pudo conectar el reproductor de Spotify.')
-        const deviceId = await ready
-        // Registrar el dispositivo en la cuenta antes de pedir canciones (evita "Device not found").
-        await spotifyApi.transfer(await spotifyAuthService.getAccessToken(forUser), deviceId).catch(() => undefined)
-        return deviceId
-      })()
-      deviceRef.current.catch(() => {
-        playerRef.current?.disconnect()
-        playerRef.current = null
-        deviceRef.current = null
-      })
-      return deviceRef.current
+  const showError = useCallback(
+    (error: unknown) =>
+      update({ loading: false, notice: noticeFor(error, userId !== null && spotifyAuthService.hasLink(userId), requestedRef.current) }),
+    [update, userId],
+  )
+
+  /** Motor de este dispositivo (se crea una vez por sesión). */
+  const getEngine = useCallback(
+    (forUser: string): PlaybackEngine => {
+      if (engineRef.current) return engineRef.current
+      const mode = modeRef.current ?? detectPlaybackMode()
+      modeRef.current = mode
+      const getToken = () => spotifyAuthService.getAccessToken(forUser)
+      engineRef.current =
+        mode === 'sdk'
+          ? createSdkEngine(getToken, volumeRef.current, {
+              onState: applySnapshot,
+              onError: (kind) => update({ loading: false, notice: notice(kind) }),
+            })
+          : createConnectEngine(getToken)
+      return engineRef.current
     },
-    [onSdkState, update],
+    [applySnapshot, update],
+  )
+
+  /** Prepara el dispositivo; si el navegador no admite el SDK, pasa a Connect. */
+  const prepareEngine = useCallback(
+    async (forUser: string): Promise<{ engine: PlaybackEngine; target: PlaybackTarget }> => {
+      let engine = getEngine(forUser)
+      try {
+        return { engine, target: await engine.prepare() }
+      } catch (error) {
+        if (!(error instanceof EngineUnsupportedError)) throw error
+        engine.dispose()
+        engineRef.current = null
+        modeRef.current = 'connect'
+        engine = getEngine(forUser)
+        return { engine, target: await engine.prepare() }
+      }
+    },
+    [getEngine],
+  )
+
+  /**
+   * Ejecuta una orden del motor; si falla (por ejemplo, la app de Spotify se durmió), avisa. Un 403
+   * que no es "falta Premium" ("Restriction violated": la orden no aplica en ese momento) no se
+   * muestra: se vuelve a leer el estado para que el MiniPlayer refleje lo que de verdad pasa.
+   */
+  const run = useCallback(
+    (action: (engine: PlaybackEngine) => Promise<void>) => {
+      const engine = engineRef.current
+      if (!engine) return
+      lastCommandRef.current = Date.now()
+      action(engine).catch((error: unknown) => {
+        if (error instanceof SpotifyError && error.status === 403 && !error.premiumRequired) {
+          void engine.readState().then((snapshot) => snapshot && applySnapshot(snapshot))
+          return
+        }
+        showError(error)
+      })
+    },
+    [showError, applySnapshot],
   )
 
   const startPlayback = useCallback(
     (spotifyId: string, force: boolean) => {
       if (!userId) return
+      requestedRef.current = spotifyId
       // Dentro del gesto del usuario: desbloquea el audio en navegadores estrictos.
-      void playerRef.current?.activateElement()
+      engineRef.current?.unlockAudio()
       update({ visible: true, loading: true, notice: null, pendingSwitch: null, ended: false, positionMs: 0 })
       if (!spotifyAuthService.hasLink(userId)) {
         update({ loading: false, notice: notice('unlinked') })
@@ -143,58 +181,45 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
             update({ loading: false, notice: notice('not-premium') })
             return
           }
-          const deviceId = await ensureDevice(userId)
-          const token = await spotifyAuthService.getAccessToken(userId)
+          const { engine, target } = await prepareEngine(userId)
+          update({ mode: engine.mode, deviceName: target.deviceName, supportsVolume: target.supportsVolume })
           if (!force) {
             // Spotify solo deja sonar un dispositivo a la vez: si ya suena en otro, se pregunta.
-            const current = await spotifyApi.currentPlayback(token).catch(() => null)
-            if (current?.is_playing && current.device.id !== deviceId) {
+            const current = await spotifyApi.currentPlayback(await spotifyAuthService.getAccessToken(userId)).catch(() => null)
+            if (current?.is_playing && current.device.id !== target.deviceId) {
               update({ loading: false, pendingSwitch: { spotifyId, deviceName: current.device.name } })
               return
             }
           }
-          // El dispositivo recién creado puede tardar en registrarse en Spotify ("Device not found",
-          // 404): hasta 3 reintentos con espera creciente.
-          for (let attempt = 0; ; attempt++) {
-            try {
-              await spotifyApi.play(token, deviceId, spotifyId)
-              break
-            } catch (error) {
-              if (!(error instanceof SpotifyError && error.status === 404) || attempt >= RETRY_DELAYS_MS.length) throw error
-              await sleep(RETRY_DELAYS_MS[attempt])
-            }
-          }
+          await engine.play(spotifyId)
           lastPositionRef.current = 0
           activeRef.current = true
+          if (engine.mode === 'connect') {
+            // Connect no avisa: se marca como sonando y se lee el estado en cuanto la app empieza.
+            update({ paused: false })
+            await sleep(CONNECT_SETTLE_MS)
+            const snapshot = await engine.readState()
+            if (snapshot) applySnapshot(snapshot)
+          }
         } catch (error) {
-          const kind =
-            error instanceof SpotifyError && error.status === 403
-              ? 'not-premium'
-              : error instanceof SpotifyError && error.status === 401 && !spotifyAuthService.hasLink(userId)
-                ? 'unlinked'
-                : 'error'
-          update({
-            loading: false,
-            notice: notice(kind, kind === 'error' && error instanceof Error ? error.message : undefined),
-          })
+          showError(error)
         }
       })()
     },
-    [userId, ensureDevice, update],
+    [userId, prepareEngine, update, applySnapshot, showError],
   )
 
   const play = useCallback((spotifyId: string) => startPlayback(spotifyId, false), [startPlayback])
 
-  /** "Cambiar aquí": reproduce en esta pestaña aunque suene en otro dispositivo. */
+  /** "Cambiar aquí": reproduce en este dispositivo aunque suene en otro. */
   const confirmSwitch = useCallback(() => {
     if (state.pendingSwitch) startPlayback(state.pendingSwitch.spotifyId, true)
   }, [state.pendingSwitch, startPlayback])
 
-  /** "Cancelar": deja la música donde estaba; si aquí no sonaba nada, se oculta el reproductor. */
   /**
    * "Cancelar": la música sigue en el otro dispositivo y aquí el MiniPlayer queda en pausa con la
-   * canción pedida (decisión del propietario, 2026-11-15). Si esta pestaña aún no había sonado, los
-   * datos de la canción se piden a Spotify (GET /v1/tracks/{id}).
+   * canción pedida (decisión del propietario, 2026-11-15). Si aquí aún no había sonado, los datos de
+   * la canción se piden a Spotify (GET /v1/tracks/{id}).
    */
   const cancelSwitch = useCallback(() => {
     activeRef.current = false
@@ -225,94 +250,125 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   }, [state.pendingSwitch, state.track, userId])
 
   const togglePlay = useCallback(() => {
-    const player = playerRef.current
     // La música está en otro dispositivo: se vuelve a pedir esta canción (pregunta antes de cambiar).
     if (!activeRef.current) {
       if (state.track) startPlayback(state.track.spotifyId, false)
       return
     }
-    if (!player) return
     if (state.ended) {
-      update({ ended: false, positionMs: 0 })
+      update({ ended: false, paused: false, positionMs: 0 })
       lastPositionRef.current = 0
-      void player.seek(0).then(() => player.resume())
+      run(async (engine) => {
+        await engine.seek(0)
+        await engine.resume()
+      })
       return
     }
-    void player.togglePlay()
-  }, [state.ended, state.track, startPlayback, update])
+    const resume = state.paused
+    // Connect no avisa del cambio: se refleja al momento (el SDK lo confirma con su evento).
+    update({ paused: !resume })
+    run((engine) => (resume ? engine.resume() : engine.pause()))
+  }, [state.ended, state.paused, state.track, startPlayback, update, run])
 
   /** "Atrás": la barra se vacía al instante y la canción vuelve a sonar desde 0. */
   const restart = useCallback(() => {
-    const player = playerRef.current
     if (!activeRef.current) {
       if (state.track) startPlayback(state.track.spotifyId, false)
       return
     }
-    if (!player) return
+    // Si ya sonaba, basta con volver a 0:00 ("reanudar" algo que suena da 403 en Spotify Connect).
+    const wasStopped = state.paused || state.ended
     lastPositionRef.current = 0
     update({ ended: false, paused: false, positionMs: 0 })
-    void player.seek(0).then(() => player.resume())
-  }, [state.track, startPlayback, update])
+    run(async (engine) => {
+      await engine.seek(0)
+      if (wasStopped) await engine.resume()
+    })
+  }, [state.track, state.paused, state.ended, startPlayback, update, run])
 
   /** Barra de tiempo: mueve la canción a `positionMs` (si había terminado, queda en pausa ahí). */
   const seek = useCallback(
     (positionMs: number) => {
-      const player = playerRef.current
-      if (!player || !activeRef.current) return
+      if (!activeRef.current) return
       const value = Math.max(0, Math.round(positionMs))
       lastPositionRef.current = value
       update({ ended: false, positionMs: value })
-      void player.seek(value)
+      run((engine) => engine.seek(value))
     },
-    [update],
+    [update, run],
   )
 
-  /** "Adelante": pausa y deja la barra llena (ended); onSdkState ya no la vacía. */
+  /** "Adelante": pausa y deja la barra llena (ended); la lectura del estado ya no la vacía. */
   const finish = useCallback(() => {
-    const player = playerRef.current
-    if (!player || !activeRef.current) return
-    void player.pause()
+    if (!activeRef.current) return
+    // En pausa no se vuelve a pausar (también daría 403 en Spotify Connect).
+    if (!state.paused) run((engine) => engine.pause())
     setState((current) => ({ ...current, paused: true, ended: true, positionMs: current.durationMs }))
-  }, [])
+  }, [state.paused, run])
 
   const setVolume = useCallback(
     (volume: number) => {
       const value = Math.min(100, Math.max(0, Math.round(volume)))
       volumeRef.current = value
       update({ volume: value })
-      void playerRef.current?.setVolume(value / 100)
+      run((engine) => engine.setVolume(value))
     },
-    [update],
+    [update, run],
   )
 
   const close = useCallback(() => {
-    void playerRef.current?.pause()
+    if (activeRef.current) run((engine) => engine.pause())
     update({ visible: false, expanded: false, notice: null, pendingSwitch: null, loading: false })
-  }, [update])
+  }, [update, run])
 
   const setExpanded = useCallback((expanded: boolean) => update({ expanded }), [update])
 
-  // Progreso: mientras suena, se lee la posición del SDK dos veces por segundo.
+  // Connect con la app de Spotify dormida: al volver a Junkbox (tras "Abrir en Spotify"), la app ya
+  // está despierta y se pide otra vez la canción, sin preguntar (2026-11-19).
+  const pendingSpotifyId = state.notice?.kind === 'no-device' ? (state.notice.spotifyId ?? null) : null
   useEffect(() => {
-    if (!state.visible || state.paused) return
-    const timer = window.setInterval(() => {
-      void playerRef.current?.getCurrentState().then((sdk) => {
-        if (!sdk) return
-        lastPositionRef.current = sdk.position
-        setState((current) => (current.ended ? current : { ...current, positionMs: sdk.position, durationMs: sdk.duration }))
-      })
-    }, 500)
-    return () => window.clearInterval(timer)
-  }, [state.visible, state.paused])
+    if (!pendingSpotifyId) return
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') startPlayback(pendingSpotifyId, true)
+    }
+    document.addEventListener('visibilitychange', onVisible)
+    return () => document.removeEventListener('visibilitychange', onVisible)
+  }, [pendingSpotifyId, startPlayback])
 
-  // Al cerrar sesión (AppLayout se desmonta) o cambiar de usuario, se desconecta el dispositivo.
+  // Progreso: se lee el estado del motor (SDK: dos veces por segundo mientras suena; Connect: cada
+  // 1 s sonando y cada 5 s en pausa, para ver también lo que se cambie desde la app de Spotify).
+  useEffect(() => {
+    if (!state.visible || state.mode === null) return
+    const engine = engineRef.current
+    const interval = engine?.pollInterval(state.paused) ?? null
+    if (!engine || interval === null) return
+    const timer = window.setInterval(() => {
+      const startedAt = Date.now()
+      void engine.readState().then((snapshot) => {
+        if (!snapshot) return
+        // Lectura anterior a una orden del usuario (o justo después): traería el estado viejo.
+        if (startedAt < lastCommandRef.current + COMMAND_GRACE_MS) return
+        if (engine.mode === 'sdk') {
+          // El SDK avisa de las pausas con su evento: aquí solo se avanza la barra.
+          lastPositionRef.current = snapshot.positionMs
+          setState((current) => (current.ended ? current : { ...current, positionMs: snapshot.positionMs, durationMs: snapshot.durationMs }))
+          return
+        }
+        applySnapshot(snapshot)
+      })
+    }, interval)
+    return () => window.clearInterval(timer)
+  }, [state.visible, state.paused, state.mode, applySnapshot])
+
+  // Al cerrar sesión (AppLayout se desmonta) o cambiar de usuario, se suelta el motor.
   useEffect(
     () => () => {
-      playerRef.current?.disconnect()
-      playerRef.current = null
-      deviceRef.current = null
+      engineRef.current?.dispose()
+      engineRef.current = null
+      modeRef.current = null
       premiumRef.current = null
       lastPositionRef.current = 0
+      activeRef.current = false
       volumeRef.current = INITIAL_PLAYER_STATE.volume
       // Reinicio del estado al cerrar sesión o cambiar de usuario (fuera de un setState síncrono del efecto).
       queueMicrotask(() => setState(INITIAL_PLAYER_STATE))

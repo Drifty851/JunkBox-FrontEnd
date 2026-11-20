@@ -53,7 +53,8 @@ El backend es un servicio en Go que se ejecuta aparte (en este equipo, dentro de
 | `VITE_API_BASE_URL` | `/api/v1` | Base de la API que usa el navegador. Relativa: pasa por el proxy (desarrollo) o por el mismo origen (producción). Absoluta (`https://…/api/v1`): llamada directa usando el CORS del backend. |
 | `VITE_BACKEND_URL` | `http://localhost:8080` | Solo en desarrollo: destino del proxy de Vite. |
 | `VITE_SPOTIFY_CLIENT_ID` | — | Client ID **público** de la app de Spotify (PKCE, sin secreto) para vincular Spotify Premium desde Configuración. En el panel de Spotify, la Redirect URI debe ser `http://127.0.0.1:5173/spotify/callback` y, para vincular, Junkbox debe abrirse en `http://127.0.0.1:5173` (`implementacion.md` §11.1). |
-| `VITE_SPOTIFY_REDIRECT_URI` | `http://127.0.0.1:5173/spotify/callback` | Solo si se registra otra URL de retorno en Spotify. |
+| `VITE_SPOTIFY_REDIRECT_URI` | La del origen actual (https o `127.0.0.1`); si no, `http://127.0.0.1:5173/spotify/callback` | Solo para fijar una URL de retorno concreta. |
+| `VITE_DEV_HTTPS_KEY` · `VITE_DEV_HTTPS_CERT` | — | Solo desarrollo y **temporal**: rutas al certificado de mkcert para servir https y vincular Spotify desde el teléfono (ver "https en desarrollo con mkcert"). |
 
 `.env` y `.env.*` están en `.gitignore`; `.env.example` sirve de plantilla.
 
@@ -127,9 +128,22 @@ src/
 3. Si no carga, Windows está bloqueando el puerto: al primer arranque acepta el aviso del firewall para **redes privadas**, o permite el puerto 5173 para Node.js. La red Wi-Fi debe estar marcada como privada en Windows.
 4. El backend no se toca: el teléfono solo habla con Vite y el proxy de Vite llama al backend desde la PC (`localhost:8080`), así que tampoco hace falta CORS.
 
-**Qué no funciona desde el teléfono:**
+**Spotify en el teléfono y la tableta:** la música suena en la **app de Spotify** del dispositivo y Junkbox la controla con su MiniPlayer (Spotify Connect, `implementacion.md` §11.3). Requiere Premium, la app de Spotify abierta y vincular la cuenta desde el teléfono, lo que necesita **https** (con `http://192.168…` el botón de vincular falla). Lo demás (sesión, Inicio, Buscador, Fichas, Reseñas, Perfil) funciona sin https.
 
-- **Spotify:** el reproductor (Web Playback SDK) no funciona en navegadores móviles, y vincular la cuenta necesita `crypto.subtle`, que el navegador solo ofrece en `https` o en `127.0.0.1`/`localhost`. Desde `http://192.168…` el botón de vincular falla. Lo demás (sesión, Inicio, Buscador, Fichas, Reseñas, Perfil) no usa esas funciones.
+### https en desarrollo con mkcert (TEMPORAL, hasta tener hosting)
+
+Solo hace falta para vincular Spotify desde teléfonos y tabletas. Cuando Junkbox esté publicado con su dominio y https, esta sección se elimina.
+
+1. Instala [mkcert](https://github.com/FiloSottile/mkcert) en Windows y ejecuta `mkcert -install` (crea una autoridad de certificación local).
+2. En `FrontEnd/`, genera el certificado con la IP de la PC en la red (`ipconfig`, "Dirección IPv4"): `mkcert -key-file .cert/dev-key.pem -cert-file .cert/dev.pem 192.168.1.50 127.0.0.1 localhost`. La carpeta `.cert/` no se sube a Git.
+3. En `.env.local`: `VITE_DEV_HTTPS_KEY=.cert/dev-key.pem` y `VITE_DEV_HTTPS_CERT=.cert/dev.pem`.
+4. Instala la autoridad de mkcert en cada teléfono o tableta (el archivo `rootCA.pem` de la carpeta que muestra `mkcert -CAROOT`; envíatelo por correo o AirDrop):
+   - **iPhone y iPad:** ábrelo e instala el perfil (Ajustes › General › VPN y gestión de dispositivos), y después actívalo en Ajustes › General › Información › Ajustes de confianza de certificados.
+   - **Android:** Ajustes › Seguridad › Más ajustes › Instalar certificado › Certificado de CA. Firefox para Android además necesita "Usar certificados de terceros" (Ajustes › Acerca de › toca 5 veces el logo › Ajustes secretos).
+5. Arranca con `pnpm dev --host`. En la PC Junkbox queda en `https://127.0.0.1:5173` y en el teléfono en `https://192.168.1.50:5173`.
+6. En el panel de Spotify (Redirect URIs) registra `https://192.168.1.50:5173/spotify/callback` y `https://127.0.0.1:5173/spotify/callback` (con https activo, la de la PC también cambia).
+
+Si la IP de la PC cambia, repite los pasos 2 y 6. Para volver a http, quita las dos variables de `.env.local`.
 - **Vista previa en DevTools:** en el iPhone no hay DevTools. Para ver errores de Safari en iPhone hace falta una Mac (Safari › Desarrollo); desde Windows, el modo dispositivo de Chrome, Edge o Brave sirve para revisar el diseño a 390 px.
 
 ### Navegadores compatibles
@@ -157,7 +171,7 @@ Tailwind CSS v4 fija el mínimo: **Safari 16.4+** (iOS 16.4+), **Chrome/Edge/Bra
 | Fichas del catálogo | `/cancion/:id`, `/album/:id`, `/artista/:id` | Implementado (§7) | `GET /music/tracks\|albums\|artists/{id}`, `GET /music/search` (cascada), `GET /reviews`, `GET /ratings/my` |
 | Calificaciones y Reseñas | `/resena/nueva?tipo=&id=`, `/resena/:id` (Reseña Completa) | Implementado (§8). Comentarios anidados y Me gusta, plantillas hasta COM-01 y LIKE-01/02 | `POST/GET/DELETE /ratings`, `POST/GET/PUT/DELETE /reviews`, `GET /reviews/{id}` |
 | Configuración | `/configuracion` · menú del avatar | Implementado (§10). Guardar el perfil y la frecuencia, pendientes del backend (USER-01, PREF-01) | `GET /auth/me`, `POST /auth/password/forgot`, `POST /auth/logout` |
-| Spotify y Reproductor | `/spotify/callback` · Configuración · MiniPlayer | Implementado (§11): vinculación PKCE y reproductor con el Web Playback SDK (Spotify Premium) | `accounts.spotify.com` (PKCE), `GET /v1/me`, `PUT /v1/me/player/play` |
+| Spotify y Reproductor | `/spotify/callback` · Configuración · MiniPlayer | Implementado (§11): vinculación PKCE; reproductor con el Web Playback SDK en escritorio y Spotify Connect en teléfonos y tabletas (§11.3), Spotify Premium | `accounts.spotify.com` (PKCE), `GET /v1/me`, `GET/PUT /v1/me/player…` (play, pause, seek, volume, devices) |
 | Perfil | `/perfil` (`?tab=calificaciones`), `/perfil/seguidores`, `/perfil/seguidos`, `/usuario/:username` (y sus listas) | Implementado (§12) con plantillas: listas, contadores, seguir y perfiles de otros pendientes del backend (PROF-01 a PROF-05, FOL-01, FOL-02) | `GET /auth/me` |
 
 Los módulos se implementan **uno cada vez**. Las carencias del backend están en `SOLICITUDES_BACKEND.md`.

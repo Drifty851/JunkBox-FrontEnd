@@ -71,7 +71,7 @@ export function useSpotifyLink() {
     status,
     configured: spotifyAuthService.isConfigured(),
     onLinkOrigin: spotifyAuthService.isOnLinkOrigin(),
-    linkOrigin: spotifyAuthService.linkOrigin,
+    linkOrigin: spotifyAuthService.linkOrigin(),
     starting,
     link,
     unlink,

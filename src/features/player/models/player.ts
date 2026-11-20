@@ -1,5 +1,8 @@
+import type { PlaybackMode } from './playback'
+
 /**
- * Modelo del reproductor (MiniPlayer de Figma + Web Playback SDK).
+ * Modelo del reproductor (MiniPlayer de Figma; suena con el Web Playback SDK en escritorio o con
+ * Spotify Connect en teléfonos y tablets, ver `playback.ts`).
  * Reglas del propietario (2026-11-13):
  *  - Una sola canción: la que elige el usuario.
  *  - "Atrás" reinicia la canción; "Adelante" la termina (queda al final, en pausa).
@@ -17,10 +20,15 @@ export interface NowPlaying {
   imageUrl: string | null
 }
 
-/** Aviso en lugar de la canción: sin vincular, sin Premium o error de Spotify. */
+/**
+ * Aviso en lugar de la canción: sin vincular, sin Premium, sin la app de Spotify abierta en el
+ * teléfono (Connect) o error de Spotify.
+ */
 export interface PlayerNotice {
-  kind: 'unlinked' | 'not-premium' | 'error'
+  kind: 'unlinked' | 'not-premium' | 'no-device' | 'error'
   message: string
+  /** `no-device`: canción pedida, para abrirla en la app de Spotify y reintentarla al volver. */
+  spotifyId?: string
 }
 
 /**
@@ -50,6 +58,12 @@ export interface PlayerState {
   expanded: boolean
   notice: PlayerNotice | null
   pendingSwitch: PendingSwitch | null
+  /** Motor en uso; null hasta la primera reproducción. */
+  mode: PlaybackMode | null
+  /** Dispositivo donde suena (Connect: el teléfono o la tablet). */
+  deviceName: string | null
+  /** Se puede cambiar el volumen (iOS no lo permite con Connect). */
+  supportsVolume: boolean
 }
 
 export const INITIAL_PLAYER_STATE: PlayerState = {
@@ -64,6 +78,9 @@ export const INITIAL_PLAYER_STATE: PlayerState = {
   expanded: false,
   notice: null,
   pendingSwitch: null,
+  mode: null,
+  deviceName: null,
+  supportsVolume: true,
 }
 
 /** "m:ss" para los tiempos del MiniPlayer (Figma: "0:58", "3:24"). */

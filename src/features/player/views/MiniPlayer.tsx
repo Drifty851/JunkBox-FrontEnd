@@ -3,9 +3,10 @@ import chevronUpIcon from '../../../assets/icons/chevron-up-20.svg'
 import xIcon from '../../../assets/icons/x-16.svg'
 import { MaskIcon } from '../../../shared/ui/MaskIcon'
 import { cn } from '../../../shared/utils/cn'
-import { songPath } from '../../catalog/models/catalogPaths'
+import { songPath, spotifyUrl } from '../../catalog/models/catalogPaths'
 import { SETTINGS_PATH } from '../../settings/models/settings'
 import { usePlayer } from '../controllers/playerContext'
+import { SDK_DEVICE_NAME } from '../infrastructure/sdkEngine'
 import { useOpenSongPage } from '../controllers/useOpenSongPage'
 import { formatPlaybackTime } from '../models/player'
 import { FinishButton, ICON_BUTTON, PlayPauseButton, ProgressBar, RestartButton, VolumeControl } from './PlayerControls'
@@ -75,12 +76,14 @@ export function MiniPlayer() {
 
   if (state.pendingSwitch) {
     const { deviceName } = state.pendingSwitch
-    const where = deviceName === 'Junkbox' ? 'otra pestaña de Junkbox' : `«${deviceName}»`
+    const where = deviceName === SDK_DEVICE_NAME ? 'otra pestaña de Junkbox' : `«${deviceName}»`
+    // Con Spotify Connect la música pasa a la app de Spotify de este teléfono o tableta.
+    const here = state.mode === 'connect' ? 'este dispositivo' : 'esta pestaña'
     return (
       <section aria-label="Reproductor" className="border-t border-line bg-surface-nav">
         <div role="alertdialog" aria-labelledby="player-switch-text" className="flex min-h-[60px] flex-wrap items-center gap-x-3 gap-y-2 px-4 py-2 md:min-h-[76px] md:flex-nowrap md:px-8 xl:px-16">
           <p id="player-switch-text" className="min-w-0 flex-1 basis-full text-[13px] leading-[1.4] text-fg md:basis-auto">
-            Ya tienes música sonando en {where}. ¿Quieres cambiarla a esta pestaña?
+            Ya tienes música sonando en {where}. ¿Quieres cambiarla a {here}?
           </p>
           <div className="ml-auto flex shrink-0 items-center gap-2">
             <button type="button" onClick={cancelSwitch} className={SWITCH_BUTTON + ' border border-line bg-surface-quickplay text-fg'}>
@@ -107,6 +110,20 @@ export function MiniPlayer() {
               </Link>
             )}
           </p>
+          {/*
+            Spotify Connect con la app dormida (2026-11-19): abre la canción en la app de Spotify (en
+            otra pestaña, para que Junkbox siga abierto); al volver, PlayerProvider la pide de nuevo.
+          */}
+          {state.notice.kind === 'no-device' && state.notice.spotifyId && (
+            <a
+              href={spotifyUrl('song', state.notice.spotifyId)}
+              target="_blank"
+              rel="noopener noreferrer"
+              className={SWITCH_BUTTON + ' shrink-0 border border-action bg-action text-on-action'}
+            >
+              Abrir en Spotify
+            </a>
+          )}
           <CloseButton />
         </div>
       </section>

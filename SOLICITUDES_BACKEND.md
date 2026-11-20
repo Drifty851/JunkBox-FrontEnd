@@ -177,7 +177,9 @@ Sin solicitudes abiertas. SEARCH-01 a SEARCH-04 se resolvieron en el backend (20
 
 ## 6. Módulo: Spotify y Reproductor
 
-**Figma:** componente `MiniPlayer` (instancias `14296:15070` móvil, `14296:14858` escritorio). Configuración · "Tu cuenta de música".
+**Figma:** componente `MiniPlayer` (instancias `14296:15070` móvil, `14296:14858` escritorio). Configuración · "Tu cuenta de música". Escribir Reseña · `AudioSnippetPicker` (`14296:6217`) y ReviewCard · `SnippetPlayer` (`14296:7133`).
+
+**Plan de reproducción (decisión del propietario, 2026-11-19):** escritorio con el Web Playback SDK; teléfonos y tabletas con Spotify Connect (la app de Spotify) y el MiniPlayer de Junkbox; sin vincular, vista previa de 30 s (PLAY-01); fragmento de 5 a 30 s en las reseñas (REV-03). Ver `FrontEnd/implementacion.md` §11.3.
 
 ### SPOT-01 · Enlazar la cuenta de Spotify del usuario
 - **Estado:** Pendiente · **Responsable:** Backend · **Bloqueante:** no.
@@ -190,6 +192,27 @@ Sin solicitudes abiertas. SEARCH-01 a SEARCH-04 se resolvieron en el backend (20
   - `GET /auth/me` podría incluir `spotify: { linked, display_name, product } | null`.
 - **Alternativa en el frontend (implementada 2026-11-13, `FrontEnd/implementacion.md` §11.1):** Authorization Code con **PKCE** desde el navegador (sin secreto). El access token vive solo en memoria; el refresh token se guarda en `localStorage`, por usuario de Junkbox, **cifrado** con AES-GCM y una clave no extraíble guardada en IndexedDB. Se borra al cerrar sesión o desvincular. La vinculación no sobrevive a otro navegador o dispositivo y no está protegida por completo contra un script malicioso en la página.
 - **Impacto en el frontend:** cuando exista, solo cambia `features/player/services/spotifyAuthService.ts` (y desaparece el guardado local); el resto se queda igual.
+
+### PLAY-01 · Vista previa de 30 s
+- **Estado:** Pendiente · **Responsable:** Backend · **Bloqueante:** no (bloquea la fase 2 del reproductor).
+- **Qué pasa:** el propietario decidió (2026-11-19) que quien no vincula su cuenta de Spotify (o no tiene Premium) escuche 30 s de cada canción en el MiniPlayer, con el mensaje "Requieres vincular tu cuenta para escuchar la canción completa". Spotify ya no envía `preview_url` a apps nuevas (motivo por el que HOME-06 se descartó), así que hace falta otra fuente.
+- **Qué se pide:**
+  - Añadir `preview_url: string | null` a `TrackSummary` (búsqueda, discografía, pistas de un álbum, `/home`, `target.summary` de las reseñas) y a `TrackDetail`.
+  - Fuente propuesta: la API pública de Deezer por ISRC, `GET https://api.deezer.com/track/isrc:{isrc}`, campo `preview` (MP3 de 30 s). El backend ya guarda `isrc`.
+  - Los enlaces de Deezer caducan (llevan firma con fecha): guardar el id de Deezer y renovar el enlace al leer, o pedirlo con el mismo presupuesto de tiempo que las imágenes.
+  - `null` si la canción no tiene ISRC o Deezer no la encuentra.
+- **Alternativa en el frontend:** sin vista previa, el reproductor muestra el aviso de vincular (como hoy).
+- **Impacto en el frontend:** se añade un motor de vista previa (audio del navegador) al reproductor; el mismo campo lo usa el fragmento de las reseñas (REV-03).
+
+### REV-03 · Fragmento de la reseña
+- **Estado:** Pendiente · **Responsable:** Backend · **Bloqueante:** no (bloquea la fase 3 del reproductor).
+- **Qué pasa:** Escribir Reseña tiene en Figma el `AudioSnippetPicker` ("Elige tus 30 segundos", nodo `14296:6217`) y la ReviewCard el `SnippetPlayer` ("Fragmento · 30 s", `14296:7133`). El propietario decidió (2026-11-19) que el autor elija inicio y duración, de 5 a 30 s. Las reseñas no tienen dónde guardarlo.
+- **Qué se pide:**
+  - Campos opcionales `snippet_start_ms` y `snippet_duration_ms` en `POST /reviews` y `PUT /reviews/{id}`, y en `Review` (en todas las respuestas, también el feed). `null` si la reseña no tiene fragmento.
+  - Validación: solo para `target_type = song`; `snippet_duration_ms` entre 5000 y 30000; `snippet_start_ms >= 0`; `snippet_start_ms + snippet_duration_ms <= duration_ms` de la canción; los dos juntos o ninguno.
+  - Errores: `400` con mensaje en español (por ejemplo "el fragmento debe durar entre 5 y 30 segundos").
+- **Alternativa en el frontend:** las tarjetas no muestran fragmento.
+- **Impacto en el frontend:** con cuenta vinculada y Premium suena el fragmento exacto (SDK o Connect con `position_ms`); sin ella, la vista previa fija de PLAY-01.
 
 ---
 
@@ -366,3 +389,4 @@ Decisión del propietario (2026-11-15): **mi perfil** (`/perfil`) sin bio. Despu
 | 2026-11-15 | Datos de prueba creados **por la API pública** (no se tocó la base ni los seeds): 12 usuarios `@junkbox.local` (`lucia_vinilos`, `marco_beats`, `sofi_playlist`, `diego_bpm`, `ana_lofi`, `pablo_riffs`, `carla_bside`, `javi_track7`, `nora_eco`, `leo_subgrave`, `vale_coros`, `tomas_rewind`; contraseña `Password123!`), 106 calificaciones y 48 reseñas. Las reseñas y calificaciones se pueden borrar con el script del frontend; los usuarios no, porque no hay API para ello. HOME-01 y HOME-04 tienen ahora una alternativa con contenido al azar. |
 | 2026-11-15 | Datos de prueba: 24 reseñas más, **sin calificación** (regla del propietario: calificar, reseñar o las dos). Total: 106 calificaciones y 72 reseñas. Se comprobó que `POST /reviews` sin calificación previa funciona y que la reseña sale con `rating_score: null`. |
 | 2026-11-19 | Revisión del backend (commits `1c35740` a `2117b07`, 2026-11-16 y 17; respuestas en `Backend/junkbox-backend/docs/solicitudes.md`). **Retiradas por resueltas:** HOME-01, HOME-04, HOME-05, SEARCH-01 a SEARCH-04, COM-01, LIKE-01, FOL-01, FOL-02 y PROF-05 (HOME-02 ya estaba resuelta). **Cerradas:** HOME-03 (innecesaria tras HOME-01 y HOME-02) y HOME-06 (descartada: Web Playback SDK). **Retirada:** REV-01 (reemplazada el 2026-11-15). **Actualizadas:** PROF-01 y PROF-02 (proponen `/users/{id}/reviews` y `/ratings` con cursor y el `Review` del feed), PROF-03 (solo faltan las estadísticas de calificaciones), LIKE-02 y LIKE-03 (mismo contrato que `/reviews/{id}/like`) y CAT-01 (en gran parte cubierta por SEARCH-02). §1 añade los endpoints 13.1, 13.2 y 23 a 29, los campos nuevos de `Track` y `Review`, y la vuelta al puerto 8080 (`1c7b308`). Inicio ya usa `/home`, `/feed` y `/users/suggestions` (`FrontEnd/implementacion.md` §4.10). Al probar, el backend respondía `500` hasta que su desarrollador aplicó las migraciones pendientes. |
+| 2026-11-19 | Nuevas: PLAY-01 (vista previa de 30 s por ISRC con Deezer, para quien no vincula Spotify) y REV-03 (fragmento de 5 a 30 s en las reseñas). Plan de reproducción en §6: SDK en escritorio, Spotify Connect en teléfonos y tabletas (ya implementado en el frontend, sin backend). |
