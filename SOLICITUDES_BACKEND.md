@@ -167,6 +167,13 @@ Sin solicitudes abiertas. SEARCH-01 a SEARCH-04 se resolvieron en el backend (20
 - **Qué se pide:** asignar `https://api.dicebear.com/7.x/bottts/svg?seed=<username>` cuando el registro no trae `avatar_url`, o confirmar que basta con que lo envíe el frontend.
 - **Alternativa en el frontend (implementada, §5):** el registro envía esa URL en `avatar_url`, y `Avatar` la usa como respaldo si `avatar_url` es null o no carga.
 
+### USER-04 · Cuentas antiguas con username inválido
+- **Estado:** Pendiente · **Responsable:** Backend · **Bloqueante:** no.
+- **Qué pasa:** la cuenta `6e9d1b31-d768-403a-a24c-1d9174580868` (nombre visible "Drifty851") tiene como username "Omar Del Angel Villa", con espacios y mayúsculas, que la regla actual (`^[a-z0-9_.]{3,50}$`) no admite. Se creó el 2026-11-06, probablemente antes de esa validación. `GET /users/Omar%20Del%20Angel%20Villa` responde `400 "id debe ser un UUID o un username"`, así que su perfil no se puede abrir desde las tarjetas (`/usuario/:username`), que enlazan por username. Comprobado el 2026-11-19.
+- **Qué se pide:** revisar si hay más cuentas con username fuera de la regla y corregirlas (por ejemplo, pasarlas a minúsculas y cambiar los espacios por `_`, avisando a la persona), o que `GET /users/{id}` también acepte esos usernames antiguos.
+- **Alternativa en el frontend (implementada):** el perfil propio y las listas propias se piden por id, así que la persona sí ve sus datos. Para los demás, el perfil de esa cuenta muestra "No encontramos a @usuario".
+- **Impacto en el frontend:** ninguno si se corrige el dato.
+
 ### PREF-01 · Frecuencia de recomendaciones
 - **Estado:** Pendiente · **Responsable:** Backend y Producto · **Bloqueante:** no.
 - **Qué pasa:** Configuración tiene "Frecuencia de recomendaciones" (Semanal por defecto, Cada 3 días, Diario, Nunca). No hay dónde guardarla.
@@ -390,3 +397,4 @@ Decisión del propietario (2026-11-15): **mi perfil** (`/perfil`) sin bio. Despu
 | 2026-11-15 | Datos de prueba: 24 reseñas más, **sin calificación** (regla del propietario: calificar, reseñar o las dos). Total: 106 calificaciones y 72 reseñas. Se comprobó que `POST /reviews` sin calificación previa funciona y que la reseña sale con `rating_score: null`. |
 | 2026-11-19 | Revisión del backend (commits `1c35740` a `2117b07`, 2026-11-16 y 17; respuestas en `Backend/junkbox-backend/docs/solicitudes.md`). **Retiradas por resueltas:** HOME-01, HOME-04, HOME-05, SEARCH-01 a SEARCH-04, COM-01, LIKE-01, FOL-01, FOL-02 y PROF-05 (HOME-02 ya estaba resuelta). **Cerradas:** HOME-03 (innecesaria tras HOME-01 y HOME-02) y HOME-06 (descartada: Web Playback SDK). **Retirada:** REV-01 (reemplazada el 2026-11-15). **Actualizadas:** PROF-01 y PROF-02 (proponen `/users/{id}/reviews` y `/ratings` con cursor y el `Review` del feed), PROF-03 (solo faltan las estadísticas de calificaciones), LIKE-02 y LIKE-03 (mismo contrato que `/reviews/{id}/like`) y CAT-01 (en gran parte cubierta por SEARCH-02). §1 añade los endpoints 13.1, 13.2 y 23 a 29, los campos nuevos de `Track` y `Review`, y la vuelta al puerto 8080 (`1c7b308`). Inicio ya usa `/home`, `/feed` y `/users/suggestions` (`FrontEnd/implementacion.md` §4.10). Al probar, el backend respondía `500` hasta que su desarrollador aplicó las migraciones pendientes. |
 | 2026-11-19 | Nuevas: PLAY-01 (vista previa de 30 s por ISRC con Deezer, para quien no vincula Spotify) y REV-03 (fragmento de 5 a 30 s en las reseñas). Plan de reproducción en §6: SDK en escritorio, Spotify Connect en teléfonos y tabletas (ya implementado en el frontend, sin backend). |
+| 2026-11-19 | Nueva: USER-04 (cuenta antigua con username fuera de la regla; su perfil no se puede abrir por username). |

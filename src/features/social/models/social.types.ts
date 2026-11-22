@@ -60,3 +60,21 @@ export interface LikeResult {
   liked: boolean
   likes_count: number
 }
+
+/** Seguidores o seguidos. */
+export type ConnectionKind = 'followers' | 'following'
+
+/** Persona de una lista de seguidores o seguidos. */
+export interface ConnectionUser extends ReviewAuthor {
+  followed_at: string
+  /** Si yo la sigo (para el botón). */
+  followed_by_me: boolean
+}
+
+/** GET /users/{id}/followers · /following → 200. `next_cursor` null = última página. */
+export interface ConnectionsPage {
+  user_id: string
+  limit: number
+  next_cursor: string | null
+  users: ConnectionUser[]
+}

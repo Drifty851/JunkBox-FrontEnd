@@ -5,6 +5,7 @@ import { Avatar } from '../../../shared/ui/Avatar'
 import { MaskIcon } from '../../../shared/ui/MaskIcon'
 import { defaultAvatarUrl } from '../../../shared/utils/defaultAvatar'
 import { formatCount } from '../../../shared/utils/formatRating'
+import { DetailError } from '../../catalog/views/DetailParts'
 import { SETTINGS_PATH } from '../../settings/models/settings'
 import { useProfileController } from '../controllers/useProfileController'
 import { connectionsPath, memberSince, panelId, PROFILE_PATH, PROFILE_TAB_PARAM, tabId, type ConnectionsTab, type ProfileStats, type ProfileTab } from '../models/profile'
@@ -35,12 +36,14 @@ const OTHER_TABS: TabItem<ProfileTab>[] = [
  * Decisiones del propietario (2026-11-15): solo mi perfil; sin bio (como en Configuración) y sin
  * "Seguir"; los contadores, las listas y los paneles laterales son plantillas hasta que el backend
  * los dé (PROF-01 a PROF-04). Datos reales: avatar, nombre, @usuario y fecha de alta (GET /auth/me).
- * Seguidores y Seguidos abren su página (2026-11-15). El perfil de otra persona (`/usuario/:username`)
- * es una plantilla hasta PROF-05: robot por defecto, "@usuario", "Seguir" deshabilitado (FOL-01).
+ * Seguidores y Seguidos abren su página (2026-11-15).
+ * Datos reales (2026-11-19, GET /users/{username}): Seguidores, Seguidos y Reseñas, y el perfil de
+ * otra persona (avatar, nombre, @usuario, Seguir). Si no existe: "No encontramos a @usuario".
  */
 export function ProfilePage() {
-  const { user, username, isOwn, tab, selectTab, stats, summary } = useProfileController()
-  const name = isOwn ? user?.display_name || user?.username || '' : `@${username ?? ''}`
+  const { user, username, isOwn, tab, selectTab, profile, retryProfile, follow, stats, summary } = useProfileController()
+  const other = !isOwn && profile.status === 'ready' ? profile.data : null
+  const name = isOwn ? user?.display_name || user?.username || '' : other ? other.display_name?.trim() || other.username : `@${username ?? ''}`
   const pageTitle = isOwn ? 'Mi perfil · Junkbox' : `${name} · Junkbox`
 
   useEffect(() => {
@@ -53,6 +56,16 @@ export function ProfilePage() {
 
   // /usuario/<mi usuario> es mi perfil.
   if (username && isOwn) return <Navigate to={PROFILE_PATH} replace />
+
+  // Perfil de otra persona que no existe o no se pudo cargar.
+  if (!isOwn && profile.status === 'error') {
+    return (
+      <div className="flex w-full flex-col gap-4 px-4 pt-3 pb-4 md:gap-6 md:px-20 md:py-8">
+        <DetailError message={profile.message} notFound={profile.notFound} what={`a @${username ?? ''}`} onRetry={retryProfile} />
+      </div>
+    )
+  }
+  const loadingOther = !isOwn && !other
 
   return (
     <div className="flex w-full flex-col gap-4 px-4 pt-3 pb-4 md:gap-6 md:px-20 md:py-8">
@@ -72,24 +85,32 @@ export function ProfilePage() {
 
       {/* ProfileHeader (Figma 14296:12528 / 14296:12656): avatar 64/96, nombre 24/32 Bold, @usuario 14. */}
       <header className="flex w-full flex-col gap-4">
-        <div className="flex w-full items-center gap-4">
-          <Avatar
-            src={isOwn ? (user?.avatar_url ?? null) : null}
-            fallbackSrc={isOwn ? (user ? defaultAvatarUrl(user.username) : null) : defaultAvatarUrl(username ?? '')}
-            alt=""
-            className="size-16 md:size-24"
-          />
-          <div className="flex min-w-0 flex-1 flex-col gap-1 leading-[1.4]">
-            <h1 className="truncate text-2xl font-bold text-fg md:text-[32px]">{name}</h1>
-            {isOwn && user && <p className="truncate text-sm text-fg-placeholder">@{user.username}</p>}
-          </div>
-          {!isOwn && <FollowButton name={name} />}
+        <div className="flex w-full items-center gap-4" aria-busy={loadingOther || undefined}>
+          {loadingOther ? (
+            <>
+              <span aria-hidden="true" className="size-16 shrink-0 rounded-full bg-surface-input-disabled motion-safe:animate-pulse md:size-24" />
+              <div className="flex min-w-0 flex-1 flex-col gap-2">
+                <h1 className="sr-only">Cargando el perfil de @{username}</h1>
+                <span aria-hidden="true" className="h-7 w-48 rounded bg-surface-input-disabled motion-safe:animate-pulse md:h-9" />
+                <span aria-hidden="true" className="h-4 w-28 rounded bg-surface-input-disabled motion-safe:animate-pulse" />
+              </div>
+            </>
+          ) : (
+            <>
+              <Avatar
+                src={isOwn ? (user?.avatar_url ?? null) : (other?.avatar_url ?? null)}
+                fallbackSrc={defaultAvatarUrl((isOwn ? user?.username : other?.username) ?? '')}
+                alt=""
+                className="size-16 md:size-24"
+              />
+              <div className="flex min-w-0 flex-1 flex-col gap-1 leading-[1.4]">
+                <h1 className="truncate text-2xl font-bold text-fg md:text-[32px]">{name}</h1>
+                <p className="truncate text-sm text-fg-placeholder">@{isOwn ? user?.username : other?.username}</p>
+              </div>
+              {other && <FollowButton name={name} control={{ following: follow.following, pending: follow.pending, onToggle: follow.toggle }} />}
+            </>
+          )}
         </div>
-        {!isOwn && (
-          <p className="text-xs leading-[1.4] text-fg-placeholder">
-            Pendiente del backend: aún no se puede consultar el perfil de otros usuarios.
-          </p>
-        )}
 
         {/* ProfileStats: valor 20 Bold + etiqueta Caption/11; móvil repartidos, escritorio separación 48. */}
         <dl className="flex w-full items-start justify-between leading-[1.4] whitespace-nowrap md:justify-start md:gap-12">
@@ -132,7 +153,7 @@ export function ProfilePage() {
         className="flex w-full flex-col gap-6 md:gap-6 xl:flex-row xl:items-start xl:gap-12"
       >
         {tab === 'reviews' ? (
-          <ReviewsTab memberSince={isOwn && user ? memberSince(user.created_at) : null} own={isOwn} />
+          <ReviewsTab memberSince={isOwn ? (user ? memberSince(user.created_at) : null) : other ? memberSince(other.created_at) : null} own={isOwn} />
         ) : (
           <RatingsTab name={name} summary={summary} own={isOwn} />
         )}

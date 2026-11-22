@@ -1572,6 +1572,48 @@ features/profile/
 
 ---
 
+### 12.8 Perfil con datos reales (2026-11-19)
+
+El backend añadió perfiles y seguidores (commit `b2968e8`, HOME-04): `GET /users/{id}` (UUID o username) → `{ id, username, display_name, avatar_url, created_at, followers_count, following_count, reviews_count, followed_by_me, is_me }` y `GET /users/{id}/followers` · `/following?limit=&cursor=` → `{ user_id, limit, next_cursor, users: [{ …autor, followed_at, followed_by_me }] }`. Con eso se resuelven FOL-01, FOL-02 y PROF-05.
+
+**Decisiones del propietario:**
+
+| Tema | Decisión |
+|---|---|
+| Dejar de seguir en "Seguidos" | La fila queda con "Seguir" y desaparece al volver a abrir la lista. |
+| Persona inexistente | "No encontramos a @usuario" (`DetailError` de las Fichas). |
+| Paginación | La lógica de `useHomeFeed` pasa a `shared/hooks/useCursorList` (cimientos), que usan Inicio, Seguidores/Seguidos y, después, Comentarios. |
+
+**Qué cambia:**
+- **Mi perfil (`/perfil`):** nombre, avatar y fecha siguen saliendo de `/auth/me`; Seguidores, Seguidos y Reseñas salen de `GET /users/{mi username}`. Calificaciones sigue en "—" (PROF-03).
+- **Perfil de otra persona:**
+  - Avatar, nombre visible, @usuario y fecha de alta reales.
+  - Seguir con `useFollow` (estado compartido, §8.9). El contador de Seguidores sube o baja al momento: valor del servidor ± el cambio de la sesión.
+  - Mientras carga, la cabecera muestra esqueletos. Se quitó la nota "Pendiente del backend".
+  - Si `is_me`, redirige a `/perfil`.
+- **Seguidores y Seguidos:**
+  - Lista real con `useCursorList` (20 por página) y `useInfiniteScroll`.
+  - Cada fila es `UserCard` con Seguir (`followed_by_me`); mi propia fila, sin botón.
+  - Estados de carga (filas grises), error con "Reintentar" y vacío con los textos de antes, sin "Pendiente del backend".
+
+**Archivos:** `shared/hooks/useCursorList.ts` (nuevo); `home/controllers/useHomeFeed.ts` (capa delgada sobre `useCursorList`, mismo comportamiento); `social/` (`PublicProfile`, `ConnectionUser`, `getProfile`, `getConnectionsPage`); `profile/controllers/useProfileController.ts`, `profile/views/ProfilePage.tsx` y `ConnectionsPage.tsx`.
+
+**Sigue como plantilla:** las listas de "Reseñas" e "Historial de Calificaciones" (PROF-01, PROF-02), las estadísticas de calificaciones y "Una vida en canciones" (PROF-03) y "Suena mucho por aquí" (PROF-04).
+
+**Limitaciones:**
+- En mi perfil, "Seguidos" no cambia al seguir a alguien en otra pantalla hasta volver a entrar.
+- El título de Seguidores/Seguidos de otra persona es su @usuario (no se pide su perfil solo para el nombre).
+- Mi perfil y mis listas se piden por **id**, no por username: hay cuentas antiguas con username fuera de la regla del backend (espacios, mayúsculas) que dan `400` por username (USER-04). Los perfiles de esas cuentas no se pueden abrir desde los enlaces de otras personas hasta que el backend lo corrija.
+
+**Verificación (2026-11-19):**
+
+| Prueba | Resultado |
+|---|---|
+| `pnpm typecheck` · `pnpm lint` · `pnpm build` | Correcto |
+| `GET /users/lucia_vinilos`, `/followers`, `/users/no_existe` (404 "no encontrado") con `cesar` | Forma documentada |
+| Inicio tras mover la paginación a `useCursorList` | Pendiente de probar por el propietario |
+| Perfil propio y de otros, Seguir y contador, listas, "No encontrado", 390/1440, Claro/Oscuro | Pendiente de probar por el propietario |
+
 ## 13. Verificación
 
 Antes de cerrar cualquier módulo:
@@ -1640,3 +1682,5 @@ Además: probar las rutas del módulo con el backend en marcha (`pnpm dev`), rev
 | 2026-11-19 | Corrección (Connect, iPhone): "Atrás" y "Adelante" mostraban "necesitas Spotify Premium" con una cuenta Premium. Un 403 de Spotify solo se trata como falta de Premium si su motivo es `PREMIUM_REQUIRED`; no se envían órdenes que sobran (§11.3). |
 | 2026-11-19 | Corrección (Connect, iPhone): "Adelante" no dejaba la barra llena porque una lectura del estado anterior a la orden la deshacía; se descartan las lecturas de antes y de los 900 ms siguientes a cada orden (§11.3). |
 | 2026-11-19 | Interacciones (§8.9): Me gusta y Seguir reales en las tarjetas de reseña (Inicio, Fichas, Reseña Completa) y Seguir en "Conecta por lo que suena". Estado compartido en `SocialProvider`; `SocialReviewCard`, `FollowButton` compartido; "N comentarios" con `comments_count`. |
+| 2026-11-19 | Perfil con datos reales (§12.8): `GET /users/{username}` para contadores y perfil de otros (Seguir con contador al momento, "No encontrado"), y Seguidores/Seguidos reales con scroll infinito. La paginación con cursor de Inicio pasa a `shared/hooks/useCursorList`. FOL-01, FOL-02 y PROF-05 en uso. |
+| 2026-11-19 | Corrección (Perfil): mi perfil y mis listas se piden por id; con un username antiguo con espacios los contadores salían en "—" (USER-04). |
